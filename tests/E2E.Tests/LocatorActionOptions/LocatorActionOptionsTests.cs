@@ -54,12 +54,19 @@ public sealed class LocatorActionOptionsTests
     public static TheoryData<string> Verbs => new(Calls.Keys);
 
     /// <summary>A screen over a checkbox and a drop region that keeps every action the engine receives. Modifiers are held when <paramref name="tapModifiers"/> is true.</summary>
-    internal static (Screen Screen, List<LocatorAction> Received) BoxScreen(bool tapModifiers = false)
+    internal static (Screen Screen, List<LocatorAction> Received) BoxScreen(
+        bool tapModifiers = false,
+        Action? onObserve = null
+    )
     {
         var received = new List<LocatorAction>();
         var observation = new Observation { Route = "/", Roots = [Box, Bin] };
         var screen = new Screen(
-            _ => Task.FromResult(observation),
+            _ =>
+            {
+                onObserve?.Invoke();
+                return Task.FromResult(observation);
+            },
             (_, action, _) =>
             {
                 received.Add(action);
@@ -146,7 +153,8 @@ public sealed class LocatorActionOptionsTests
     [Fact]
     public async Task Rejects_payload_size_at_or_above_50_MiB_before_lookup_dispatch_or_recording()
     {
-        var (screen, received) = BoxScreen();
+        var lookups = 0;
+        var (screen, received) = BoxScreen(onObserve: () => lookups++);
         const int limit = 50 * 1024 * 1024;
         var buffer = new byte[limit + 1];
         var file = new FilePayload("large.bin", "application/octet-stream", buffer);
@@ -182,6 +190,7 @@ public sealed class LocatorActionOptionsTests
             );
         }
 
+        Assert.Equal(0, lookups);
         Assert.Empty(received);
         Assert.Empty(screen.Steps!.All());
     }
@@ -268,7 +277,8 @@ public sealed class LocatorActionOptionsTests
     )]
     public async Task Rejects_payload_uploads_when_the_engine_declares_no_payload_action(params string[] actions)
     {
-        var (screen, received) = BoxScreen();
+        var lookups = 0;
+        var (screen, received) = BoxScreen(onObserve: () => lookups++);
         screen.ActionKinds = actions;
 
         var error = await Assert.ThrowsAsync<EngineException>(() =>
@@ -280,6 +290,7 @@ public sealed class LocatorActionOptionsTests
             "in-memory files for setInputFiles are not available on this target; update its engine or pass a file path",
             error.Message
         );
+        Assert.Equal(0, lookups);
         Assert.Empty(received);
         await screen.GetByLabel("Agree").SetInputFilesAsync("a.txt");
         Assert.Single(Assert.IsType<LocatorAction.SetInputFiles>(Assert.Single(received)).Paths);
@@ -288,7 +299,8 @@ public sealed class LocatorActionOptionsTests
     [Fact]
     public async Task Does_not_suggest_file_paths_when_the_engine_supports_no_uploads()
     {
-        var (screen, received) = BoxScreen();
+        var lookups = 0;
+        var (screen, received) = BoxScreen(onObserve: () => lookups++);
         screen.ActionKinds = ["tap"];
 
         var payload = await Assert.ThrowsAsync<EngineException>(() =>
@@ -306,6 +318,7 @@ public sealed class LocatorActionOptionsTests
             "the \"setInputFiles\" action is not available on this target: its engine declares tap",
             clear.Message
         );
+        Assert.Equal(0, lookups);
         Assert.Empty(received);
     }
 
@@ -317,13 +330,15 @@ public sealed class LocatorActionOptionsTests
     [InlineData("  ")]
     public async Task Partial_refuses_invalid_file_payload_before_lookup_or_recording(string name)
     {
-        var (screen, received) = BoxScreen();
+        var lookups = 0;
+        var (screen, received) = BoxScreen(onObserve: () => lookups++);
 
         var error = await Assert.ThrowsAsync<TestException>(() =>
             screen.GetByLabel("Agree").SetInputFilesAsync(new FilePayload(name, "text/plain", []))
         );
 
         Assert.Equal("INVALID_ARGUMENT", error.Code);
+        Assert.Equal(0, lookups);
         Assert.Empty(received);
         Assert.Empty(screen.Steps!.All());
     }

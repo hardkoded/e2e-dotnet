@@ -31,7 +31,7 @@ public sealed class ThroughTheLocatorTargetTests
     [InlineData("input")]
     [InlineData("label")]
     [InlineData("chooser")]
-    public async Task Preserves_in_memory_file_metadata_and_binary_contents_through_a(string kind)
+    public async Task Partial_Preserves_in_memory_file_metadata_and_binary_contents_through_a(string kind)
     {
         await RunWithScreenAsync(MetadataPage(kind), async session =>
         {

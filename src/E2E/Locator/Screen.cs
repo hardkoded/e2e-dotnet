@@ -1227,7 +1227,8 @@ public sealed class Locator
         var list = files.ToList();
         if (list.Count == 0)
         {
-            return ActAsync(new LocatorAction.SetInputFilePayloads([]), options, cancellationToken);
+            // Upstream routes an empty list before payload handling: the paths overload picks the clearing action the engine declares.
+            return SetInputFilesAsync(Array.Empty<string>(), options, cancellationToken);
         }
 
         foreach (var file in list)

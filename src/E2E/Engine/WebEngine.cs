@@ -4617,7 +4617,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                     await UploadFilesAsync(element, files.Paths, budget).ConfigureAwait(false);
                     break;
                 case LocatorAction.SetInputFilePayloads payloads:
-                    await UploadFilePayloadsAsync(element, payloads.Files, budget).ConfigureAwait(false);
+                    await UploadFilesAsync(element, payloads.Files, budget).ConfigureAwait(false);
                     break;
                 case LocatorAction.Check:
                     await SetCheckedAsync(element, true, budget).ConfigureAwait(false);
@@ -5607,12 +5607,11 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                 (chooser, options) => chooser.SetFilesAsync(paths, options)
             );
 
-        /// <summary><see cref="UploadFilesAsync"/> for in-memory files (upstream's <c>uploadFiles</c> given payloads).</summary>
-        private Task UploadFilePayloadsAsync(
-            IElementHandle element,
-            IReadOnlyList<FilePayload> files,
-            OperationBudget budget
-        )
+        /// <summary>
+        /// <see cref="UploadFilesAsync(IElementHandle, IReadOnlyList{string}, OperationBudget)"/> for in-memory files: upstream's one <c>uploadFiles</c>
+        /// takes <c>string[] | payload[]</c>, and C# needs an overload for each.
+        /// </summary>
+        private Task UploadFilesAsync(IElementHandle element, IReadOnlyList<FilePayload> files, OperationBudget budget)
         {
             var payloads = files
                 .Select(file => new Microsoft.Playwright.FilePayload

@@ -184,6 +184,20 @@ public sealed class DefineEngineTests
     }
 
     /// <summary>
+    /// Partial: upstream also reports <c>{}</c>, <c>42</c>, and a string as <c>INVALID_CONFIG</c>, which the typed list cannot hold; the
+    /// null list is checked.
+    /// </summary>
+    [Fact]
+    public void Partial_Reports_malformed_action_lists_as_INVALID_CONFIG()
+    {
+        var error = Assert.Throws<ConfigurationException>(() =>
+            EngineManifest.DefineEngine(Toy() with { Actions = null, Perform = (_, _, _) => Task.CompletedTask })
+        );
+
+        Assert.Equal("INVALID_CONFIG", error.Code);
+    }
+
+    /// <summary>
     /// Partial: upstream also refuses a string and a number in the list, which a typed <c>IReadOnlyList&lt;string&gt;</c> cannot hold; the
     /// unknown kind, the repeated kind, and the empty list are checked.
     /// </summary>
