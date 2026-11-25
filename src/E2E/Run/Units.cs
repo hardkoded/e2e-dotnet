@@ -128,6 +128,10 @@ internal static class Units
             }),
         ];
 
+    /// <summary>The skip of a test whose session-producing setup test did not pass (upstream's <c>setupFailedSkip</c>).</summary>
+    public static SkipInfo SetupFailedSkip(string session, string setupTestId) =>
+        new("setup-failed", $"setup for session \"{session}\" failed", setupTestId);
+
     /// <summary>The relevance band of a score: how many of the edges it reaches (upstream's <c>relevanceBand</c>).</summary>
     public static int RelevanceBand(double score) => RelevanceEdges.Count(edge => score >= edge);
 

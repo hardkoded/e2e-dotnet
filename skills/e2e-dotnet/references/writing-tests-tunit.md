@@ -138,8 +138,7 @@ public sealed class Dashboard : E2ETest
   `[After(Test)]` hooks, and TUnit then skips that setup test when its turn
   comes. Exactly one setup test of the test assembly must declare the name:
   with none, or with two, the restore fails with `SESSION_UNAVAILABLE`. A setup
-  test that fails fails each of its dependents with `SESSION_UNAVAILABLE`
-  (upstream skips them as `setup-failed`). A class-level `[E2ESession]` does not
+  test that fails skips each of its dependents with the cause `setup-failed`. A class-level `[E2ESession]` does not
   apply to the setup tests of that class.
 - TUnit runs tests in parallel, so the setup test and a test that restores its
   session can start at the same moment, and the setup then runs twice. Put

@@ -233,6 +233,36 @@ internal static class HostTestFilters
         await WriteReportAsync(config, selection, cancellationToken, resultsRoot).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Reports a test whose session its setup test did not produce as skipped with the cause <c>setup-failed</c> and no attempt, so the host skips it
+    /// before its session starts (upstream's scheduler skips such a pair with <see cref="Units.SetupFailedSkip"/>).
+    /// </summary>
+    public static async Task ReportSetupFailedAsync(
+        E2EConfig config,
+        DiscoveredTest test,
+        SetupFailedException failure,
+        string? resultsRoot,
+        CancellationToken cancellationToken
+    )
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        ArgumentNullException.ThrowIfNull(test);
+        ArgumentNullException.ThrowIfNull(failure);
+        var collection = Collect(
+            [test],
+            [],
+            config.AllSecrets.Select(secret => (secret.Name, secret.Value)).ToList(),
+            out _
+        );
+        var result = LeftOutResult(
+            collection.Tests[0],
+            Resolve(config, []).Targets[0],
+            Units.SetupFailedSkip(failure.Session, failure.SetupTestId)
+        );
+        var selection = new HostSelection(new Dictionary<string, string>(StringComparer.Ordinal), [result], [], null);
+        await WriteReportAsync(config, selection, cancellationToken, resultsRoot).ConfigureAwait(false);
+    }
+
     // One filter's call as the `filter` setup step: started as it begins, finished with how long it took and, for a call that did not answer, how it ended.
     private static async Task<FilterCall> FilterStepAsync(string name, Func<Task<FilterCall>> work)
     {
@@ -265,17 +295,16 @@ internal static class HostTestFilters
             TestId = test.Id,
             File = test.File,
             // A fixme result is the one a session would have reported, so its title is the test's full name, as a session's is.
-            TitlePath =
-                skip.Cause == "fixme"
-                    ? [test.Id[..test.Id.LastIndexOf("::", StringComparison.Ordinal)] + "." + test.Title]
-                    : test.TitlePath,
+            TitlePath = skip.Cause is "fixme" or "setup-failed"
+                ? [test.Id[..test.Id.LastIndexOf("::", StringComparison.Ordinal)] + "." + test.Title]
+                : test.TitlePath,
             DeclarationIndex = test.DeclarationIndex,
             TargetId = target.Name,
             Platform = target.Platform,
             Tags = test.Tags,
-            Selected = skip.Cause == "fixme",
+            Selected = skip.Cause is "fixme" or "setup-failed",
             Status = ResultStatus.Skipped,
-            Skip = new ReportSkip(skip.Cause, skip.Reason, skip.Filter),
+            Skip = new ReportSkip(skip.Cause, skip.Reason, skip.Filter, skip.RelatedId),
         };
 
     /// <summary>

@@ -14,7 +14,8 @@ namespace E2E;
 /// runs the setup test itself, here, in the test framework's place. It builds the declaring class with its parameterless constructor and runs
 /// the setup method inside a session of its own (the fixture's start, the method, the settle and the commit), not the framework's
 /// <c>[SetUp]</c> and <c>[TearDown]</c> of the derived class. The setup test then does not run again when the framework reaches it. A
-/// setup that failed fails each dependent with <c>SESSION_UNAVAILABLE</c> without running again (upstream skips them with <c>setup-failed</c>).
+/// setup that failed ends each dependent with a <see cref="SetupFailedException"/> without running again: the xUnit and TUnit adapters skip it
+/// with <c>setup-failed</c> as upstream does, and NUnit fails it with <c>SESSION_UNAVAILABLE</c>.
 /// </summary>
 internal static class SetupDependencies
 {
@@ -55,8 +56,9 @@ internal static class SetupDependencies
 
         if (!passed)
         {
-            throw new ConfigurationException(
-                "SESSION_UNAVAILABLE",
+            throw new SetupFailedException(
+                name,
+                E2E.Internal.Ids.TestId(setup.Type.FullName!, [setup.Method.Name]),
                 $"session \"{name}\" was not produced: its setup test {setup.Type.FullName}.{setup.Method.Name} failed"
             );
         }

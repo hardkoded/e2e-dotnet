@@ -131,9 +131,8 @@ public sealed class Dashboard : E2ETest
   its own, without the class's own `[SetUp]` and `[TearDown]` methods, and the
   framework then skips that setup test when its turn comes. Exactly one setup
   test of the test assembly must declare the name: with none, or with two, the
-  restore fails with `SESSION_UNAVAILABLE`. A setup test that fails fails each
-  of its dependents with `SESSION_UNAVAILABLE` (upstream skips them as `setup-
-  failed`). A class-level `[E2ESession]` does not apply to the setup tests of
+  restore fails with `SESSION_UNAVAILABLE`. A setup test that fails skips each
+  of its dependents with the cause `setup-failed`. A class-level `[E2ESession]` does not apply to the setup tests of
   that class.
 - A restore leaves no page open: call `App.OpenAsync` first. A session holds
   what the browser keeps (cookies, local storage, IndexedDB), not server state.

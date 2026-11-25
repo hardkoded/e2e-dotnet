@@ -177,7 +177,8 @@ internal enum AttemptCleanup
 /// <param name="Cause">One of the schema's causes, such as <c>explicit</c> for a test that called <c>Skip</c>.</param>
 /// <param name="Reason">The reason, redacted.</param>
 /// <param name="Filter">The name of the test filter that left the test out; only with cause <c>filtered</c>.</param>
-internal sealed record ReportSkip(string Cause, string Reason, string? Filter = null);
+/// <param name="RelatedId">The id of the test the skip follows, such as the setup test that failed; null when the cause names none.</param>
+internal sealed record ReportSkip(string Cause, string Reason, string? Filter = null, string? RelatedId = null);
 
 /// <summary>One attempt of a test, as a page reads it (upstream's <c>ReportAttempt</c> and <c>AttemptView</c> in one).</summary>
 internal sealed record ReportAttempt
