@@ -178,7 +178,7 @@ The port's `Observation.TreeUnavailable` is the signal for a pixel-only observat
 
 A secret fill reaches the engine as `LocatorAction.Fill` with `Sensitive: true`, with no separate capability flag. For an agent's `type_secret`, the harness has already checked the credential, the observation, and the field. A test's `FillAsync(secret)` skips these checks. Handle the fill securely, or throw `UNSUPPORTED_CAPABILITY`. Screenshots after it still go to the model, with secure fields masked.
 
-An engine option that takes a secret, such as a password the engine sends to the app, is not in the port: `EngineStartOptions.ResolveSecret` and `ResolveSecretOptions.Derived` exist, but both are `internal`, and `IEngine` has no `Secrets` list. An engine outside the `E2E` assembly cannot resolve a secret or register a derived form for redaction. See [Not in the port](#not-in-the-port).
+An engine option that takes a secret, such as a password the engine sends to the app, is not in the port: `ResolveSecretOptions` and `EngineAttemptContext.ResolveSecret` are public and carry the secret over the engine protocol, but `EngineStartOptions.ResolveSecret` is `internal`, and an engine outside the `E2E` assembly cannot resolve a secret through `IEngine` or register a derived form for redaction there. See [Not in the port](#not-in-the-port).
 
 ## State is a credential
 
