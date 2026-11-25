@@ -133,7 +133,10 @@ internal static class SetupDependencies
             await run(fixture, setup.Method, CancellationToken.None).ConfigureAwait(false);
             passed = true;
         }
-        catch (Exception) { }
+        catch (Exception)
+        {
+            passed = false;
+        }
 
         // A dispose that throws folds into the unsuccessful setup, so a dependent fails with SESSION_UNAVAILABLE and not the dispose error.
         try
