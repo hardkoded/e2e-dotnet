@@ -65,7 +65,9 @@ public sealed class ReadingAnExistingConfigTests
     {
         Assert.True(
             Ci.ConfigRunsScript(
-                Config("""{ "targets": [{ "app": { "command": { "executable": "npm", "args": ["run", "start"] } } }] }"""),
+                Config(
+                    """{ "targets": [{ "app": { "command": { "executable": "npm", "args": ["run", "start"] } } }] }"""
+                ),
                 "start"
             )
         );
@@ -83,13 +85,17 @@ public sealed class ReadingAnExistingConfigTests
         );
         Assert.False(
             Ci.ConfigRunsScript(
-                Config("""{ "app": { "command": { "executable": "npm", "args": ["run", "dev"], "reuseExisting": true } } }"""),
+                Config(
+                    """{ "app": { "command": { "executable": "npm", "args": ["run", "dev"], "reuseExisting": true } } }"""
+                ),
                 "start"
             )
         );
         Assert.False(
             Ci.ConfigRunsScript(
-                Config("{ \"app\": {\n // \"command\": { \"executable\": \"npm\", \"args\": [\"run\", \"start\"] }\n } }"),
+                Config(
+                    "{ \"app\": {\n // \"command\": { \"executable\": \"npm\", \"args\": [\"run\", \"start\"] }\n } }"
+                ),
                 "start"
             )
         );

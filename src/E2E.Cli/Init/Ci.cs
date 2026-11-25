@@ -781,10 +781,7 @@ internal static partial class Ci
     internal static bool ConfigRunsScript(JsonObject config, string script)
     {
         static bool Runs(JsonNode? app, string script) =>
-            app?["command"]?["args"] is JsonArray
-            {
-                Count: >= 2
-            } args
+            app?["command"]?["args"] is JsonArray { Count: >= 2 } args
             && args[0] is JsonValue first
             && first.TryGetValue<string>(out var run)
             && run == "run"
@@ -792,7 +789,8 @@ internal static partial class Ci
             && second.TryGetValue<string>(out var name)
             && name == script;
 
-        return Runs(config["app"], script) || (config["targets"] as JsonArray)?.Any(target => Runs(target?["app"], script)) == true;
+        return Runs(config["app"], script)
+            || (config["targets"] as JsonArray)?.Any(target => Runs(target?["app"], script)) == true;
     }
 
     /// <summary>Reads an existing config as the runner does, with comments and trailing commas allowed; null when it is not a JSON object.</summary>
@@ -949,15 +947,18 @@ internal static partial class Ci
             .Get<YamlMap>("ios")
             .Get<YamlSeq>("steps")
             .Items;
-        var setupNode = FindItem(phoneSteps, "uses", uses => uses.StartsWith("actions/setup-node@", StringComparison.Ordinal));
-        var install = FindItem(phoneSteps, "name", name => name == "Install JavaScript dependencies");
-        var build = (YamlMap)YamlNode.Create(
-            new KeyValuePair<string, object>[]
-            {
-                new("name", "Build the app"),
-                new("run", RunScriptCommand(context.Manager, webBuild)),
-            }
+        var setupNode = FindItem(phoneSteps, "uses", uses =>
+            uses.StartsWith("actions/setup-node@", StringComparison.Ordinal)
         );
+        var install = FindItem(phoneSteps, "name", name => name == "Install JavaScript dependencies");
+        var build = (YamlMap)
+            YamlNode.Create(
+                new KeyValuePair<string, object>[]
+                {
+                    new("name", "Build the app"),
+                    new("run", RunScriptCommand(context.Manager, webBuild)),
+                }
+            );
         install.Set("run", RunValue(InstallLines(context)));
         if (context.AppDir.Length > 0)
         {

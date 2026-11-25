@@ -261,7 +261,11 @@ public sealed class RenderGithubWorkflowTests : InitCiTestBase
         var workflow = Ci.RenderGithubWorkflow(Base with { Manager = "pnpm", WebBuild = "build" });
         Assert.Contains("      - name: Build the app\n        run: pnpm build\n", workflow, StringComparison.Ordinal);
         var names = System
-            .Text.RegularExpressions.Regex.Matches(workflow, @"^      - name: (.+)$", System.Text.RegularExpressions.RegexOptions.Multiline)
+            .Text.RegularExpressions.Regex.Matches(
+                workflow,
+                @"^      - name: (.+)$",
+                System.Text.RegularExpressions.RegexOptions.Multiline
+            )
             .Select(match => match.Groups[1].Value)
             .ToList();
         Assert.Equal(names.IndexOf("Run e2e") - 1, names.IndexOf("Build the app"));

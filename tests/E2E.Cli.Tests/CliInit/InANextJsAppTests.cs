@@ -160,7 +160,11 @@ public sealed class InANextJsAppTests : CliInitTestBase
             """{ "dev": "next dev -p 3100", "build": "next build", "start": "next start" }"""
         );
         Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, Ci = "github-actions" })).ExitCode);
-        Assert.Contains("      - name: Build the app\n        run: npm run build\n", Read(".github/workflows/e2e.yml"), StringComparison.Ordinal);
+        Assert.Contains(
+            "      - name: Build the app\n        run: npm run build\n",
+            Read(".github/workflows/e2e.yml"),
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
