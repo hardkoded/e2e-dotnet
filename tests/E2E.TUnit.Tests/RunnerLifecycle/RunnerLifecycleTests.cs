@@ -42,6 +42,11 @@ public sealed class RunnerLifecycleTests
         await AssertSkip(ByTitle(report, nameof(FixmeFixture.Bare))["skip"]!, "fixme");
         await AssertSkip(ByTitle(report, nameof(FixmeFixture.Blank_reason))["skip"]!, "fixme");
 
+        var (hookResults, _) = await NestedSessionRun.RunAsync(typeof(FixmeFromHookFixture));
+        await Assert.That(hookResults[nameof(FixmeFromHookFixture.Member)].Result).IsEqualTo("Skipped");
+        var hooked = JsonNode.Parse(File.ReadAllText(RunnerLifecycleResults.ReportOf(typeof(FixmeFromHookFixture))))!;
+        await AssertSkip(ByTitle(hooked, nameof(FixmeFromHookFixture.Member))["skip"]!, "fixme: hook says not yet");
+
         var (setupResults, _) = await NestedSessionRun.RunAsync(typeof(FixmeInSetupFixture));
         var setup = setupResults[nameof(FixmeInSetupFixture.SignIn)];
         await Assert.That(setup.Result).IsEqualTo("Failed");

@@ -8,14 +8,14 @@ using E2E.XUnit.V3.Tests.EngineContract;
 namespace E2E.XUnit.V3.Tests.RunnerLifecycle;
 
 /// <summary>
-/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. Each result is read from the fixture's <c>report.json</c>.
+/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. It is <c>Partial_</c>: it leaves out the <c>beforeEach</c> case (<c>member</c>, skipped <c>fixme: hook says not yet</c>), because xUnit does not call <c>DisposeAsync</c> when <c>InitializeAsync</c> throws, so a <c>Fixme</c> from that hook never finishes its session (#2211). Each result is read from the fixture's <c>report.json</c>.
 /// </summary>
 public sealed class RunnerLifecycleTests : IDisposable
 {
     public void Dispose() => RunnerLifecycleResults.Clear();
 
     [Fact]
-    public async Task Reports_test_fixme_tests_skipped_with_the_reason_fixme_registered_or_from_a_body()
+    public async Task Partial_Reports_test_fixme_tests_skipped_with_the_reason_fixme_registered_or_from_a_body()
     {
         // Choosing the directory before the nested process starts is what hands it to that process.
         RunnerLifecycleResults.Prepare();

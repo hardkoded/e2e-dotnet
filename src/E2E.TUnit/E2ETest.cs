@@ -248,7 +248,8 @@ public abstract class E2ETest : E2EFixture, ITestEndEventReceiver, ITestRegister
 
         try
         {
-            CompletedWith = ErrorForCache(pending.Outcome, pending.Soft, result) ?? pending.Late;
+            CompletedWith = ErrorForCache(pending.Outcome, pending.Soft, result, pending.Session.RuntimeSkip)
+                ?? pending.Late;
             pending.Session.Complete(CompletedWith, pending.CancellationToken);
         }
         finally
@@ -305,11 +306,22 @@ public abstract class E2ETest : E2EFixture, ITestEndEventReceiver, ITestRegister
 
     internal Task CaptureEvidenceOf(Exception failure) => CaptureFailureEvidenceAsync(failure);
 
-    internal static Exception? ErrorForCache(TestOutcome? outcome, TestException? soft, TestResult? result)
+    internal static Exception? ErrorForCache(
+        TestOutcome? outcome,
+        TestException? soft,
+        TestResult? result,
+        E2E.Internal.RuntimeSkip? runtimeSkip = null
+    )
     {
         // No outcome means the body never ran (a derived before-test hook threw): TUnit fails the test, so the cache must not see a pass.
         if (outcome is null)
         {
+            // A hook that marked the test fixme ended it before the body: the test is skipped, as upstream's beforeEach fixme is.
+            if (soft is null && runtimeSkip is not null)
+            {
+                return new SkipException(runtimeSkip.Reason);
+            }
+
             return soft ?? new TestException("TEST_FAILED", "The test body did not run.");
         }
 
