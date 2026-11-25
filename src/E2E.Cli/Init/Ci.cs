@@ -677,6 +677,7 @@ internal static partial class Ci
         catch (Exception cause) when (cause is JsonException or IOException or UnauthorizedAccessException)
         {
             // A package.json that does not read names no manager.
+            return null;
         }
 
         return null;
