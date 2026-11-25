@@ -116,6 +116,15 @@ public class E2ERunFixture : IAsyncLifetime
     {
         try
         {
+            try
+            {
+                await E2ETest.CompleteAbandonedAsync().ConfigureAwait(false);
+            }
+#pragma warning disable CA1031 // The run's report must still be finalized.
+            catch (Exception)
+#pragma warning restore CA1031
+            { }
+
             await HostRun.FinishPreparedAsync().ConfigureAwait(false);
             if (_run is { } run)
             {

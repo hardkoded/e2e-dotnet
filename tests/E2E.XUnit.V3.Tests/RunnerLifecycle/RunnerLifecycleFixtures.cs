@@ -79,6 +79,38 @@ public sealed class FixmeFixture : E2ETest
     public void Blank_reason() => Fixme(reason: "   ");
 }
 
+/// <summary><c>describe('hooked')</c>: a hook marks the test fixme, as upstream's <c>beforeEach</c> does.</summary>
+public sealed class FixmeFromHookFixture : E2ETest
+{
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
+        """{ "cache": { "mode": "off" } }""",
+        AppContext.BaseDirectory,
+        _ => null
+    );
+
+    protected override E2EConfig Config => FixtureConfig;
+
+    protected override string? BaseUrl => E2E.Playground.Testbed.Url;
+
+    protected override string? ResultsDirectory => RunnerLifecycleResults.Of(GetType());
+
+    // Not async around the base call: the base reserves the session slot in the flow of its caller.
+    public override ValueTask InitializeAsync()
+    {
+        var started = base.InitializeAsync();
+        return new ValueTask(MarkFixmeAsync(started));
+    }
+
+    private async Task MarkFixmeAsync(ValueTask started)
+    {
+        await started;
+        Fixme(reason: "hook says not yet");
+    }
+
+    [Fact(Explicit = true)]
+    public void Member() => throw new InvalidOperationException("unreachable after a fixme in a hook");
+}
+
 /// <summary><c>test.setup('sign in', ...)</c>: a setup test may not skip, so its <c>Fixme</c> is a test error.</summary>
 public sealed class FixmeInSetupFixture : E2ETest
 {
