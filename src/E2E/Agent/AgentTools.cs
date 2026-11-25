@@ -2,9 +2,9 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Text.RegularExpressions;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using E2E.Engine;
 using E2E.Internal;
 
@@ -916,7 +916,10 @@ public static class AgentTools
         }
 
         // JavaScript's $ ends the string; .NET's also matches before a trailing newline.
-        var anchored = pattern.EndsWith('$') && !pattern.EndsWith("\\$", StringComparison.Ordinal) ? pattern[..^1] + "\\z" : pattern;
+        var anchored =
+            pattern.EndsWith('$') && !pattern.EndsWith("\\$", StringComparison.Ordinal)
+                ? pattern[..^1] + "\\z"
+                : pattern;
         if (Regex.IsMatch(value, anchored, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
         {
             return;
