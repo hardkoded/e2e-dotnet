@@ -12,7 +12,7 @@ using NUnit.Framework.Internal;
 namespace E2E.NUnit.Tests.RunnerLifecycle;
 
 /// <summary>
-/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. <c>Reports_test_fixme...</c> reads each result from
+/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. <c>Reports_test_fixme...</c> and <c>Rejects_Fixme_in_a_setup_test...</c> read each result from
 /// the fixture's <c>report.json</c>.
 /// <c>Partial_Counts_a_serial_member...</c> leaves out the per-member cause and the executed count (a serial group reports as one result, #1241, #2078).
 /// </summary>
@@ -180,6 +180,18 @@ public sealed class RunnerLifecycleTests
         var setup = results["mark a setup fixme"];
         Assert.That(setup.ResultState.Status, Is.EqualTo(TestStatus.Failed), setup.Message);
         Assert.That(setup.Message, Does.Contain("Fixme() cannot skip a setup test"));
+        Assert.That(
+            results[nameof(FixmeSetupFixture.Consumes_the_fixme_setup_session)].ResultState.Status,
+            Is.EqualTo(TestStatus.Skipped)
+        );
+
+        var report = Read(typeof(FixmeSetupFixture));
+        var error = ByTitle(report, nameof(FixmeSetupFixture.Setup_marked_fixme))["attempts"]![0]!["error"]!;
+        Assert.That((string?)error["code"], Is.EqualTo("INVALID_ARGUMENT"));
+        Assert.That((string?)error["message"], Does.Contain("Fixme() cannot skip a setup test"));
+        var consumer = ByTitle(report, nameof(FixmeSetupFixture.Consumes_the_fixme_setup_session));
+        Assert.That((string?)consumer["status"], Is.EqualTo("skipped"));
+        Assert.That((string?)consumer["skip"]!["cause"], Is.EqualTo("setup-failed"));
     }
 
     private static IEnumerable<ITestResult> Leaves(ITestResult result) =>

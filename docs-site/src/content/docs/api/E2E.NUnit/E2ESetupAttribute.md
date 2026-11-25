@@ -30,7 +30,7 @@ unsaved fails the test with `SESSION_CONTRACT`. The sessions are saved when the 
 A test that restores a session nobody has saved yet runs the setup test that declares it first, once per run, so a dependent can run
 alone (upstream's runner schedules the setup too). The dependent runs it on a new instance of the class (parameterless constructor), in a
 session of its own and without the class's own `[SetUp]` and `[TearDown]` methods; exactly one setup test of the assembly must
-declare the name, or the restore fails with `SESSION_UNAVAILABLE`, as it does when the setup fails. NUnit then skips that setup test
+declare the name, or the restore fails with `SESSION_UNAVAILABLE`. A setup that failed skips the test with the cause `setup-failed` (upstream's `setupFailedSkip`). NUnit then skips that setup test
 when its turn comes, and still runs one that no selected test needs, which upstream's runner does not. The setup test gets an early
 `[Order]`, so it runs before the other tests of its own fixture.
 &lt;/p&gt;
