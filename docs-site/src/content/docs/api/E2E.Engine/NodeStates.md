@@ -180,12 +180,12 @@ public bool? Readonly { get; init; }
 ```
 
 
-The node's read-only state, present only where the platform has one: on the web as Playwright's &lt;code&gt;getReadonly&lt;/code&gt; decides
-(an input, textarea, or select by its &lt;code&gt;readonly&lt;/code&gt; attribute, an element whose ARIA role takes &lt;code&gt;aria-readonly&lt;/code&gt; by that
+The node's read-only state, present only where the platform has one: on the web as Playwright's `getReadonly` decides
+(an input, textarea, or select by its `readonly` attribute, an element whose ARIA role takes `aria-readonly` by that
 attribute, any other editing host false), on Android a text field or combobox. Null means the node has no read-only state to read,
-not false. &lt;code&gt;ToBeEditableAsync&lt;/code&gt; reads it.
+not false. `ToBeEditableAsync` reads it.
 
-**Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.nullable-1)
+**Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
 <a id="E2E_Engine_NodeStates_Secure_"></a>
 <a id="E2E_Engine_NodeStates_Secure"></a>

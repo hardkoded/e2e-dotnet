@@ -126,7 +126,7 @@ public Task ToBeEditableAsync(bool editable = true, TimeSpan? timeout = null, Ca
 
 Waits for an enabled control that is not read-only; &lt;code class="paramref"&gt;editable&lt;/code&gt; false waits for a disabled or read-only one.
 Only a node the engine reports a read-only state for is read (on the web, an input, textarea, select, editing host, or a role
-that takes &lt;code&gt;aria-readonly&lt;/code&gt;); any other node fails either way.
+that takes `aria-readonly`); any other node fails either way.
 
 **Parameters**
 

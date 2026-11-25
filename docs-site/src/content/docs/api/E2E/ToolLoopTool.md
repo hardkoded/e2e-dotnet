@@ -110,6 +110,4 @@ a failure refuses that verdict the way a failed result does.
 | `definition` | [ModelTool](/api/E2E/ModelTool/) | The name, the description, and the input schema the model sees. |
 | `executeOutputs` | [Func&lt;ModelToolCall, CancellationToken, IAsyncEnumerable&lt;ToolLoopResult&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-3) | Runs the call and yields its outputs. |
 
-**Returns**
-
-[ToolLoopTool](/api/E2E/ToolLoopTool/)
+**Returns:** [ToolLoopTool](./)

@@ -94,7 +94,10 @@ public int? MaskedRegionCount { get; init; }
 ```
 
 
-How many regions the engine masked over the secure nodes it saw.
+How many regions the engine masked over the secure nodes it saw; the harness checks it covers every secure node. An engine asked for
+pixels ([Pixels](/api/E2E.Engine/ObserveOptions/#E2E_Engine_ObserveOptions_Pixels)) that cannot mask every secure node on screen omits [Pixels](#E2E_Engine_EngineSnapshot_Pixels) and still
+reports the regions it could mask, fewer than the secure nodes, so the session marks the observation
+[MaskingUnproven](/api/E2E.Engine/PixelsWithheld/#E2E_Engine_PixelsWithheld_MaskingUnproven) instead of a missing screenshot.
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 

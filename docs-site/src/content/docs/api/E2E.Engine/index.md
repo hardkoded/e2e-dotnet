@@ -93,7 +93,7 @@ Public types in the `E2E.Engine` namespace.
 | [Observation](/api/E2E.Engine/Observation/) | A redacted semantic snapshot of the current screen. |
 | [ObservationLimits](/api/E2E.Engine/ObservationLimits/) | Limits from the engine contract. Engines cut names and text before they reach the model. |
 | [ObservationPixels](/api/E2E.Engine/ObservationPixels/) | Upstream's ObservationPixels: an encoded image of the screen with every secure field covered, and its geometry. Named apart from the port's EngineScreenshot, which carries no geometry. |
-| [ObservationRedaction](/api/E2E.Engine/ObservationRedaction/) | Upstream's Observation.redaction: the counts a capture's pixels are judged by. |
+| [ObservationRedaction](/api/E2E.Engine/ObservationRedaction/) | Upstream's Observation.redaction: the counts the session judges a capture's pixels by; fewer masked regions than secure nodes withholds the pixels and keeps the tree. |
 | [ObserveOptions](/api/E2E.Engine/ObserveOptions/) | What an observation takes besides the tree. Upstream's EngineObserveOptions. |
 | [OperationContext](/api/E2E.Engine/OperationContext/) | What an engine call carries about the call itself. Upstream's OperationContext. origin, runId and attemptId are members here: upstream's signal is the CancellationToken every engine call takes, and timeoutMs is Timeout (or the per-call timeout of a read, such as ObserveAsync). |
 | [ParsedKey](/api/E2E.Engine/ParsedKey/) | Upstream's ParsedKey (engine/contract.ts): one parsed press key: its modifiers, and either a named key or a single character. |
@@ -175,6 +175,7 @@ Public types in the `E2E.Engine` namespace.
 | [KeyModifier](/api/E2E.Engine/KeyModifier/) | A key held for a click, as a Shift-click extends a selection. Upstream's KeyModifier (engine/contract.ts). ControlOrMeta is Control, or Meta on macOS. |
 | [Momentum](/api/E2E.Engine/Momentum/) | Fling strength of a swipe: how far the gesture travels. Upstream's Momentum (none, slow, fast). |
 | [OperationOrigin](/api/E2E.Engine/OperationOrigin/) | Who acts: a test's own deterministic step, or the agent acting on a screen it observed. A deterministic step verifies its outcome with expect, so an engine may act as soon as the target holds still. An agent reads the screen right after acting, so an engine may wait for the transition to end first. .NET-only: upstream's origin is the string union 'test' \| 'agent'. |
+| [PixelsWithheld](/api/E2E.Engine/PixelsWithheld/) | Upstream's PixelsWithheld (engine/surface.ts): why pixels a caller asked for are not part of an observation. |
 | [ScrollDirection](/api/E2E.Engine/ScrollDirection/) | Which way a scroll moves the content into view. Down reveals what is below. |
 | [WebColorScheme](/api/E2E.Engine/WebColorScheme/) | The prefers-color-scheme a page reports. |
 | [WebReducedMotion](/api/E2E.Engine/WebReducedMotion/) | The prefers-reduced-motion a page reports. |
