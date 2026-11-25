@@ -239,8 +239,8 @@ public sealed class EngineStartOptions
     public Action<string>? Navigation { get; init; }
 }
 
-/// <summary>What an engine asks of <see cref="EngineStartOptions.ResolveSecret"/> beside the value.</summary>
-internal sealed record ResolveSecretOptions
+/// <summary>What an engine asks of <see cref="EngineStartOptions.ResolveSecret"/> beside the value. Upstream's <c>ResolveSecretOptions</c>.</summary>
+public sealed record ResolveSecretOptions
 {
     /// <summary>The forms of the plaintext the engine hands to the app in its place, which are redacted wherever the value is.</summary>
     public Func<string, IReadOnlyList<string>>? Derived { get; init; }

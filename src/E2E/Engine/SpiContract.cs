@@ -12,7 +12,45 @@ namespace E2E.Engine;
 public sealed record NodeRef(string Id, string Revision);
 
 /// <summary>Upstream's <c>EngineCleanupContext</c>: the signal and the cleanup budget the harness hands an engine's cleanup hooks.</summary>
-public sealed record EngineCleanupContext(CancellationToken Signal, TimeSpan Timeout);
+public sealed record EngineCleanupContext(CancellationToken Signal, TimeSpan Timeout)
+{
+    /// <summary>
+    /// Upstream's <c>reuseSignal</c>: aborts when the worker's next attempt needs the resource <c>Dispose</c> would release, so a dispose that
+    /// keeps the resource for reuse can give it up. Only <c>Dispose</c> receives it.
+    /// </summary>
+    public CancellationToken? ReuseSignal { get; init; }
+}
+
+/// <summary>
+/// Upstream's <c>EngineAttemptContext</c> (<c>engine/index.ts</c>): what an engine's <c>StartAttempt</c> is given once per attempt, with the
+/// callbacks that carry what the engine learns back to the harness. Over the engine protocol each callback is a message to the client.
+/// </summary>
+public sealed class EngineAttemptContext
+{
+    /// <summary>The attempt's id. Upstream's <c>attemptId</c>.</summary>
+    public required string AttemptId { get; init; }
+
+    /// <summary>The attempt's artifact directory. Upstream's <c>artifactsDir</c>.</summary>
+    public required string ArtifactsDir { get; init; }
+
+    /// <summary>Aborts when the attempt is abandoned. Upstream's <c>signal</c>.</summary>
+    public CancellationToken Signal { get; init; }
+
+    /// <summary>The plaintext of a secret the engine holds, resolved on the client. Upstream's <c>resolveSecret</c>.</summary>
+    public required Func<Secret, ResolveSecretOptions?, Task<string>> ResolveSecret { get; init; }
+
+    /// <summary>Takes one line of what the app did on its own. Upstream's <c>appLog</c>.</summary>
+    public required Action<AppLogEntry> AppLog { get; init; }
+
+    /// <summary>Takes one line saying where the app went on its own. Upstream's <c>navigation</c>.</summary>
+    public required Action<string> Navigation { get; init; }
+
+    /// <summary>Takes the facts the engine learns about what the attempt runs on. Upstream's <c>environment</c>.</summary>
+    public required Action<IReadOnlyDictionary<string, string>> Environment { get; init; }
+
+    /// <summary>Takes the screen an action left; null when the attempt keeps no trace. Upstream's <c>screen</c>.</summary>
+    public Action<EngineSnapshot>? Screen { get; init; }
+}
 
 /// <summary>
 /// Upstream's <c>ObservationPixels</c>: an encoded image of the screen with every secure field covered, and its geometry. Named apart from

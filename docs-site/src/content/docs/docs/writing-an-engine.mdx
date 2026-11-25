@@ -7,7 +7,7 @@ sidebar:
 
 This page ports upstream's `docs/writing-an-engine.mdx`. An engine connects `Screen`, `App`, and agent calls to a UI platform through the `E2E.Engine` contract. Write one to test a desktop app, a TV, or another platform. `WebEngine`, `MobileEngine`, and `WinAppEngine` implement the same public `IEngine` and `IEngineSession` and are complete examples.
 
-An engine runs in the test's own process. Upstream's out-of-process engine protocol has no port (see [Not in the port](#not-in-the-port)). A .NET engine is two classes: an `IEngine` that describes it and starts a session, and an `IEngineSession` that drives one attempt. The SPI layer (`EngineManifest.DefineEngine` and `EngineSessions.CreateEngineSession`, upstream's `defineEngine` and `createEngineSession`) is an alternative for an engine written as a set of functions; it checks the spec when it is built and runs the same routing rules as upstream. The test runner still takes an `IEngine`.
+An engine runs in the test's own process. Upstream's out-of-process engine protocol is ported in part: the server and the transports are, the client is not (see [Not in the port](#not-in-the-port)). A .NET engine is two classes: an `IEngine` that describes it and starts a session, and an `IEngineSession` that drives one attempt. The SPI layer (`EngineManifest.DefineEngine` and `EngineSessions.CreateEngineSession`, upstream's `defineEngine` and `createEngineSession`) is an alternative for an engine written as a set of functions; it checks the spec when it is built and runs the same routing rules as upstream. The test runner still takes an `IEngine`.
 
 Engines drive user interfaces only. For an inbox, a database, or a test API, write an ordinary test fixture of your own.
 
@@ -220,8 +220,24 @@ Run a test class against your engine. Check the lifecycle order, observations, a
 | `context.resolveSecret` | `EngineStartOptions.ResolveSecret` is `internal`. It resolves only a secret the engine lists in `Secrets` and fails any other with `SECRET_UNAVAILABLE`. [#1246](https://github.com/hardkoded/e2e-dotnet/issues/1246) tracks making it public. |
 | `fixtures`, `context.fixture`, `expectable`, `requires: ['<name>']` | Not public. [#1197](https://github.com/hardkoded/e2e-dotnet/issues/1197) tracks contributed fixtures and [#1185](https://github.com/hardkoded/e2e-dotnet/issues/1185) the `requires` its. |
 | `observe(context, options)` `signal` on every call | Every call takes a `CancellationToken`. |
-| Engine servers (`serveEngine`, `connectEngine`, the engine protocol) | Not in the port: [#873](https://github.com/hardkoded/e2e-dotnet/issues/873). |
+| `serveEngine` | `ProtocolServer.ServeEngineAsync(handle, streams)`: see [Serve an engine](#serve-an-engine). |
+| `connectEngine`, the protocol client | Not in the port yet: [#2208](https://github.com/hardkoded/e2e-dotnet/issues/2208). |
 | Project tools with `platforms` | Not a public extension point. |
+
+## Serve an engine
+
+`ProtocolServer.ServeEngineAsync` (upstream's `serveEngine`) answers the engine protocol with an `EngineManifest.DefineEngine` handle, over stdin and stdout by default, until the client sends `exit` or the streams close. Pass a factory to build the engine from the client's `initializationOptions`. Keep the engine's own logging on stderr: stdout carries the protocol.
+
+```csharp
+var engine = EngineManifest.DefineEngine(new EngineSpec { Name = "kiosk", Version = "1.0.0", SpiVersion = 1 /* ... */ });
+await ProtocolServer.ServeEngineAsync(engine);
+```
+
+A client reaches a server through an `IEngineTransport`: `SpawnTransport` starts the server as a child process and speaks over its stdio (the last 4096 characters of stderr go into a failure message, and a close past its budget kills the process tree), `SocketTransport` connects to a listening TCP port, and `LoopbackTransport` serves an engine in the same process over in-memory streams.
+
+`EngineSpec.StartAttempt` takes an `EngineAttemptContext`: `AttemptId`, `ArtifactsDir`, `Signal`, `ResolveSecret`, `AppLog`, `Navigation`, `Environment`, and `Screen` when the attempt keeps a trace. Over the protocol each callback is a message to the client. `EngineCleanupContext.ReuseSignal` is what upstream's `dispose` hook receives as `reuseSignal`.
+
+A wire signal id maps to one `CancellationTokenSource` per connection, so an engine comparing tokens sees the client's identity. `$/abort` cancels the token. A token carries no reason, so the client's abort reason does not cross, and the `prepare`, `finish`, `doctor` and `init` hooks take no token, so a signal that arrives with them only registers.
 
 ## Next
 

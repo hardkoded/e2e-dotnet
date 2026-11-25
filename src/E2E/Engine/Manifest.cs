@@ -155,7 +155,7 @@ public sealed record EngineSpec
     public Func<EngineInitInfo, Task>? Init { get; init; }
 
     /// <summary>Starts an attempt on the engine.</summary>
-    public Func<OperationContext, Task>? StartAttempt { get; init; }
+    public Func<EngineAttemptContext, Task>? StartAttempt { get; init; }
 
     /// <summary>Settles an attempt, rethrowing a failure no step awaited.</summary>
     public Func<EngineCleanupContext, Task>? SettleAttempt { get; init; }
@@ -248,7 +248,7 @@ public sealed class EngineHandle
 
     public Func<EngineInitInfo, Task>? Init => Spec.Init;
 
-    public Func<OperationContext, Task>? StartAttempt => Spec.StartAttempt;
+    public Func<EngineAttemptContext, Task>? StartAttempt => Spec.StartAttempt;
 
     public Func<EngineCleanupContext, Task>? SettleAttempt => Spec.SettleAttempt;
 
