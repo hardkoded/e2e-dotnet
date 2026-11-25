@@ -100,7 +100,7 @@ public sealed record AbortParams(int Id, RpcErrorObject? Reason = null);
 public static class Protocol
 {
     /// <summary>The protocol version this runner speaks; <c>initialize</c> refuses any other. Upstream's <c>ENGINE_PROTOCOL_VERSION</c>.</summary>
-    public const int Version = 1;
+    public const int EngineProtocolVersion = 1;
 
     /// <summary>The <see cref="Exception.Data"/> key a decoded error keeps the stack it crossed with under. .NET-only: a .NET stack trace is read-only.</summary>
     public const string RemoteStackKey = "e2e.remoteStack";
