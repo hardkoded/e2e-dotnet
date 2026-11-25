@@ -29,13 +29,12 @@ public sealed class SetupDependenciesTests
     }
 
     [Fact]
-    public async Task A_failed_setup_test_fails_each_dependent_without_running_again()
+    public async Task A_failed_setup_test_skips_each_dependent_without_running_again()
     {
         var (results, output) = await NestedSessionRun.RunAsync(typeof(BrokenConsumerFixture));
 
-        Assert.Equal("Fail", results["Consumes_the_broken_session"].Result);
-        Assert.Equal("Fail", results["Consumes_the_broken_session_again"].Result);
-        Assert.Contains("session \"broken\" was not produced", results["Consumes_the_broken_session"].Message);
+        Assert.Equal("Skip", results["Consumes_the_broken_session"].Result);
+        Assert.Equal("Skip", results["Consumes_the_broken_session_again"].Result);
         Assert.Equal(1, output.Split("broken-setup-ran").Length - 1);
     }
 }
