@@ -33,6 +33,19 @@ public sealed class CompareTextTests
     }
 
     [Fact]
+    public void Folds_case_for_an_exact_string_under_ignoreCase_and_always_for_a_non_exact_one()
+    {
+        Assert.True(
+            TextRules.Compare("  HELLO   world ", TextMatch.FromString("hello world"), false, true, ignoreCase: true)
+        );
+        Assert.False(
+            TextRules.Compare("Hello World!", TextMatch.FromString("hello world"), false, true, ignoreCase: true)
+        );
+        Assert.True(TextRules.Compare("Hello World!", TextMatch.FromString("WORLD"), true, true, ignoreCase: true));
+        Assert.True(TextRules.MatchesText("Hello World!", TextMatch.FromString("WORLD"), exact: false));
+    }
+
+    [Fact]
     public void Normalize_false_compares_the_raw_strings_newlines_and_trailing_spaces_included()
     {
         const string value = "line1\n\nline2  ";

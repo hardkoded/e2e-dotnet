@@ -2144,7 +2144,7 @@ internal static class LocatorResolver
     )
     {
         var tree = new TreeIndex(observation.Roots);
-        return Resolve(query, tree.All, tree, includeHidden);
+        return Resolve(query, tree.Whole, tree, includeHidden);
     }
 
     /// <summary>
@@ -2158,7 +2158,7 @@ internal static class LocatorResolver
     )
     {
         var tree = new TreeIndex(nodes, selector);
-        return Resolve(query, tree.All, tree, includeHidden: false);
+        return Resolve(query, tree.Whole, tree, includeHidden: false);
     }
 
     public static IEnumerable<SemanticNode> Walk(IEnumerable<SemanticNode> roots)
@@ -2173,21 +2173,27 @@ internal static class LocatorResolver
         }
     }
 
-    private static List<SemanticNode> Resolve(
-        LocatorExpression query,
-        IReadOnlyList<SemanticNode> candidates,
-        TreeIndex tree,
-        bool includeHidden
-    )
+    /// <summary>
+    /// Resolves <paramref name="query"/> among the candidates <paramref name="within"/>. The candidates are always one contiguous span:
+    /// the whole tree, or the descendants of one <c>filter</c> match (a subtree within a span is a span).
+    /// </summary>
+    private static List<SemanticNode> Resolve(LocatorExpression query, Span within, TreeIndex tree, bool includeHidden)
     {
         switch (query.Kind)
         {
             case "union":
             {
+                var left = Resolve(query.Left!, within, tree, includeHidden);
+                var right = Resolve(query.Right!, within, tree, includeHidden);
+                if (left.Count == 0 && right.Count == 0)
+                {
+                    return [];
+                }
+
                 var matches = new HashSet<SemanticNode>(ReferenceEqualityComparer.Instance);
-                matches.UnionWith(Resolve(query.Left!, candidates, tree, includeHidden));
-                matches.UnionWith(Resolve(query.Right!, candidates, tree, includeHidden));
-                return candidates.Where(matches.Contains).ToList();
+                matches.UnionWith(left);
+                matches.UnionWith(right);
+                return tree.Candidates(within).Where(matches.Contains).ToList();
             }
 
             case "filter":
@@ -2200,23 +2206,19 @@ internal static class LocatorResolver
                     throw UnsupportedDisplayValue();
                 }
 
-                var source = Resolve(query.Source!, candidates, tree, includeHidden);
+                var source = Resolve(query.Source!, within, tree, includeHidden);
                 var includeValue = !UsesDisplayValue(query.Source!);
+                var hasText = query.HasText is null ? null : query.HasText.Compile(query.HasTextExact);
+                var hasNotText = query.HasNotText is null ? null : query.HasNotText.Compile(query.HasNotTextExact);
                 return source
                     .Where(node =>
                     {
-                        if (
-                            query.HasText is not null
-                            && !SubtreeHasText(node, query.HasText, query.HasTextExact, includeValue)
-                        )
+                        if (hasText is not null && !SubtreeHasText(node, hasText, includeValue))
                         {
                             return false;
                         }
 
-                        if (
-                            query.HasNotText is not null
-                            && SubtreeHasText(node, query.HasNotText, query.HasNotTextExact, includeValue)
-                        )
+                        if (hasNotText is not null && SubtreeHasText(node, hasNotText, includeValue))
                         {
                             return false;
                         }
@@ -2226,26 +2228,26 @@ internal static class LocatorResolver
                             return true;
                         }
 
-                        var within = tree.DescendantsOf([node], candidates);
-                        if (query.Has is not null && Resolve(query.Has, within, tree, includeHidden).Count == 0)
+                        var inside = tree.DescendantSpan(node, within);
+                        if (query.Has is not null && Resolve(query.Has, inside, tree, includeHidden).Count == 0)
                         {
                             return false;
                         }
 
-                        return query.HasNot is null || Resolve(query.HasNot, within, tree, includeHidden).Count == 0;
+                        return query.HasNot is null || Resolve(query.HasNot, inside, tree, includeHidden).Count == 0;
                     })
                     .ToList();
             }
 
             case "index":
             {
-                var source = Resolve(query.Source!, candidates, tree, includeHidden);
+                var source = Resolve(query.Source!, within, tree, includeHidden);
                 var position = query.Index == LocatorExpression.LastIndex ? source.Count - 1 : query.Index!.Value;
                 return position >= 0 && position < source.Count ? [source[position]] : [];
             }
 
             case "selector" when tree.Selector is { } selector:
-                return selector(query.Selector!, candidates).ToList();
+                return selector(query.Selector!, tree.Candidates(within).ToList()).ToList();
 
             case "selector":
                 throw new EngineException(
@@ -2269,9 +2271,21 @@ internal static class LocatorResolver
                 }
 
                 var pool = query.Parent is null
-                    ? candidates
-                    : tree.DescendantsOf(Resolve(query.Parent, candidates, tree, includeHidden), candidates);
-                var matches = pool.Where(node => Matches(node, query, includeHidden)).ToList();
+                    ? [within]
+                    : tree.DescendantSpans(Resolve(query.Parent, within, tree, includeHidden), within);
+                var matches = new List<SemanticNode>();
+                var matchesQuery = CompileQueryMatcher(query, includeHidden);
+                foreach (var span in pool)
+                {
+                    foreach (var node in tree.Candidates(span))
+                    {
+                        if (matchesQuery(node))
+                        {
+                            matches.Add(node);
+                        }
+                    }
+                }
+
                 return query.Kind switch
                 {
                     "text" => tree.InnermostOnly(BoxedFirst(matches)),
@@ -2303,27 +2317,39 @@ internal static class LocatorResolver
             "displayValue queries cannot scope child queries or serve as a has or hasNot filter in this engine"
         );
 
-    private static bool Matches(SemanticNode node, LocatorExpression query, bool includeHidden)
+    /// <summary>
+    /// Compiles one query to a test of one node, its text pattern compiled once per pass over the candidates rather than once per node.
+    /// Upstream's <c>compileQueryMatcher</c>.
+    /// </summary>
+    private static Func<SemanticNode, bool> CompileQueryMatcher(LocatorExpression query, bool includeHidden)
     {
-        if (query.Visible && !LocatorEngine.IsNodeVisible(node))
-        {
-            return false;
-        }
+        var matches = CompileKindMatcher(query, includeHidden);
+        return query.Visible ? node => LocatorEngine.IsNodeVisible(node) && matches(node) : matches;
+    }
 
+    private static Func<SemanticNode, bool> CompileKindMatcher(LocatorExpression query, bool includeHidden)
+    {
         var value = query.Value;
-        return query.Kind switch
+        var matcher = value is null ? null : value.Compile(query.Exact);
+        var exactMatcher = value is null ? null : value.Compile(exact: true);
+        switch (query.Kind)
         {
-            "role" => RoleMatches(node, query, includeHidden),
-            "text" => HasText(node, value!, query.Exact),
-            "label" => node.Labels is { } labels
-                ? labels.Any(label => value!.Matches(label, query.Exact))
-                : value!.Matches(node.Name, query.Exact),
-            "testid" => value!.Matches(node.TestId, exact: true),
-            "placeholder" => value!.Matches(node.Placeholder, query.Exact),
+            case "role":
+                return node => RoleMatches(node, query, matcher, includeHidden);
+            case "text":
+                return node => HasText(node, matcher!);
+            case "label":
+                return node => node.Labels is { } labels ? labels.Any(label => matcher!(label)) : matcher!(node.Name);
+            case "testid":
+                return node => exactMatcher!(node.TestId);
+            case "placeholder":
+                return node => matcher!(node.Placeholder);
             // A checkbox or radio carries a value it never shows (`on` by default), so it is no candidate.
-            "displayValue" => !IsCheckable(node) && value!.Matches(node.Value, query.Exact),
-            _ => false,
-        };
+            case "displayValue":
+                return node => !IsCheckable(node) && matcher!(node.Value);
+            default:
+                return static _ => false;
+        }
     }
 
     // An input whose type is checkbox or radio, as upstream's `input:not([type="checkbox" i]):not([type="radio" i])`.
@@ -2334,7 +2360,12 @@ internal static class LocatorResolver
             || type.Equals("radio", StringComparison.OrdinalIgnoreCase)
         );
 
-    private static bool RoleMatches(SemanticNode node, LocatorExpression query, bool includeHidden)
+    private static bool RoleMatches(
+        SemanticNode node,
+        LocatorExpression query,
+        Func<string?, bool>? name,
+        bool includeHidden
+    )
     {
         if (
             node.Role is null
@@ -2345,7 +2376,7 @@ internal static class LocatorResolver
             return false;
         }
 
-        if (query.Value is not null && !query.Value.Matches(node.Name, query.Exact))
+        if (name is not null && !name(node.Name))
         {
             return false;
         }
@@ -2361,10 +2392,8 @@ internal static class LocatorResolver
 
     // A node with DOM text (the web) answers to that text, as Playwright's text engine does: a placeholder, a title, or the label a
     // control is named by is no text. Any other node answers to its accessible name or its text.
-    private static bool HasText(SemanticNode node, TextMatch expected, bool exact) =>
-        node.DomText is { } domText
-            ? expected.Matches(domText, exact)
-            : expected.Matches(node.Name, exact) || expected.Matches(node.Text, exact);
+    private static bool HasText(SemanticNode node, Func<string?, bool> matches) =>
+        node.DomText is { } domText ? matches(domText) : matches(node.Name) || matches(node.Text);
 
     /// <summary>A state with no value to match (mixed, or an attribute that is absent) matches neither true nor false, as Playwright's role selector reads it.</summary>
     private static bool StateIs(bool? wanted, bool actual, bool unset = false) =>
@@ -2374,9 +2403,9 @@ internal static class LocatorResolver
     /// Whether the node's own name, text, or value, or a descendant's, contains the text, ignoring case.
     /// <paramref name="includeValue"/> false leaves values out, as the text content of a display-value match has none.
     /// </summary>
-    private static bool SubtreeHasText(SemanticNode node, TextMatch expected, bool exact, bool includeValue)
+    private static bool SubtreeHasText(SemanticNode node, Func<string?, bool> matches, bool includeValue)
     {
-        if (HasText(node, expected, exact) || (includeValue && expected.Matches(node.Value, exact)))
+        if (HasText(node, matches) || (includeValue && matches(node.Value)))
         {
             return true;
         }
@@ -2390,7 +2419,7 @@ internal static class LocatorResolver
 
         foreach (var child in node.Children)
         {
-            if (SubtreeHasText(child, expected, exact, includeValue))
+            if (SubtreeHasText(child, matches, includeValue))
             {
                 return true;
             }
@@ -2399,10 +2428,25 @@ internal static class LocatorResolver
         return false;
     }
 
-    /// <summary>Every node of an observation in document order, with each node's parent.</summary>
+    /// <summary>
+    /// A contiguous range <c>[Start, End)</c> of <see cref="TreeIndex"/> nodes. A node in it is a candidate unless it sits in a nested
+    /// frame's document: its nearest frame ancestor has to be at or above <paramref name="Limit"/> (the index of the node the span
+    /// is the descendants of), as a candidate under a nested frame is no descendant of a node above that frame.
+    /// </summary>
+    private readonly record struct Span(int Start, int End, int Limit);
+
+    /// <summary>
+    /// Every node of an observation in document (pre-order) order, with the index range of each node's subtree, so containment is an
+    /// interval test rather than a walk up the parents.
+    /// </summary>
     private sealed class TreeIndex
     {
-        private readonly Dictionary<SemanticNode, SemanticNode> _parents = new(ReferenceEqualityComparer.Instance);
+        private readonly List<SemanticNode> _all = [];
+        private readonly List<int> _ends = [];
+
+        // The index of each node's nearest frame ancestor, or -1.
+        private readonly List<int> _frameOwners = [];
+        private readonly Dictionary<SemanticNode, int> _enters = new(ReferenceEqualityComparer.Instance);
 
         public TreeIndex(
             IEnumerable<SemanticNode> roots,
@@ -2412,86 +2456,142 @@ internal static class LocatorResolver
             Selector = selector;
             foreach (var root in roots)
             {
-                Add(root, null);
+                Add(root, -1);
             }
         }
 
-        public List<SemanticNode> All { get; } = [];
+        /// <summary>Every node of the tree.</summary>
+        public Span Whole => new(0, _all.Count, int.MaxValue);
 
         /// <summary>Answers a <c>selector</c> query among the candidates, or null when the caller brought no selector language.</summary>
         public Func<string, IReadOnlyList<SemanticNode>, IReadOnlyList<SemanticNode>>? Selector { get; }
 
+        /// <summary>The candidates of a span, in document order.</summary>
+        public IEnumerable<SemanticNode> Candidates(Span span)
+        {
+            for (var index = span.Start; index < span.End; index++)
+            {
+                if (_frameOwners[index] <= span.Limit)
+                {
+                    yield return _all[index];
+                }
+            }
+        }
+
         /// <summary>
-        /// The candidates that are strict descendants of any of <paramref name="ancestors"/>, in document order. A frame node's children are
-        /// its own document's, so a candidate under a nested frame is no descendant of a node above that frame, as in a locator chain.
+        /// The candidates in <paramref name="within"/> that are strict descendants of <paramref name="ancestor"/>. A node from outside the
+        /// tree (a selector hook may answer one) has none.
         /// </summary>
-        public List<SemanticNode> DescendantsOf(
-            IReadOnlyCollection<SemanticNode> ancestors,
-            IReadOnlyList<SemanticNode> candidates
-        )
+        public Span DescendantSpan(SemanticNode ancestor, Span within)
         {
-            if (ancestors.Count == 0)
+            if (!_enters.TryGetValue(ancestor, out var enter))
             {
-                return [];
+                return new Span(within.End, within.End, within.Limit);
             }
 
-            var set = new HashSet<SemanticNode>(ancestors, ReferenceEqualityComparer.Instance);
-            return candidates.Where(node => InsideAny(node, set)).ToList();
-        }
-
-        private bool InsideAny(SemanticNode node, HashSet<SemanticNode> ancestors)
-        {
-            foreach (var ancestor in Ancestors(node))
-            {
-                if (ancestors.Contains(ancestor))
-                {
-                    return true;
-                }
-
-                if (ancestor.Frame)
-                {
-                    return false;
-                }
-            }
-
-            return false;
+            var start = Math.Max(within.Start, enter + 1);
+            return new Span(start, Math.Max(start, Math.Min(within.End, _ends[enter])), Math.Min(within.Limit, enter));
         }
 
         /// <summary>
-        /// Drops every match that contains another match. A container that
-        /// repeats its child's text is not a second match.
+        /// The candidates in <paramref name="within"/> that are strict descendants of any of <paramref name="ancestors"/>, as disjoint spans
+        /// in document order: nested and repeated ancestors merge, so each candidate is in one span at most.
+        /// </summary>
+        public List<Span> DescendantSpans(IReadOnlyCollection<SemanticNode> ancestors, Span within)
+        {
+            var spans = ancestors
+                .Select(ancestor => DescendantSpan(ancestor, within))
+                .Where(span => span.Start < span.End)
+                .OrderBy(span => span.Start)
+                .ThenByDescending(span => span.End)
+                .ToList();
+            var merged = new List<Span>();
+            var open = new Stack<Span>();
+            var cursor = 0;
+
+            // Subtrees nest or are disjoint. Where one sits in another, its own limit rules, since it admits whatever the outer admits.
+            void CloseUntil(int position)
+            {
+                while (open.Count > 0 && open.Peek().End <= position)
+                {
+                    var top = open.Pop();
+                    if (cursor < top.End)
+                    {
+                        merged.Add(new Span(cursor, top.End, top.Limit));
+                        cursor = top.End;
+                    }
+                }
+            }
+
+            foreach (var span in spans)
+            {
+                CloseUntil(span.Start);
+                if (open.Count > 0 && cursor < span.Start)
+                {
+                    merged.Add(new Span(cursor, span.Start, open.Peek().Limit));
+                }
+
+                cursor = Math.Max(cursor, span.Start);
+                open.Push(span);
+            }
+
+            CloseUntil(int.MaxValue);
+            return merged;
+        }
+
+        /// <summary>
+        /// Drops every match that contains another match. A container that repeats its child's text is not a second match. The matches
+        /// are in document order with no repeats, so a match contains another when the first one in its subtree sits in the same document.
         /// </summary>
         public List<SemanticNode> InnermostOnly(List<SemanticNode> matches)
         {
-            var containers = new HashSet<SemanticNode>(ReferenceEqualityComparer.Instance);
-            foreach (var match in matches)
+            var result = new List<SemanticNode>();
+            for (var index = 0; index < matches.Count; index++)
             {
-                containers.UnionWith(Ancestors(match).TakeWhile(ancestor => !ancestor.Frame));
+                var node = matches[index];
+                var enter = _enters[node];
+                var contains = false;
+                if (!node.Frame)
+                {
+                    for (var next = index + 1; next < matches.Count; next++)
+                    {
+                        var other = _enters[matches[next]];
+                        if (other >= _ends[enter])
+                        {
+                            break;
+                        }
+
+                        // A frame node's children are its own document's, so no match below one is contained by a node above it.
+                        if (_frameOwners[other] <= enter)
+                        {
+                            contains = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!contains)
+                {
+                    result.Add(node);
+                }
             }
 
-            return matches.Where(node => !containers.Contains(node)).ToList();
+            return result;
         }
 
-        private IEnumerable<SemanticNode> Ancestors(SemanticNode node)
+        private void Add(SemanticNode node, int frameOwner)
         {
-            for (var current = node; _parents.TryGetValue(current, out var parent); current = parent)
-            {
-                yield return parent;
-            }
-        }
-
-        private void Add(SemanticNode node, SemanticNode? parent)
-        {
-            All.Add(node);
-            if (parent is not null)
-            {
-                _parents[node] = parent;
-            }
-
+            var enter = _all.Count;
+            _all.Add(node);
+            _ends.Add(enter);
+            _frameOwners.Add(frameOwner);
+            _enters[node] = enter;
             foreach (var child in node.Children.Concat(node.InlineNodes))
             {
-                Add(child, node);
+                Add(child, node.Frame ? enter : frameOwner);
             }
+
+            _ends[enter] = _all.Count;
         }
     }
 }

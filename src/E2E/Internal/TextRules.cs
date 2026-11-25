@@ -72,17 +72,44 @@ public static partial class TextRules
     /// equals, or is contained by, the subject, folding case when <paramref name="ignoreCase"/> is true.
     /// <paramref name="normalize"/> collapses whitespace on both sides first.
     /// </summary>
-    public static bool Compare(string actual, TextMatch expected, bool contains, bool normalize, bool? ignoreCase)
+    public static bool Compare(string actual, TextMatch expected, bool contains, bool normalize, bool? ignoreCase) =>
+        CompileTextMatcher(expected, contains, normalize, ignoreCase)(actual);
+
+    /// <summary>
+    /// Upstream's <c>compileTextMatcher</c>: <see cref="Compare"/> compiled once for a pattern that is tested against many strings
+    /// (every node of a tree): the pattern side is normalized here, not on every call.
+    /// </summary>
+    public static Func<string, bool> CompileTextMatcher(
+        TextMatch expected,
+        bool contains,
+        bool normalize,
+        bool? ignoreCase
+    )
     {
-        var subject = normalize ? Normalize(actual) : actual;
-        if (expected.Pattern is not null)
+        ArgumentNullException.ThrowIfNull(expected);
+        Func<string, string> read = normalize ? Normalize : static text => text;
+        if (expected.Pattern is { } pattern)
         {
-            return expected.Pattern.IsMatch(subject);
+            return actual => pattern.IsMatch(read(actual));
         }
 
-        var text = normalize ? Normalize(expected.Text ?? "") : expected.Text ?? "";
+        var text = read(expected.Text ?? "");
         var comparison = ignoreCase == true ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        return contains ? subject.Contains(text, comparison) : string.Equals(subject, text, comparison);
+        return contains
+            ? actual => read(actual).Contains(text, comparison)
+            : actual => string.Equals(read(actual), text, comparison);
+    }
+
+    /// <summary>
+    /// Upstream's <c>compileTextMatcher</c> with its default comparison, which reads as <see cref="MatchesText"/> does: whitespace
+    /// normalized, a string compared whole, or as a case-insensitive substring when <paramref name="exact"/> is false.
+    /// </summary>
+    public static Func<string, bool> CompileTextMatcher(TextMatch expected, bool exact = true)
+    {
+        ArgumentNullException.ThrowIfNull(expected);
+        return exact
+            ? CompileTextMatcher(expected, contains: false, normalize: true, ignoreCase: null)
+            : CompileTextMatcher(expected, contains: true, normalize: true, ignoreCase: true);
     }
 
     /// <summary>

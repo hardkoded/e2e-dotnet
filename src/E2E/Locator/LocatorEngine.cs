@@ -451,7 +451,10 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
                 when (ex.Retryable && !reads.Deadline.Expired(Clock.GetUtcNow()) && !token.IsCancellationRequested)
             {
                 retried = ex;
-                await Task.Delay(Time.PollDelay(Clock.GetElapsedTime(pollStarted)), Clock, token).ConfigureAwait(false);
+                var now = Clock.GetUtcNow();
+                var pause = Time.PollDelay(Clock.GetElapsedTime(pollStarted));
+                var left = reads.Deadline.Remaining(now);
+                await Task.Delay(left < pause ? left : pause, Clock, token).ConfigureAwait(false);
             }
             catch (EngineException ex) when (!token.IsCancellationRequested)
             {
@@ -911,46 +914,46 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
                 .ConfigureAwait(false);
         }
 
-        TestException NotVisible(Exception? cause)
-        {
-            var message = "locator did not become visible with a box to act within: " + expression.Describe();
-            var details = LocatorDetails(expression, Clock.GetElapsedTime(started));
-            return cause is null
-                ? new TestException("LOCATOR_NOT_FOUND", message) { Details = details }
-                : new TestException("LOCATOR_NOT_FOUND", message, cause) { Details = details };
-        }
+        var origin = default(Point);
+        await Time.PollReadsAsync(
+                new PollReadsOptions
+                {
+                    Deadline = deadline,
+                    Reads = Reads(deadline),
+                    Clock = Clock,
+                    Token = token,
+                    Negated = false,
+                    Evaluate = async reads =>
+                    {
+                        // A box read at the deadline could never be tapped: skip the read so the wait ends as LOCATOR_NOT_FOUND.
+                        if (deadline.Expired(Clock.GetUtcNow()))
+                        {
+                            return false;
+                        }
 
-        var reads = Reads(deadline);
-        var sampled = false;
-        var pollStarted = Clock.GetTimestamp();
-        while (true)
-        {
-            SemanticNode? node;
-            try
-            {
-                node = await TryReadAsync(expression, token, reads).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (sampled && !token.IsCancellationRequested && reads.CutOff(ex))
-            {
-                throw NotVisible(ex);
-            }
+                        var node = await TryReadAsync(expression, token, reads).ConfigureAwait(false);
+                        if (node is not { States.Hidden: false, Rect: { } rect })
+                        {
+                            return false;
+                        }
 
-            sampled = true;
-            if (node is { States.Hidden: false, Rect: { } rect })
-            {
-                var origin = node.Origin ?? new Point(rect.X, rect.Y);
-                await DispatchAtAsync(new Point(origin.X + offset.X, origin.Y + offset.Y), action, deadline, token)
-                    .ConfigureAwait(false);
-                return;
-            }
-
-            if (deadline.Expired(Clock.GetUtcNow()))
-            {
-                throw NotVisible(null);
-            }
-
-            await Task.Delay(Time.PollDelay(Clock.GetElapsedTime(pollStarted)), Clock, token).ConfigureAwait(false);
-        }
+                        origin = node.Origin ?? new Point(rect.X, rect.Y);
+                        return true;
+                    },
+                    OnTimeout = cause =>
+                    {
+                        var message =
+                            "locator did not become visible with a box to act within: " + expression.Describe();
+                        var details = LocatorDetails(expression, Clock.GetElapsedTime(started));
+                        return cause is null
+                            ? new TestException("LOCATOR_NOT_FOUND", message) { Details = details }
+                            : new TestException("LOCATOR_NOT_FOUND", message, cause) { Details = details };
+                    },
+                }
+            )
+            .ConfigureAwait(false);
+        await DispatchAtAsync(new Point(origin.X + offset.X, origin.Y + offset.Y), action, deadline, token)
+            .ConfigureAwait(false);
     }
 
     /// <summary>One pointer dispatch within a deadline, its engine error translated to the public taxonomy. Upstream's <c>dispatchAt</c>.</summary>
