@@ -183,6 +183,11 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.True(schema.IsValid(Input("""{ "path": "screenshots/home.png" }""")));
         Assert.True(schema.IsValid(Input("""{ "path": "screenshots/HOME.PNG" }""")));
         Assert.False(schema.IsValid(Input("""{ "path": "screenshots/home.jpg" }""")));
+        var notPng = AgentTools.SchemaTool(tool, Call(tool.Name, Input("""{ "path": "screenshots/home.jpg" }""")));
+        Assert.NotNull(notPng);
+        Assert.Contains("\"code\":\"invalid_format\"", notPng);
+        Assert.Contains("a .png file", notPng);
+        Assert.Null(AgentTools.SchemaTool(tool, Call(tool.Name, Input("""{ "path": "screenshots/HOME.PNG" }"""))));
         var padded = Input("""{ "path": "screenshots/home.png", "description": "check" }""");
         Assert.False(schema.IsValid(padded));
         var refusal = AgentTools.SchemaTool(tool, Call(tool.Name, padded));

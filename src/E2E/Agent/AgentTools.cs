@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.RegularExpressions;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using E2E.Engine;
@@ -246,7 +247,8 @@ public static class AgentTools
         Parse("""{ "type": "object", "properties": {} }""")
     );
 
-    // With saveScreenshot (upstream's grammarTools option), screenshot also takes an optional PNG path and saves the masked screenshot there.
+    private const string PngPattern = "\\.[pP][nN][gG]$";
+
     private static readonly ModelTool ScreenshotWithPath = Tool(
         ScreenshotName,
         Screenshot.Description
@@ -692,7 +694,7 @@ public static class AgentTools
     /// <summary>
     /// Upstream's <c>schemaTool</c>: the schema of a grammar tool and of the verdict tool is closed, so a field it does not declare fails validation and the call never runs.
     /// Returns the refusal the model reads in the call's place (the AI SDK's <c>Invalid input for tool</c> error over a zod <c>unrecognized_keys</c>
-    /// issue), or null when the call declares nothing but what the tool does and every declared field has its declared type, one of its enum, and a value, length or size within its declared range (a required field may not be missing).
+    /// issue), or null when the call declares nothing but what the tool does and every declared field has its declared type, one of its enum, and a value, length or size within its declared range, and a string that matches its declared pattern (a required field may not be missing).
     /// </summary>
     internal static string? SchemaTool(ModelTool definition, ModelToolCall call)
     {
@@ -881,6 +883,7 @@ public static class AgentTools
                 var length = value.GetString()!.EnumerateRunes().Count();
                 CheckBound(schema, "minLength", length, path, issues, "string", "string", "characters");
                 CheckBound(schema, "maxLength", length, path, issues, "string", "string", "characters");
+                CheckPattern(schema, value.GetString()!, path, issues);
                 break;
             case "array":
                 var size = value.GetArrayLength();
@@ -897,6 +900,40 @@ public static class AgentTools
 
                 break;
         }
+    }
+
+    // Upstream's z.string().regex(/\.png$/i, 'a .png file'): a string that does not match the declared pattern is an invalid_format issue.
+    private static void CheckPattern(
+        JsonElement schema,
+        string value,
+        object[] path,
+        List<Dictionary<string, object>> issues
+    )
+    {
+        if (!schema.TryGetProperty("pattern", out var declared) || declared.GetString() is not { } pattern)
+        {
+            return;
+        }
+
+        // JavaScript's $ ends the string; .NET's also matches before a trailing newline.
+        var anchored = pattern.EndsWith('$') && !pattern.EndsWith("\\$", StringComparison.Ordinal) ? pattern[..^1] + "\\z" : pattern;
+        if (Regex.IsMatch(value, anchored, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
+        {
+            return;
+        }
+
+        var png = pattern == PngPattern;
+        issues.Add(
+            new Dictionary<string, object>
+            {
+                ["origin"] = "string",
+                ["code"] = "invalid_format",
+                ["format"] = "regex",
+                ["pattern"] = png ? "/\\.png$/i" : "/" + pattern + "/",
+                ["path"] = path,
+                ["message"] = png ? "a .png file" : "Invalid string: must match pattern /" + pattern + "/",
+            }
+        );
     }
 
     private static void CheckBound(
