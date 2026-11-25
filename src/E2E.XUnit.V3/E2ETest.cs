@@ -39,9 +39,11 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
             CompleteAbandonedAsync().Wait(TimeSpan.FromSeconds(30));
         }
 #pragma warning disable CA1031 // The process is ending: a cleanup failure must not change the exit code.
-        catch (Exception)
+        catch (Exception ex)
 #pragma warning restore CA1031
-        { }
+        {
+            Console.Error.WriteLine("E2E: completing abandoned sessions failed: " + ex.Message);
+        }
     }
 
     /// <summary>
