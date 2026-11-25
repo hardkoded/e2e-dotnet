@@ -230,7 +230,10 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
                 if (!_process.HasExited)
                 {
                     // .NET has no portable SIGTERM: closing stdin is the polite stop, the kill at the budget the forceful one.
-                    var budget = timeout < TimeSpan.Zero ? TimeSpan.Zero : timeout;
+                    var budget =
+                        timeout == Timeout.InfiniteTimeSpan ? Timeout.InfiniteTimeSpan
+                        : timeout < TimeSpan.Zero ? TimeSpan.Zero
+                        : timeout;
                     using var timer = new CancellationTokenSource(budget);
                     try
                     {
@@ -388,11 +391,24 @@ public sealed class LoopbackTransport(EngineHandle engine) : IEngineTransport
         ArgumentNullException.ThrowIfNull(context);
         var toServer = new Pipe();
         var toClient = new Pipe();
-        _ = ProtocolServer.ServeEngineAsync(
-            _engine,
-            new MessageStreams(toServer.Reader.AsStream(), toClient.Writer.AsStream())
-        );
+        _ = ServeAsync(toServer, toClient);
         return Task.FromResult<ITransportConnection>(new LoopbackConnection(toServer, toClient));
+    }
+
+    /// <summary>Serves the engine, then ends both pipes on the server's side, so a server that closed itself reads as a closed peer.</summary>
+    private async Task ServeAsync(Pipe toServer, Pipe toClient)
+    {
+        try
+        {
+            await ProtocolServer
+                .ServeEngineAsync(_engine, new MessageStreams(toServer.Reader.AsStream(), toClient.Writer.AsStream()))
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            await toClient.Writer.CompleteAsync().ConfigureAwait(false);
+            await toServer.Reader.CompleteAsync().ConfigureAwait(false);
+        }
     }
 
     private sealed class LoopbackConnection(Pipe toServer, Pipe toClient) : ITransportConnection
@@ -404,7 +420,7 @@ public sealed class LoopbackTransport(EngineHandle engine) : IEngineTransport
         public Task CloseAsync(TimeSpan timeout)
         {
             toServer.Writer.Complete();
-            toClient.Writer.Complete();
+            toClient.Reader.Complete();
             return Task.CompletedTask;
         }
     }

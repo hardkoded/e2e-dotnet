@@ -53,6 +53,8 @@ public static class ProtocolServer
         private readonly EngineHandle? _engineSource;
         private readonly Func<JsonNode?, Task<EngineHandle>>? _factory;
         private readonly Connection _connection;
+        private readonly ManualResetEventSlim _ready = new();
+        private readonly SemaphoreSlim _initializing = new(1, 1);
         private readonly object _gate = new();
         private readonly Dictionary<int, CancellationTokenSource> _signals = [];
 
@@ -78,20 +80,24 @@ public static class ProtocolServer
                     {
                         // A client that vanished cannot abort what it started; one that shut down cleanly has nothing left running,
                         // and its signals stay as it left them.
-                        lock (_gate)
+                        try
                         {
-                            if (!_shutdown)
+                            CancellationTokenSource[] sources;
+                            lock (_gate)
                             {
-                                foreach (var source in _signals.Values)
-                                {
-                                    Abort(source);
-                                }
+                                sources = _shutdown ? [] : [.. _signals.Values];
+                                _signals.Clear();
                             }
 
-                            _signals.Clear();
+                            foreach (var source in sources)
+                            {
+                                Abort(source);
+                            }
                         }
-
-                        _closed.TrySetResult();
+                        finally
+                        {
+                            _closed.TrySetResult();
+                        }
                     },
                     Requests = new Dictionary<string, Func<JsonNode?, Task<JsonNode?>>>
                     {
@@ -106,26 +112,43 @@ public static class ProtocolServer
                     Notifications = new Dictionary<string, Action<JsonNode?>>
                     {
                         ["initialized"] = _ => { },
-                        ["exit"] = _ => _connection!.Close("the client sent exit"),
+                        ["exit"] = _ => Link.Close("the client sent exit"),
                         ["$/abort"] = parameters =>
                         {
                             var abort = WireCodec.Read<AbortParams>(parameters);
+                            CancellationTokenSource? source;
                             lock (_gate)
                             {
-                                // A token carries no reason, so the client's reason does not cross: the engine sees a plain cancellation.
-                                if (_signals.Remove(abort.Id, out var source))
-                                {
-                                    Abort(source);
-                                }
+                                _signals.Remove(abort.Id, out source);
+                            }
+
+                            // A token carries no reason, so the client's reason does not cross: the engine sees a plain cancellation.
+                            if (source is not null)
+                            {
+                                Abort(source);
                             }
                         },
                     },
                 }
             );
+            _ready.Set();
         }
 
         /// <summary>Settles once the connection is closed.</summary>
         public Task Closed => _closed.Task;
+
+        /// <summary>
+        /// The connection, once the constructor stored it: its read loop starts inside its own constructor, so the first message can be
+        /// handled before the assignment returns.
+        /// </summary>
+        private Connection Link
+        {
+            get
+            {
+                _ready.Wait();
+                return _connection;
+            }
+        }
 
         private static void Abort(CancellationTokenSource source)
         {
@@ -133,9 +156,9 @@ public static class ProtocolServer
             {
                 source.Cancel();
             }
-            catch (ObjectDisposedException)
+            catch (Exception)
             {
-                // Already released.
+                // A callback the engine registered threw: that is its failure, and it must not stop the server from closing.
             }
         }
 
@@ -153,6 +176,8 @@ public static class ProtocolServer
 
         private static async Task<object?> InvokeAsync(Delegate member, object?[] arguments)
         {
+            // Hooks run off the read loop, so one that blocks cannot keep it from reading `$/abort` or a response.
+            await Task.Yield();
             Task task;
             try
             {
@@ -182,7 +207,11 @@ public static class ProtocolServer
         private async Task<JsonNode?> InitializeAsync(JsonNode? parameters)
         {
             var version = parameters?["protocolVersion"];
-            if (version is null || (int)version != Protocol.EngineProtocolVersion)
+            if (
+                version is not JsonValue number
+                || !number.TryGetValue<int>(out var asked)
+                || asked != Protocol.EngineProtocolVersion
+            )
             {
                 throw new RpcException(
                     new RpcErrorObject(
@@ -192,6 +221,25 @@ public static class ProtocolServer
                 );
             }
 
+            await _initializing.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                await BuildEngineAsync(parameters).ConfigureAwait(false);
+            }
+            finally
+            {
+                _initializing.Release();
+            }
+
+            return new JsonObject
+            {
+                ["protocolVersion"] = Protocol.EngineProtocolVersion,
+                ["manifest"] = WireCodec.Write(ProtocolManifest.DescribeEngine(_engine!)),
+            };
+        }
+
+        private async Task BuildEngineAsync(JsonNode? parameters)
+        {
             if (_engine is null)
             {
                 var engine = _engineSource
@@ -207,12 +255,6 @@ public static class ProtocolServer
                 _engine = engine;
                 Register(engine);
             }
-
-            return new JsonObject
-            {
-                ["protocolVersion"] = Protocol.EngineProtocolVersion,
-                ["manifest"] = WireCodec.Write(ProtocolManifest.DescribeEngine(_engine)),
-            };
         }
 
         private Task<JsonNode?> DeriveSecretAsync(JsonNode? parameters)
@@ -257,7 +299,7 @@ public static class ProtocolServer
                     continue;
                 }
 
-                _connection.OnRequest(
+                Link.OnRequest(
                     method,
                     spec switch
                     {
@@ -298,7 +340,7 @@ public static class ProtocolServer
 
         private async Task<JsonNode?> LifecycleAsync(string member, Delegate? hook, JsonNode? parameters)
         {
-            void Log(string line) => _connection.Notify("engine/log", new JsonObject { ["line"] = line });
+            void Log(string line) => Link.Notify("engine/log", new JsonObject { ["line"] = line });
 
             switch (member)
             {
@@ -464,7 +506,7 @@ public static class ProtocolServer
                 if (current)
                 {
                     parameters["attemptId"] = attemptId;
-                    _connection.Notify(method, parameters);
+                    Link.Notify(method, parameters);
                 }
             }
 
@@ -546,7 +588,7 @@ public static class ProtocolServer
         {
             try
             {
-                return await _connection.RequestAsync(method, parameters).ConfigureAwait(false);
+                return await Link.RequestAsync(method, parameters).ConfigureAwait(false);
             }
             catch (RpcException cause)
             {
