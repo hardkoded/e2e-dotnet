@@ -249,6 +249,7 @@ public static class AgentTools
 
     private const string PngPattern = "\\.[pP][nN][gG]$";
 
+    // With saveScreenshot (upstream's grammarTools option), screenshot also takes an optional PNG path and saves the masked screenshot there.
     private static readonly ModelTool ScreenshotWithPath = Tool(
         ScreenshotName,
         Screenshot.Description
@@ -910,18 +911,28 @@ public static class AgentTools
         List<Dictionary<string, object>> issues
     )
     {
-        if (!schema.TryGetProperty("pattern", out var declared) || declared.GetString() is not { } pattern)
+        if (
+            !schema.TryGetProperty("pattern", out var declared)
+            || declared.ValueKind != JsonValueKind.String
+            || declared.GetString() is not { } pattern
+        )
         {
             return;
         }
 
-        // JavaScript's $ ends the string; .NET's also matches before a trailing newline.
-        var anchored =
-            pattern.EndsWith('$') && !pattern.EndsWith("\\$", StringComparison.Ordinal)
-                ? pattern[..^1] + "\\z"
-                : pattern;
-        if (Regex.IsMatch(value, anchored, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
+        // JavaScript's $ ends the string; .NET's also matches before a trailing newline. An even run of backslashes before it leaves it unescaped.
+        var slashes = pattern.Length - 1 - pattern[..^1].TrimEnd('\\').Length;
+        var anchored = pattern.EndsWith('$') && slashes % 2 == 0 ? pattern[..^1] + "\\z" : pattern;
+        try
         {
+            if (Regex.IsMatch(value, anchored, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
+            {
+                return;
+            }
+        }
+        catch (Exception ex) when (ex is ArgumentException or RegexMatchTimeoutException)
+        {
+            // A pattern .NET cannot read, or that runs too long, is not a refusal the model can act on: skip the check.
             return;
         }
 
