@@ -40,6 +40,15 @@ public sealed class RunnerLifecycleTests : IDisposable
         Assert.Equal("passed", (string?)ByTitle(report, nameof(FixmeFixture.Condition_false_runs_on))["status"]);
         AssertSkip(ByTitle(report, nameof(FixmeFixture.Bare))["skip"]!, "fixme");
         AssertSkip(ByTitle(report, nameof(FixmeFixture.Blank_reason))["skip"]!, "fixme");
+
+        RunnerLifecycleResults.Prepare();
+        var (hooked, _) = await NestedSessionRun.RunAsync(typeof(FixmeFromHookFixture));
+        Assert.Equal("Skip", hooked[nameof(FixmeFromHookFixture.Member)].Result);
+        var member = ByTitle(
+            JsonNode.Parse(File.ReadAllText(RunnerLifecycleResults.ReportOf(typeof(FixmeFromHookFixture))))!,
+            nameof(FixmeFromHookFixture.Member)
+        );
+        AssertSkip(member["skip"]!, "fixme: hook says not yet");
     }
 
     [Fact]

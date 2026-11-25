@@ -116,6 +116,17 @@ public class E2ERunFixture : IAsyncLifetime
     {
         try
         {
+            try
+            {
+                await E2ETest.CompleteAbandonedAsync().ConfigureAwait(false);
+            }
+#pragma warning disable CA1031 // The run's report must still be finalized.
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                Console.Error.WriteLine("E2E: completing abandoned sessions failed: " + ex.Message);
+            }
+
             await HostRun.FinishPreparedAsync().ConfigureAwait(false);
             if (_run is { } run)
             {
