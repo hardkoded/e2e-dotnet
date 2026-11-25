@@ -61,6 +61,21 @@ public sealed class DetectVcsTests : IDisposable
     }
 
     [Fact]
+    public async Task Accepts_only_complete_SHA1_or_SHA256_IDs_in_CI_provenance()
+    {
+        foreach (var length in new[] { 40, 64 })
+        {
+            var commit = new string('a', length);
+            Assert.Equal(commit, (await Internal.Vcs.DetectAsync(_outside, Env(("GITHUB_SHA", commit))))?.Commit);
+        }
+
+        foreach (var length in new[] { 39, 41, 60, 63, 65 })
+        {
+            Assert.Null(await Internal.Vcs.DetectAsync(_outside, Env(("GITHUB_SHA", new string('a', length)))));
+        }
+    }
+
+    [Fact]
     public async Task Records_nothing_when_neither_git_nor_CI_knows_the_commit()
     {
         Assert.Null(await Internal.Vcs.DetectAsync(_outside, Env()));
