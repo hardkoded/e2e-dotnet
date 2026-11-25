@@ -101,9 +101,25 @@ public ObservationPixels? Pixels { get; init; }
 ```
 
 
-The screen's pixels, when the capture has them.
+The screenshot, only when its masked regions cover every secure node.
 
 **Value:** [ObservationPixels](/api/E2E.Engine/ObservationPixels/)
+
+<a id="E2E_Engine_SessionObservation_PixelsWithheld_"></a>
+<a id="E2E_Engine_SessionObservation_PixelsWithheld"></a>
+
+### PixelsWithheld
+
+
+```csharp
+public PixelsWithheld? PixelsWithheld { get; init; }
+```
+
+
+Why pixels the engine answered with are not here: its masked regions ([MaskedRegionCount](/api/E2E.Engine/ObservationRedaction/#E2E_Engine_ObservationRedaction_MaskedRegionCount)) are fewer than the
+secure nodes, whether the engine sent the pixels or withheld them itself. Null when nothing was withheld.
+
+**Value:** `PixelsWithheld?`
 
 <a id="E2E_Engine_SessionObservation_Redaction_"></a>
 <a id="E2E_Engine_SessionObservation_Redaction"></a>

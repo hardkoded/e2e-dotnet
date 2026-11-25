@@ -59,6 +59,24 @@ location. [Route](#E2E_Engine_Observation_Route) is the same address without its
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_Engine_Observation_MaskedRegionCount_"></a>
+<a id="E2E_Engine_Observation_MaskedRegionCount"></a>
+
+### MaskedRegionCount
+
+
+```csharp
+public int? MaskedRegionCount { get; init; }
+```
+
+
+How many regions the engine masked when it took pixels and withheld them itself, or answered a pixels request with a count and no image
+(upstream's `maskedRegionCount` of an `EngineSnapshot` without `pixels`), such as a screen with a secure field it could not
+bound. The session reads it against the secure nodes and marks [PixelsWithheld](#E2E_Engine_Observation_PixelsWithheld). Null when the image came with its own count
+([MaskedRegionCount](/api/E2E.Engine/EngineScreenshot/#E2E_Engine_EngineScreenshot_MaskedRegionCount)), or none was taken.
+
+**Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
+
 <a id="E2E_Engine_Observation_Pixels_"></a>
 <a id="E2E_Engine_Observation_Pixels"></a>
 
@@ -75,6 +93,23 @@ take them (upstream's `EngineSnapshot.pixels` and `maskedRegionCount`, as [Engin
 not ask, or when the image could not be taken or proven redacted: the observation is then the tree alone.
 
 **Value:** [EngineScreenshot](/api/E2E.Engine/EngineScreenshot/)
+
+<a id="E2E_Engine_Observation_PixelsWithheld_"></a>
+<a id="E2E_Engine_Observation_PixelsWithheld"></a>
+
+### PixelsWithheld
+
+
+```csharp
+public PixelsWithheld? PixelsWithheld { get; init; }
+```
+
+
+Why pixels the engine answered a pixels request with are not in [Pixels](#E2E_Engine_Observation_Pixels) (upstream's `pixelsWithheld`): the session
+decides it once, when its masked regions are fewer than the secure nodes. Null when nothing was withheld, and for a screen with no
+tree, whose pixels rest on the engine's own proof.
+
+**Value:** `PixelsWithheld?`
 
 <a id="E2E_Engine_Observation_Revision_"></a>
 <a id="E2E_Engine_Observation_Revision"></a>
