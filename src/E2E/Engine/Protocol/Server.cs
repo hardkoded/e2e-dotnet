@@ -418,11 +418,7 @@ public static class ProtocolServer
                     return null;
                 case "dispose":
                     var reuse = parameters?["reuseSignal"] is { } wire ? WireCodec.Read<WireSignal>(wire) : null;
-                    await InvokeAsync(
-                            hook!,
-                            [Cleanup(parameters) with { ReuseSignal = reuse is null ? null : Signal(reuse) }]
-                        )
-                        .ConfigureAwait(false);
+                    await InvokeAsync(hook!, [Dispose(parameters, reuse)]).ConfigureAwait(false);
                     return null;
                 default:
                     throw new InvalidOperationException($"unknown lifecycle member {member}");
@@ -604,6 +600,17 @@ public static class ProtocolServer
                 RunId = wire.RunId,
                 AttemptId = wire.AttemptId,
             };
+
+        private EngineDisposeContext Dispose(JsonNode? parameters, WireSignal? reuse)
+        {
+            var cleanup = Cleanup(parameters);
+            return new EngineDisposeContext
+            {
+                CleanupTimeout = cleanup.Timeout,
+                Signal = cleanup.Signal,
+                ReuseSignal = reuse is null ? null : Signal(reuse),
+            };
+        }
 
         private EngineCleanupContext Cleanup(JsonNode? parameters)
         {

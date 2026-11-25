@@ -164,7 +164,7 @@ public sealed record EngineSpec
     public Func<EngineCleanupContext, Task>? EndAttempt { get; init; }
 
     /// <summary>Disposes the engine's worker.</summary>
-    public Func<EngineCleanupContext, Task>? Dispose { get; init; }
+    public Func<EngineDisposeContext, Task>? Dispose { get; init; }
 
     /// <summary>
     /// Fixture factories, by name. A name is lower-camel and not one a universal fixture uses (<c>agent</c>, <c>app</c>, <c>screen</c>,
@@ -254,7 +254,7 @@ public sealed class EngineHandle
 
     public Func<EngineCleanupContext, Task>? EndAttempt => Spec.EndAttempt;
 
-    public Func<EngineCleanupContext, Task>? Dispose => Spec.Dispose;
+    public Func<EngineDisposeContext, Task>? Dispose => Spec.Dispose;
 }
 
 /// <summary>

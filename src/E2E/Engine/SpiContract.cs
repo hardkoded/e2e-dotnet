@@ -12,14 +12,7 @@ namespace E2E.Engine;
 public sealed record NodeRef(string Id, string Revision);
 
 /// <summary>Upstream's <c>EngineCleanupContext</c>: the signal and the cleanup budget the harness hands an engine's cleanup hooks.</summary>
-public sealed record EngineCleanupContext(CancellationToken Signal, TimeSpan Timeout)
-{
-    /// <summary>
-    /// Upstream's <c>reuseSignal</c>: aborts when the worker's next attempt needs the resource <c>Dispose</c> would release, so a dispose that
-    /// keeps the resource for reuse can give it up. Only <c>Dispose</c> receives it.
-    /// </summary>
-    public CancellationToken? ReuseSignal { get; init; }
-}
+public sealed record EngineCleanupContext(CancellationToken Signal, TimeSpan Timeout);
 
 /// <summary>
 /// Upstream's <c>EngineAttemptContext</c> (<c>engine/index.ts</c>): what an engine's <c>StartAttempt</c> is given once per attempt, with the

@@ -235,7 +235,7 @@ await ProtocolServer.ServeEngineAsync(engine);
 
 A client reaches a server through an `IEngineTransport`: `SpawnTransport` starts the server as a child process and speaks over its stdio (the last 4096 characters of stderr go into a failure message, and a close past its budget kills the process tree), `SocketTransport` connects to a listening TCP port, and `LoopbackTransport` serves an engine in the same process over in-memory streams.
 
-`EngineSpec.StartAttempt` takes an `EngineAttemptContext`: `AttemptId`, `ArtifactsDir`, `Signal`, `ResolveSecret`, `AppLog`, `Navigation`, `Environment`, and `Screen` when the attempt keeps a trace. Over the protocol each callback is a message to the client. `EngineCleanupContext.ReuseSignal` is what upstream's `dispose` hook receives as `reuseSignal`.
+`EngineSpec.StartAttempt` takes an `EngineAttemptContext`: `AttemptId`, `ArtifactsDir`, `Signal`, `ResolveSecret`, `AppLog`, `Navigation`, `Environment`, and `Screen` when the attempt keeps a trace. Over the protocol each callback is a message to the client. `EngineSpec.Dispose` takes an `EngineDisposeContext`: its `ReuseSignal` is upstream's `reuseSignal`, and `Signal` and `CleanupTimeout` are the cleanup context's `signal` and `timeoutMs`.
 
 A wire signal id maps to one `CancellationTokenSource` per connection, so an engine comparing tokens sees the client's identity. `$/abort` cancels the token. A token carries no reason, so the client's abort reason does not cross, and the `prepare`, `finish`, `doctor` and `init` hooks take no token, so a signal that arrives with them only registers.
 
