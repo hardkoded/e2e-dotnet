@@ -264,7 +264,7 @@ lines you changed:
   screenshot, or worked out from the date (the recording's `derived` field,
   and `Cache.Derived` of a step whose replay stopped there, name the rule: `whole-node`, `minted-token` (also any value typed into an `autocomplete="one-time-code"` field, or into the focused field in a step that showed one, where only a whole value of two or more characters that the instruction or `params` spell out replays), `date`, or `pixels`). Values
   from the instruction or `Params`, and values the agent composed itself,
-  replay, so put stable values in `Params`. `AssertAsync`, `WaitForAsync`,
+  replay, so put stable values in `Params`. Values typed in a row into several fields, with only taps or `Tab` between them, are also judged joined: a code the page showed, typed one digit per box or three and three, makes the recording a gap from its first piece, even when no field declares a purpose. `AssertAsync`, `WaitForAsync`,
   and `ExtractAsync` always call the model. Leave `cache.mode` at `read-write` rather than
   `off`: `off` sends every goal to the model again. To run once against the live
   agent (a new model, or the one live run after a test passes), set

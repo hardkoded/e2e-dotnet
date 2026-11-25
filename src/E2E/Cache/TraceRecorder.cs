@@ -354,6 +354,37 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
         );
 
     /// <summary>
+    /// Upstream's <c>gapFrom</c>: turns the recording from <paramref name="index"/> on into a gap for this run's data, as
+    /// <see cref="RecordDerivedGap"/> records one: the actions there were the pieces of a value the step derived (values typed in a row
+    /// that join into a code the screen showed), and none of them may replay, so they are dropped. A recording that never replays
+    /// (truncated) is left as it is. When an earlier gap already ends replay before <paramref name="index"/>, the pieces are dropped
+    /// without a new gap, since replay hands off at that gap and never reaches them. When the piece at <paramref name="index"/> is
+    /// already a gap, from a one-time-code field that records each fill as its own gap, the run is left as it is. Later actions are
+    /// recorded after the gap.
+    /// </summary>
+    public void GapFrom(int index, DerivedReason reason)
+    {
+        if (_truncated || index < 0 || index >= _actions.Count)
+        {
+            return;
+        }
+
+        // The piece at `index` is itself a gap, so the run is already gaps, not the code: leave them.
+        if (_actions[index].Kind == "tool")
+        {
+            return;
+        }
+
+        // An earlier gap already ends replay before these pieces, so they never replay: drop them without a new gap.
+        var handedOff = _actions.Take(index).Any(action => action.Kind == "tool");
+        _actions.RemoveRange(index, _actions.Count - index);
+        if (!handedOff)
+        {
+            RecordDerivedGap(reason);
+        }
+    }
+
+    /// <summary>
     /// Forgets every recorded action. No upstream equivalent: a replay that misses before it ran an action leaves nothing to
     /// keep, and the port's replay commits through this recorder.
     /// </summary>

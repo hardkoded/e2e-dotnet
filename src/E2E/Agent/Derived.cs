@@ -53,6 +53,9 @@ internal sealed record StepEvidence(
 /// split over one box per digit puts a single digit in each fill, which no screen shows as a word of its own; typing into the focused field names no field, so in a step whose screens listed a one-time-code field its value is judged as if it went into one), and <c>Date</c> (a date or a clock time, which the model reckons from today).
 /// </para>
 /// <para>
+/// Values typed in a row into several fields are also judged joined (<see cref="DerivedJoinReason"/>), after each piece is judged on its own above: a code the screen showed and the model typed three and three, or one digit per box, is the whole code once its pieces join, even where no one piece is a word of the screen. The recording becomes a gap from the first piece on.
+/// </para>
+/// <para>
 /// A bare word inside a sentence is none of these: "one" typed on a page that lists "Row one" is the model's own choice, and the
 /// recording replays it. So is a name inside a greeting ("Jane" under "Welcome back, Jane"); when that name was in fact read off the
 /// screen, the replay types last run's value and self-finalizes, backstopped only when the value resurfaces in the end anchors.
@@ -97,28 +100,53 @@ internal static partial class Derived
             return E2E.DerivedReason.Pixels;
         }
 
+        return ShownReason(needle, evidence.Shown ?? []) ?? (DateOrTime.IsMatch(value) ? E2E.DerivedReason.Date : null);
+    }
+
+    /// <summary>
+    /// Upstream's <c>derivedJoinReason</c>: the rule that makes values typed in a row into several fields this run's data once joined, or
+    /// null when the join replays. <paramref name="joined"/> is the values with no separator, as a code split one digit per box (or three
+    /// and three) reads whole. No piece of such a code is a word the screen showed, so every piece passes <see cref="DerivedReason"/>,
+    /// which already applied the date, pixel, and field-purpose rules to each. The join meets only the screen rules, and a join the
+    /// instruction or the params spell out is literal.
+    /// </summary>
+    public static DerivedReason? DerivedJoinReason(
+        string joined,
+        string instruction,
+        JsonObject? parameters,
+        IEnumerable<string> shown
+    )
+    {
+        var needle = Normalize(joined);
+        if (needle.Length == 0 || IsLiteral(needle, instruction, parameters))
+        {
+            return null;
+        }
+
+        return ShownReason(needle, shown);
+    }
+
+    // Upstream's shownReason: whether a screen of the step showed the value, as the whole of a node or, for a data-shaped value, as a word
+    // of its own inside one. A node that says exactly the value wins over one that holds it as a word.
+    private static DerivedReason? ShownReason(string needle, IEnumerable<string> shown)
+    {
         var dataShaped = IsDataShaped(needle);
         var mintedToken = false;
-        foreach (var text in evidence.Shown ?? [])
+        foreach (var text in shown)
         {
-            var shown = Normalize(text);
-            if (string.Equals(shown, needle, StringComparison.Ordinal))
+            var normalized = Normalize(text);
+            if (string.Equals(normalized, needle, StringComparison.Ordinal))
             {
                 return E2E.DerivedReason.WholeNode;
             }
 
-            if (dataShaped && HasWord(shown, needle))
+            if (dataShaped && HasWord(normalized, needle))
             {
                 mintedToken = true;
             }
         }
 
-        if (mintedToken)
-        {
-            return E2E.DerivedReason.MintedToken;
-        }
-
-        return DateOrTime.IsMatch(value) ? E2E.DerivedReason.Date : null;
+        return mintedToken ? E2E.DerivedReason.MintedToken : null;
     }
 
     // Whether the instruction or a param spells the value out: the step's literal input, which replays verbatim.

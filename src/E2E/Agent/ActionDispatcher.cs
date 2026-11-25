@@ -49,6 +49,15 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     // The action the newest commit ran. A typed value recorded as a derived gap is still described as the fill it was
     // (upstream describes the committed action, not what the trace holds).
     private RecordedAction? _committed;
+
+    // Upstream's MAX_TYPED_RUN: how many typed values in a row are judged joined: room for a code typed one character per box, and few
+    // enough that judging every join after each value stays cheap.
+    private const int MaxTypedRun = 12;
+
+    // Upstream's typedRun: the step's run of typed values, oldest first and at most MaxTypedRun long: each value typed since the last
+    // action that was not a tap or a Tab press, which JoinTyped judges joined. A value recorded as a gap on its own stays in the run,
+    // so the code it is a piece of is still judged whole. A mutating project tool ends the run.
+    private readonly List<(int Index, string Value)> _typedRun = [];
     private readonly JsonObject? _params;
 
     // secrets: what TypeSecretAsync may fill, the secrets the step's params declare. onAction and onBeforeAction: the test's hooks for each completed action
@@ -1015,6 +1024,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
         scroll.Direction = DirectionName(direction);
         // How much of the screen the list covered decides, on replay, whether a list that cannot be re-found scrolls as the viewport.
         scroll.Spans = SpansOf(list, viewport);
+        _typedRun.Clear();
         _accounting.Recorder.RecordScroll(scroll);
     }
 
@@ -1071,6 +1081,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     private Task CommitTypedAsync(RecordedAction action, string value, string? inputPurpose = null)
     {
         action.Value = value;
+        var index = _accounting.Recorder.RecordedCount;
         if (
             Derived.DerivedReason(
                 value,
@@ -1082,15 +1093,55 @@ internal sealed partial class ActionDispatcher : IExecutorActions
         )
         {
             _accounting.Recorder.RecordDerivedGap(derived);
-            return ArmAndNotifyAsync(action);
+            JoinTyped(index, value);
+            return ArmAndNotifyAsync(action, typed: true);
         }
 
-        return CommitAsync(action);
+        var recorded = _accounting.Recorder.Record(action);
+        JoinTyped(index, value);
+        return ArmAndNotifyAsync(recorded, typed: true);
     }
 
-    // A recorded action arms the next look, then goes to the test's hook.
-    private Task ArmAndNotifyAsync(RecordedAction recorded)
+    // Upstream's keepsTypedRun: whether an action leaves the step's typed run going: a tap or a press of Tab only moves focus to the next
+    // field, the way a code is typed one box at a time. Every other action ends the run.
+    private static bool KeepsTypedRun(RecordedAction action) =>
+        action.Kind is "tap" or "tapAt" || (action.Kind is "press" or "pressKey" && action.Key == "Tab");
+
+    // Upstream's joinTyped: adds a typed value to the run and judges it joined with the values typed before it: every run of two or more
+    // that ends at it, longest first. A code split three and three, or one digit per box, is no word of the screen in any one piece; once a
+    // join is the whole of what a node said, or a data-shaped word a node showed, the recording becomes a gap from that join's first
+    // piece. The run goes on, so a longer join, the whole code after its first pieces matched a "30" or a "6-digit" on the page, moves
+    // the gap back to its own first piece.
+    private void JoinTyped(int index, string value)
     {
+        _typedRun.Add((index, value));
+        if (_typedRun.Count > MaxTypedRun)
+        {
+            _typedRun.RemoveAt(0);
+        }
+
+        for (var start = 0; start < _typedRun.Count - 1; start++)
+        {
+            var joined = string.Concat(_typedRun.Skip(start).Select(typed => typed.Value));
+            if (Derived.DerivedJoinReason(joined, _instruction, _params, _feed.ShownText()) is not { } reason)
+            {
+                continue;
+            }
+
+            _accounting.Recorder.GapFrom(_typedRun[start].Index, reason);
+            return;
+        }
+    }
+
+    // A recorded action arms the next look, then goes to the test's hook. Upstream's recordTrace ends the typed run on any action that is
+    // not a typed value, a tap, or a Tab press.
+    private Task ArmAndNotifyAsync(RecordedAction recorded, bool typed = false)
+    {
+        if (!typed && !KeepsTypedRun(recorded))
+        {
+            _typedRun.Clear();
+        }
+
         _committed = recorded;
         _feed.ArmAfter(recorded);
         return NotifyAsync(recorded, ActionSource.Model);
@@ -1133,6 +1184,13 @@ internal sealed partial class ActionDispatcher : IExecutorActions
                     .ConfigureAwait(false);
             })
             .ConfigureAwait(false);
+    }
+
+    // Upstream's runTool: a mutating project tool runs `before`, then ends the step's typed run.
+    internal async Task BeforeToolAsync()
+    {
+        await BeforeAsync().ConfigureAwait(false);
+        _typedRun.Clear();
     }
 
     /// <summary>
