@@ -43,11 +43,30 @@ public sealed class StreamRedactorTests
     }
 
     [Fact]
-    public void Moves_the_cut_back_over_an_occurrence_it_would_split()
+    public void Redacts_a_value_on_the_last_of_several_finished_lines_right_before_the_CRLF_that_ends_the_write()
     {
         var stream = new StreamRedactor(Registered());
-        Assert.Equal("prefix ", stream.Push($"prefix {Secret}{new string('y', 30)}"));
+        Assert.Equal("one\ntwo\nkey=<secret:token>\r\n", stream.Push($"one\ntwo\nkey={Secret}\r\n"));
+        Assert.Equal("", stream.Flush());
+    }
+
+    [Fact]
+    public void Moves_the_cut_back_over_an_occurrence_it_would_split_on_a_line_after_a_finished_one()
+    {
+        var stream = new StreamRedactor(Registered());
+        Assert.Equal("<secret:token>\nprefix ", stream.Push($"{Secret}\nprefix {Secret}{new string('y', 30)}"));
         Assert.Equal($"<secret:token>{new string('y', 30)}", stream.Flush());
+    }
+
+    [Fact]
+    public void Moves_the_cut_back_over_an_occurrence_of_a_multi_line_value_whose_line_break_falls_at_the_cut()
+    {
+        const string note = "line-one-4417\nline-two-9920";
+        var registered = Ledger.Of(("note", note));
+        var stream = new StreamRedactor(registered);
+        var filler = new string('z', registered.MaxFormLength - 1 - "line-two-9920".Length);
+        Assert.Equal($"pad\n{new string('x', 10)}", stream.Push($"pad\n{new string('x', 10)}{note}{filler}"));
+        Assert.Equal($"<secret:note>{filler}", stream.Flush());
     }
 
     [Fact]
