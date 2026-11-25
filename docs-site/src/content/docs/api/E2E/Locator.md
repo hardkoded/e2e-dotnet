@@ -1305,6 +1305,7 @@ On the web it also takes a button that opens a file chooser. An empty list of pa
 
 | Type | Condition |
 | --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_ARGUMENT` on the web for a path that does not exist or sits under a directory the runner cannot search, before anything is clicked. |
 | [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) | &lt;code class="paramref"&gt;paths&lt;/code&gt; has a blank entry (upstream's `INVALID_ARGUMENT`). |
 
 An empty collection expression binds here, not to the payload overload.

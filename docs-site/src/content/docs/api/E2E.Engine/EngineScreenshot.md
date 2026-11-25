@@ -46,26 +46,11 @@ A captured viewport: PNG bytes, and how many image pixels one viewport (CSS) pix
 
 | Name | Type | Description |
 | --- | --- | --- |
-| `Png` | [byte\[\]](https://learn.microsoft.com/dotnet/api/system.byte) | The image, with every secure field covered. Empty for a withheld screenshot ([Withheld(int)](#E2E_Engine_EngineScreenshot_Withheld_System_Int32_)). |
+| `Png` | [byte\[\]](https://learn.microsoft.com/dotnet/api/system.byte) | The image, with every secure field covered. |
 | `Scale` | [double](https://learn.microsoft.com/dotnet/api/system.double) | Image pixels per viewport (CSS) pixel. |
 | `MaskedRegionCount` | [int?](https://learn.microsoft.com/dotnet/api/system.int32) | How many regions the engine covered, so a caller can prove the image is at least as redacted as the tree. Null when the engine cannot say. |
 
 ## Properties
-
-<a id="E2E_Engine_EngineScreenshot_IsWithheld_"></a>
-<a id="E2E_Engine_EngineScreenshot_IsWithheld"></a>
-
-### IsWithheld
-
-
-```csharp
-public bool IsWithheld { get; }
-```
-
-
-Whether the engine withheld the image (see [Withheld(int)](#E2E_Engine_EngineScreenshot_Withheld_System_Int32_)): it reports the regions it masked and holds no pixels.
-
-**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
 <a id="E2E_Engine_EngineScreenshot_MaskedRegionCount_"></a>
 <a id="E2E_Engine_EngineScreenshot_MaskedRegionCount"></a>
@@ -93,7 +78,7 @@ public byte[] Png { get; init; }
 ```
 
 
-The image, with every secure field covered. Empty for a withheld screenshot ([Withheld(int)](#E2E_Engine_EngineScreenshot_Withheld_System_Int32_)).
+The image, with every secure field covered.
 
 **Value:** [byte\[\]](https://learn.microsoft.com/dotnet/api/system.byte)
 
@@ -111,29 +96,3 @@ public double Scale { get; init; }
 Image pixels per viewport (CSS) pixel.
 
 **Value:** [double](https://learn.microsoft.com/dotnet/api/system.double)
-
-## Methods
-
-<a id="E2E_Engine_EngineScreenshot_Withheld_"></a>
-<a id="E2E_Engine_EngineScreenshot_Withheld_System_Int32_"></a>
-
-### Withheld(int)
-
-
-```csharp
-public static EngineScreenshot Withheld(int maskedRegionCount)
-```
-
-
-A screenshot the engine took and withheld because it could not mask every secure node on the screen (upstream's snapshot that
-carries `maskedRegionCount` without `pixels`). It holds no image and reports the regions the engine could mask, fewer than
-the screen's secure nodes, so `toHaveScreenshot` fails with `POLICY_DENIED` and the agent reads `MASKING_UNPROVEN`,
-not a missing screenshot. Held as an empty [Png](#E2E_Engine_EngineScreenshot_Png) (.NET-only: upstream's optional `pixels`).
-
-**Parameters**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| `maskedRegionCount` | [int](https://learn.microsoft.com/dotnet/api/system.int32) |  |
-
-**Returns:** [EngineScreenshot](./)

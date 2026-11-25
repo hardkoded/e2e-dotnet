@@ -8,14 +8,14 @@ using E2E.XUnit.V3.Tests.EngineContract;
 namespace E2E.XUnit.V3.Tests.RunnerLifecycle;
 
 /// <summary>
-/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. It is <c>Partial_</c>: it leaves out the <c>beforeEach</c> case (<c>member</c>, skipped <c>fixme: hook says not yet</c>), because xUnit does not call <c>DisposeAsync</c> when <c>InitializeAsync</c> throws, so a <c>Fixme</c> from that hook never finishes its session (#2211). Each result is read from the fixture's <c>report.json</c>.
+/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. Each result is read from the fixture's <c>report.json</c>.
 /// </summary>
 public sealed class RunnerLifecycleTests : IDisposable
 {
     public void Dispose() => RunnerLifecycleResults.Clear();
 
     [Fact]
-    public async Task Partial_Reports_test_fixme_tests_skipped_with_the_reason_fixme_registered_or_from_a_body()
+    public async Task Reports_test_fixme_tests_skipped_with_the_reason_fixme_registered_or_from_a_body()
     {
         // Choosing the directory before the nested process starts is what hands it to that process.
         RunnerLifecycleResults.Prepare();
@@ -39,6 +39,15 @@ public sealed class RunnerLifecycleTests : IDisposable
         Assert.Equal("passed", (string?)ByTitle(report, nameof(FixmeFixture.Condition_false_runs_on))["status"]);
         AssertSkip(ByTitle(report, nameof(FixmeFixture.Bare))["skip"]!, "fixme");
         AssertSkip(ByTitle(report, nameof(FixmeFixture.Blank_reason))["skip"]!, "fixme");
+
+        RunnerLifecycleResults.Prepare();
+        var (hooked, _) = await NestedSessionRun.RunAsync(typeof(FixmeFromHookFixture));
+        Assert.Equal("Skip", hooked[nameof(FixmeFromHookFixture.Member)].Result);
+        var member = ByTitle(
+            JsonNode.Parse(File.ReadAllText(RunnerLifecycleResults.ReportOf(typeof(FixmeFromHookFixture))))!,
+            nameof(FixmeFromHookFixture.Member)
+        );
+        AssertSkip(member["skip"]!, "fixme: hook says not yet");
 
         var (setupResults, _) = await NestedSessionRun.RunAsync(typeof(FixmeInSetupFixture));
         Assert.Equal("Fail", setupResults[nameof(FixmeInSetupFixture.SignIn)].Result);

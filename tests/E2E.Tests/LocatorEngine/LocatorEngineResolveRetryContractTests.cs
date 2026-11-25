@@ -319,6 +319,25 @@ public sealed class LocatorEngineResolveRetryContractTests
     }
 
     [Fact]
+    public async Task Ends_a_wait_on_a_frame_that_stays_missing_at_its_deadline_not_the_next_poll_tick()
+    {
+        // The fake clock moves only to the next timer, so a sleep past the deadline shows as an elapsed time past it.
+        var clock = new SteppingTime();
+        var scripted = ScriptedLocatorEngine.Make(Enumerable.Repeat(ScriptedLocatorEngine.Frame, 50), clock: clock);
+
+        var resolving = scripted.Engine.ResolveExactlyOneAsync(
+            ScriptedLocatorEngine.Expression,
+            new Deadline(TimeSpan.FromMilliseconds(350), clock),
+            CancellationToken.None
+        );
+        await clock.RunAsync(resolving.ContinueWith(_ => { }, TaskScheduler.Default));
+        var error = await Assert.ThrowsAsync<TestException>(() => resolving);
+
+        Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
+        Assert.Equal(TimeSpan.FromMilliseconds(350), clock.Elapsed);
+    }
+
+    [Fact]
     public async Task Keeps_a_first_resolve_the_deadline_cut_off_a_timeout_because_nothing_was_ever_seen_missing()
     {
         var scripted = ScriptedLocatorEngine.Make([ScriptedLocatorEngine.TimedOut]);

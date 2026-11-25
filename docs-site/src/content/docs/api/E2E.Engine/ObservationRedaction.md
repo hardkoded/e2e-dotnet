@@ -1,6 +1,6 @@
 ---
 title: "ObservationRedaction"
-description: "Upstream's Observation.redaction: the counts a capture's pixels are judged by."
+description: "Upstream's Observation.redaction: the counts the session judges a capture's pixels by; fewer masked regions than secure nodes withholds the pixels and keeps..."
 editUrl: false
 prev: false
 next: false
@@ -19,7 +19,7 @@ public sealed record ObservationRedaction : IEquatable<ObservationRedaction>
 ```
 
 
-Upstream's `Observation.redaction`: the counts a capture's pixels are judged by.
+Upstream's `Observation.redaction`: the counts the session judges a capture's pixels by; fewer masked regions than secure nodes withholds the pixels and keeps the tree.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
@@ -40,7 +40,7 @@ public ObservationRedaction(int SecureNodeCount, int MaskedRegionCount)
 ```
 
 
-Upstream's `Observation.redaction`: the counts a capture's pixels are judged by.
+Upstream's `Observation.redaction`: the counts the session judges a capture's pixels by; fewer masked regions than secure nodes withholds the pixels and keeps the tree.
 
 **Parameters**
 

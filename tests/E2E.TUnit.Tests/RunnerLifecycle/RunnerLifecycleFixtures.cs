@@ -79,7 +79,7 @@ public sealed class FixmeFixture : E2E.TUnit.E2ETest
     public void Blank_reason() => Fixme(reason: "   ");
 }
 
-/// <summary><c>describe('hooked')</c>: a <c>[Before(Test)]</c> hook marks the test fixme, as upstream's <c>beforeEach</c> does.</summary>
+/// <summary><c>describe('hooked')</c>: a hook marks the test fixme, as upstream's <c>beforeEach</c> does.</summary>
 public sealed class FixmeFromHookFixture : E2E.TUnit.E2ETest
 {
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(

@@ -93,6 +93,16 @@ public sealed class TextMatch
         return Pattern is null && ignoreCase == true ? ToString() + " (ignoring case)" : ToString();
     }
 
+    /// <summary>
+    /// <see cref="Matches"/> compiled once for a pattern tested against many strings (upstream's <c>compileTextMatcher</c>, see
+    /// <see cref="TextRules.CompileTextMatcher(TextMatch, bool)"/>); a null text matches nothing.
+    /// </summary>
+    internal Func<string?, bool> Compile(bool exact)
+    {
+        var matches = TextRules.CompileTextMatcher(this, exact);
+        return actual => actual is not null && matches(actual);
+    }
+
     internal bool Matches(string? actual, bool exact)
     {
         if (Pattern is null)

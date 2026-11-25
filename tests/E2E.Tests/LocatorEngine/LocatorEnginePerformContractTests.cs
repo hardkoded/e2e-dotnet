@@ -268,6 +268,113 @@ public sealed class LocatorEnginePerformContractTests
     }
 
     [Fact]
+    public async Task Polls_a_positioned_tap_until_its_node_is_visible_with_a_box()
+    {
+        var boxed = new SemanticNode
+        {
+            Ref = "node-1",
+            Role = "button",
+            Name = "Submit",
+            Rect = new BoundingBox(10, 20, 100, 40),
+        };
+        var hidden = new SemanticNode
+        {
+            Ref = "node-1",
+            Role = "button",
+            Name = "Submit",
+            Rect = new BoundingBox(10, 20, 100, 40),
+            States = new NodeStates { Hidden = true },
+        };
+        // The first resolve is the scroll into view, then the reads: no box, hidden, boxed.
+        var scripted = ScriptedLocatorEngine.Make([
+            ScriptedLocatorEngine.Nodes(ScriptedLocatorEngine.Node),
+            ScriptedLocatorEngine.Nodes(ScriptedLocatorEngine.Node),
+            ScriptedLocatorEngine.Nodes(hidden),
+            ScriptedLocatorEngine.Nodes(boxed),
+        ]);
+
+        scripted.Engine.PointerActionKinds = ["tap"];
+        await scripted.Engine.PerformWithinAsync(
+            ScriptedLocatorEngine.Expression,
+            new Point(1, 2),
+            new PointerAction.Tap(),
+            null,
+            CancellationToken.None
+        );
+
+        Assert.Equal(4, scripted.Resolves);
+        Assert.Equal(new Point(11, 22), scripted.PerformedAt[^1].Point);
+        Assert.IsType<PointerAction.Tap>(scripted.PerformedAt[^1].Action);
+    }
+
+    [Fact]
+    public async Task Fails_a_positioned_tap_whose_node_never_gets_a_box_with_LOCATOR_NOT_FOUND_no_later_than_the_deadline()
+    {
+        var clock = new SteppingTime();
+        var scripted = ScriptedLocatorEngine.Make(
+            Enumerable.Repeat(ScriptedLocatorEngine.Nodes(ScriptedLocatorEngine.Node), 50),
+            actionTimeout: TimeSpan.FromMilliseconds(350),
+            clock: clock
+        );
+
+        scripted.Engine.PointerActionKinds = ["tap"];
+        var tapping = scripted.Engine.PerformWithinAsync(
+            ScriptedLocatorEngine.Expression,
+            new Point(1, 2),
+            new PointerAction.Tap(),
+            null,
+            CancellationToken.None
+        );
+        await clock.RunAsync(tapping.ContinueWith(_ => { }, TaskScheduler.Default));
+        var error = await Assert.ThrowsAsync<TestException>(() => tapping);
+
+        Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
+        Assert.Contains("did not become visible with a box to act within", error.Message, StringComparison.Ordinal);
+        // The old loop slept past the deadline and read again after it.
+        Assert.Equal(TimeSpan.FromMilliseconds(350), clock.Elapsed);
+        Assert.Equal<LocatorAction>([new LocatorAction.ScrollIntoView()], scripted.Performed);
+    }
+
+    [Fact]
+    public async Task Fails_a_positioned_tap_with_LOCATOR_NOT_FOUND_not_ACTION_FAILED_when_its_box_would_appear_during_a_read_started_at_the_deadline()
+    {
+        var boxed = new SemanticNode
+        {
+            Ref = "node-1",
+            Role = "button",
+            Name = "Submit",
+            Rect = new BoundingBox(10, 20, 100, 40),
+        };
+        var clock = new SteppingTime();
+        // Each read takes 40 ms on the fake clock; the box shows up in a read that starts at the 350 ms deadline or later.
+        ResolveStep read = budget =>
+        {
+            var node = clock.Elapsed >= TimeSpan.FromMilliseconds(350) ? boxed : ScriptedLocatorEngine.Node;
+            return SlowLocate.AnswerAsync(clock, TimeSpan.FromMilliseconds(40), [node], budget);
+        };
+        var scripted = ScriptedLocatorEngine.Make(
+            Enumerable.Repeat(read, 50),
+            actionTimeout: TimeSpan.FromMilliseconds(350),
+            clock: clock
+        );
+
+        scripted.Engine.PointerActionKinds = ["tap"];
+        var tapping = scripted.Engine.PerformWithinAsync(
+            ScriptedLocatorEngine.Expression,
+            new Point(1, 2),
+            new PointerAction.Tap(),
+            null,
+            CancellationToken.None
+        );
+        await clock.RunAsync(tapping.ContinueWith(_ => { }, TaskScheduler.Default));
+        var error = await Assert.ThrowsAsync<TestException>(() => tapping);
+
+        Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
+        Assert.Empty(scripted.PerformedAt);
+        Assert.Equal<LocatorAction>([new LocatorAction.ScrollIntoView()], scripted.Performed);
+    }
+
+    [Fact]
     public async Task Offsets_a_positioned_tap_from_the_node_origin_when_it_reports_one_else_its_box_corner()
     {
         var boxed = new SemanticNode

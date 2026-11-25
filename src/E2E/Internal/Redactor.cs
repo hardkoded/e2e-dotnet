@@ -22,6 +22,21 @@ internal sealed class Redactor
 
     private static readonly TimeSpan MatchTimeout = TimeSpan.FromSeconds(2);
 
+    /// <summary>The most characters <see cref="CharacterPatterns"/> keeps; one past that is built on every use.</summary>
+    private const int CharacterCacheLimit = 4096;
+
+    /// <summary>Every marker starts with this, so text without it has no marker to cut out.</summary>
+    private const string MarkerOpen = "<secret:";
+
+    /// <summary>
+    /// Each character's pattern, kept for the process. A pattern depends on its character alone, never on a ledger, a
+    /// name, or a value, so every compile shares them.
+    /// </summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<
+        (string Character, bool UnicodeEscapes),
+        Pattern
+    > CharacterPatterns = new();
+
     private static readonly CultureInfo[] CaseCultures =
     [
         CultureInfo.GetCultureInfo("tr"),
@@ -150,7 +165,7 @@ internal sealed class Redactor
         }
 
         // Only what follows the last marker can end in a value cut short.
-        var tail = _known.Split(text)[^1];
+        var tail = text.Contains(MarkerOpen, StringComparison.Ordinal) ? _known.Split(text)[^1] : text;
         var reading = ReadingKey(tail);
         var cut = 0;
         var marker = "";
@@ -226,14 +241,22 @@ internal sealed class Redactor
             return text.Length;
         }
 
-        var cut = Math.Max(0, text.Length - (MaxFormLength - 1));
-        if (!_spansLines)
+        var lineStart = _spansLines ? 0 : text.LastIndexOf('\n') + 1;
+        var cut = Math.Max(lineStart, text.Length - (MaxFormLength - 1));
+
+        // An unfinished marker holds no line break, so the cut stays on the line that starts at lineStart.
+        cut = UnfinishedMarkerBefore(text, cut, _maxMarkerLength);
+        if (cut == 0 || cut == text.Length)
         {
-            cut = Math.Max(cut, text.LastIndexOf('\n') + 1);
+            return cut;
         }
 
-        cut = UnfinishedMarkerBefore(text, cut, _maxMarkerLength);
-        for (var match = _pattern.Match(text); match.Success && match.Index < cut; match = match.NextMatch())
+        if (!_spansLines && text[cut - 1] == '\n')
+        {
+            return cut;
+        }
+
+        for (var match = _pattern.Match(text, lineStart); match.Success && match.Index < cut; match = match.NextMatch())
         {
             if (match.Index + match.Length > cut)
             {
@@ -257,7 +280,7 @@ internal sealed class Redactor
             return cut;
         }
 
-        const string markerOpen = "<secret:";
+        const string markerOpen = MarkerOpen;
         var open = text.LastIndexOf('<', cut - 1);
         if (open == -1 || cut - open >= maxMarkerLength)
         {
@@ -339,6 +362,11 @@ internal sealed class Redactor
 
     private static Pattern Character(string ch, bool unicodeEscapes)
     {
+        if (CharacterPatterns.TryGetValue((ch, unicodeEscapes), out var kept))
+        {
+            return kept;
+        }
+
         var forms = CaseForms(ch);
         var single = forms
             .Where(form => form.EnumerateRunes().Count() == 1)
@@ -351,7 +379,13 @@ internal sealed class Redactor
                         .Select(part => Alternation(Distinct(Spellings(part.ToString(), unicodeEscapes)).Select(Exact)))
                 )
             );
-        return Alternation(Distinct(single).Select(Exact).Concat(expanded));
+        var pattern = Alternation(Distinct(single).Select(Exact).Concat(expanded));
+        if (CharacterPatterns.Count < CharacterCacheLimit)
+        {
+            CharacterPatterns.TryAdd((ch, unicodeEscapes), pattern);
+        }
+
+        return pattern;
     }
 
     /// <summary>The source matching a value, and the most text one match of it can span.</summary>
@@ -563,6 +597,11 @@ internal sealed class Redactor
 
     private string MapPieces(string text, Func<string, string> rewrite)
     {
+        if (!text.Contains(MarkerOpen, StringComparison.Ordinal))
+        {
+            return rewrite(text);
+        }
+
         var pieces = _known!.Split(text);
         if (pieces.Length == 1)
         {

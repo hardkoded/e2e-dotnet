@@ -310,16 +310,16 @@ public abstract class E2ETest : E2EFixture, ITestEndEventReceiver, ITestRegister
         TestOutcome? outcome,
         TestException? soft,
         TestResult? result,
-        E2E.Internal.RuntimeSkip? runtimeSkip = null
+        E2E.Internal.RuntimeSkip? hookSkip = null
     )
     {
         // No outcome means the body never ran (a derived before-test hook threw): TUnit fails the test, so the cache must not see a pass.
         if (outcome is null)
         {
-            // A hook that marked the test fixme ended it before the body: the test is skipped, as upstream's beforeEach fixme is.
-            if (soft is null && runtimeSkip is not null)
+            // A derived before-test hook that marked the test fixme skipped it: the session knows the reason.
+            if (soft is null && hookSkip is not null && result is { State: TestState.Skipped })
             {
-                return new SkipException(runtimeSkip.Reason);
+                return new SkipException(hookSkip.Reason);
             }
 
             return soft ?? new TestException("TEST_FAILED", "The test body did not run.");

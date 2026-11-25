@@ -29,6 +29,23 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
         StringComparer.Ordinal
     );
 
+    // A run that registers no E2ERunFixture ends here, so the sessions xUnit abandoned are still completed.
+    static E2ETest() => AppDomain.CurrentDomain.ProcessExit += (_, _) => CompleteAbandonedAtExit();
+
+    private static void CompleteAbandonedAtExit()
+    {
+        try
+        {
+            CompleteAbandonedAsync().Wait(TimeSpan.FromSeconds(30));
+        }
+#pragma warning disable CA1031 // The process is ending: a cleanup failure must not change the exit code.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            Console.Error.WriteLine("E2E: completing abandoned sessions failed: " + ex.Message);
+        }
+    }
+
     /// <summary>
     /// The test's title: its cache identity, and the <c>Test:</c> line every prompt's context opens with.
     /// The default is the class and method name, with every theory
@@ -203,6 +220,52 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
         }
 
         Running[uniqueId] = this;
+    }
+
+    /// <summary>
+    /// Completes the sessions of tests that xUnit never disposed: a derived <c>InitializeAsync</c> that threw after the base started the session
+    /// (a skip from a hook, say) ends the test with neither the look nor <see cref="DisposeAsync"/>. The run calls it before its report is final.
+    /// </summary>
+    internal static async Task CompleteAbandonedAsync()
+    {
+        List<Exception>? errors = null;
+        foreach (var uniqueId in Running.Keys.ToArray())
+        {
+            if (!Running.TryRemove(uniqueId, out var fixture) || fixture.TakeSession() is not { } session)
+            {
+                continue;
+            }
+
+            try
+            {
+                // The hook ended the test before xUnit could say how: a fixme skip is the one verdict the session knows.
+                session.Complete(
+                    session.RuntimeSkip is { } skip
+                        ? new SkipException(skip.Reason)
+                        : new TestException("TEST_FAILED", "The test ended in InitializeAsync.")
+                );
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                (errors ??= []).Add(ex);
+            }
+            finally
+            {
+                try
+                {
+                    await DisposeSessionAsync(session, null).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    (errors ??= []).Add(ex);
+                }
+            }
+        }
+
+        if (errors is not null)
+        {
+            throw new AggregateException(errors);
+        }
     }
 
     // The test body has ended and the class is not disposed yet: a failed body is looked at now, ahead of the teardown.

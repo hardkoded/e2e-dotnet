@@ -99,6 +99,8 @@ public Task ToBeDisabledAsync(TimeSpan? timeout = null, CancellationToken cancel
 ```
 
 
+Waits for disabled state.
+
 **Parameters**
 
 | Name | Type | Description |
@@ -118,6 +120,10 @@ public Task ToBeDisabledAsync(TimeSpan? timeout = null, CancellationToken cancel
 public Task ToBeEditableAsync(bool editable = true, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
 ```
 
+
+Waits for an enabled control that is not read-only; &lt;code class="paramref"&gt;editable&lt;/code&gt; false waits for a disabled or read-only one.
+Only a node the engine reports a read-only state for is read (on the web, an input, textarea, select, editing host, or a role
+that takes `aria-readonly`); any other node fails either way.
 
 **Parameters**
 

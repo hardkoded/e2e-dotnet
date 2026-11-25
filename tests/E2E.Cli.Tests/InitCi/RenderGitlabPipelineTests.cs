@@ -209,4 +209,21 @@ public sealed class RenderGitlabPipelineTests : InitCiTestBase
         Assert.Contains("adb install -r 'apps/My App/android/app", github, StringComparison.Ordinal);
         Assert.Contains("No .app under apps/My App/build/", github, StringComparison.Ordinal);
     }
+
+    [Fact]
+    // Partial: the job's dotnet image has no Node, so Node and the install come before the build.
+    public void Partial_Builds_the_app_right_before_the_web_job_runs_e2e_when_the_config_serves_a_production_build()
+    {
+        var pipeline = Ci.RenderGitlabPipeline(Base with { WebBuild = "build" });
+        Assert.Contains(
+            "    - pwsh MyApp.E2E/bin/Release/net10.0/playwright.ps1 install --with-deps chromium\n"
+                + "    - command -v node || (apt-get update -qq && apt-get install -y -qq nodejs npm)\n"
+                + "    - npm ci\n"
+                + "    - npm run build\n"
+                + "    - dotnet test -c Release --no-build",
+            pipeline,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("npm run build", Ci.RenderGitlabPipeline(Base), StringComparison.Ordinal);
+    }
 }
