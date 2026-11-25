@@ -323,6 +323,176 @@ public sealed class ResolveExpressionTests
         Assert.Equal(["other"], await Ids(rows.GetByRole("row").Filter(new Regex("FIN", RegexOptions.IgnoreCase))));
     }
 
+    [Fact]
+    public async Task Keeps_every_innermost_text_match_however_deep_or_far_apart_the_echoes_are()
+    {
+        var echoes = ScreenFixture.Create(
+            new SemanticNode
+            {
+                Ref = "screen",
+                Role = "application",
+                Name = "Save",
+                Children =
+                [
+                    new()
+                    {
+                        Ref = "form",
+                        Name = "Save",
+                        Children =
+                        [
+                            new()
+                            {
+                                Ref = "row",
+                                Name = "Save",
+                                Children = [new() { Ref = "label", Text = "Save" }],
+                            },
+                            new() { Ref = "note", Text = "Draft" },
+                        ],
+                    },
+                    new()
+                    {
+                        Ref = "footer",
+                        Children =
+                        [
+                            new()
+                            {
+                                Ref = "button",
+                                Name = "Save",
+                                Children = [new() { Ref = "icon", Text = "Draft" }],
+                            },
+                        ],
+                    },
+                ],
+            },
+            new SemanticNode { Ref = "toast", Text = "Save" }
+        );
+        Assert.Equal(["label", "button", "toast"], await Ids(echoes.GetByText("Save")));
+        // Inside a scope the scope's own echo is not a candidate, and its innermost match still wins.
+        Assert.Empty(await Ids(echoes.GetByText("Draft").GetByText("Save")));
+        Assert.Equal(["label", "button"], await Ids(echoes.GetByRole("application").GetByText("Save")));
+    }
+
+    [Fact]
+    public async Task Resolves_a_nested_has_inside_the_subtree_of_each_enclosing_match()
+    {
+        var table = ScreenFixture.Create(
+            new SemanticNode
+            {
+                Ref = "t1",
+                Role = "table",
+                Children =
+                [
+                    new()
+                    {
+                        Ref = "r1",
+                        Role = "row",
+                        Children =
+                        [
+                            new()
+                            {
+                                Ref = "c1",
+                                Role = "cell",
+                                Text = "Paid",
+                            },
+                        ],
+                    },
+                    new()
+                    {
+                        Ref = "r2",
+                        Role = "row",
+                        Children =
+                        [
+                            new()
+                            {
+                                Ref = "c2",
+                                Role = "cell",
+                                Text = "Due",
+                            },
+                            new()
+                            {
+                                Ref = "b2",
+                                Role = "button",
+                                Name = "Pay",
+                            },
+                        ],
+                    },
+                ],
+            },
+            new SemanticNode
+            {
+                Ref = "t2",
+                Role = "table",
+                Children =
+                [
+                    new()
+                    {
+                        Ref = "r3",
+                        Role = "row",
+                        Children =
+                        [
+                            new()
+                            {
+                                Ref = "c3",
+                                Role = "cell",
+                                Text = "Due",
+                            },
+                        ],
+                    },
+                ],
+            }
+        );
+        var dueRows = table.GetByRole("row").Filter(has: table.GetByText("Due"));
+        var payable = dueRows.Filter(has: table.GetByRole("button"));
+        Assert.Equal(["t1"], await Ids(table.GetByRole("table").Filter(has: payable)));
+        Assert.Equal(["t2"], await Ids(table.GetByRole("table").Filter(has: dueRows, hasNot: payable)));
+        Assert.Equal(
+            ["t1"],
+            await Ids(table.GetByRole("table").Filter(has: table.GetByText("Paid").Or(table.GetByRole("button"))))
+        );
+        // A union inside a scope answers in document order, each node once.
+        Assert.Equal(["c1", "c2", "b2", "c3"], await Ids(table.GetByRole("button").Or(table.GetByRole("cell"))));
+    }
+
+    [Fact]
+    public void Hands_a_selector_inside_has_only_the_descendants_of_each_candidate()
+    {
+        var seen = new List<string[]>();
+        var items = new SemanticNode[]
+        {
+            new()
+            {
+                Ref = "a",
+                Role = "listitem",
+                Children = [new() { Ref = "a1" }],
+            },
+            new() { Ref = "b", Role = "listitem" },
+        };
+        var expression = new LocatorExpression
+        {
+            Kind = "filter",
+            Source = Screen.GetByRole("listitem").Query,
+            Has = new LocatorExpression { Kind = "selector", Selector = "*" },
+        };
+
+        var matches = ExpressionResolution.ResolveExpression(
+            expression,
+            items,
+            new ResolveExpressionOptions
+            {
+                Selector = (_, candidates) =>
+                {
+                    seen.Add([.. candidates.Select(candidate => candidate.Ref)]);
+                    return candidates;
+                },
+            }
+        );
+
+        Assert.Equal(["a"], matches.Select(match => match.Ref));
+        Assert.Equal(2, seen.Count);
+        Assert.Equal(["a1"], seen[0]);
+        Assert.Empty(seen[1]);
+    }
+
     private static async Task<IEnumerable<string>> Ids(Locator locator) =>
         (await locator.ResolveAsync(CancellationToken.None)).Select(match => match.Ref);
 }
