@@ -8,8 +8,7 @@ using E2E.TUnit.Tests.EngineContract;
 namespace E2E.TUnit.Tests.RunnerLifecycle;
 
 /// <summary>
-/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. It is <c>Partial_</c>: it leaves out the consumer's <c>setup-failed</c> skip, and reads each result from the fixture's
-/// <c>report.json</c>.
+/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. Each result is read from the fixture's <c>report.json</c>.
 /// </summary>
 public sealed class RunnerLifecycleTests
 {
@@ -17,7 +16,7 @@ public sealed class RunnerLifecycleTests
     public static void RemoveResults() => RunnerLifecycleResults.Clear();
 
     [Test]
-    public async Task Partial_Reports_test_fixme_tests_skipped_with_the_reason_fixme_registered_or_from_a_body()
+    public async Task Reports_test_fixme_tests_skipped_with_the_reason_fixme_registered_or_from_a_body()
     {
         // Choosing the directory before the nested process starts is what hands it to that process.
         RunnerLifecycleResults.Prepare();
@@ -50,20 +49,21 @@ public sealed class RunnerLifecycleTests
             nameof(FixmeFromHookFixture.Member)
         );
         await AssertSkip(member["skip"]!, "fixme: hook says not yet");
-    }
 
-    [Test]
-    public async Task Partial_Rejects_test_fixme_in_a_setup_test()
-    {
-        RunnerLifecycleResults.Prepare();
-        var (results, _) = await NestedSessionRun.RunAsync(typeof(FixmeInSetupFixture));
-        var setup = results[nameof(FixmeInSetupFixture.SignIn)];
+        var (setupResults, _) = await NestedSessionRun.RunAsync(typeof(FixmeInSetupFixture));
+        var setup = setupResults[nameof(FixmeInSetupFixture.SignIn)];
         await Assert.That(setup.Result).IsEqualTo("Failed");
         await Assert.That(setup.Message).Contains("Fixme() cannot skip a setup test");
-
-        var report = JsonNode.Parse(File.ReadAllText(RunnerLifecycleResults.ReportOf(typeof(FixmeInSetupFixture))))!;
-        var error = ByTitle(report, nameof(FixmeInSetupFixture.SignIn))["attempts"]![0]!["error"]!;
+        await Assert.That(setupResults[nameof(FixmeInSetupFixture.Consumer)].Result).IsEqualTo("Skipped");
+        var setupReport = JsonNode.Parse(
+            File.ReadAllText(RunnerLifecycleResults.ReportOf(typeof(FixmeInSetupFixture)))
+        )!;
+        var error = ByTitle(setupReport, nameof(FixmeInSetupFixture.SignIn))["attempts"]![0]!["error"]!;
         await Assert.That((string?)error["code"]).IsEqualTo("INVALID_ARGUMENT");
+        await Assert.That((string?)error["message"]).Contains("Fixme() cannot skip a setup test");
+        var consumer = ByTitle(setupReport, nameof(FixmeInSetupFixture.Consumer));
+        await Assert.That((string?)consumer["status"]).IsEqualTo("skipped");
+        await Assert.That((string?)consumer["skip"]!["cause"]).IsEqualTo("setup-failed");
     }
 
     [Test]

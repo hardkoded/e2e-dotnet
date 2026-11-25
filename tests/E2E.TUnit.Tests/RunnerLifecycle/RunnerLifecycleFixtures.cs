@@ -122,6 +122,10 @@ public sealed class FixmeInSetupFixture : E2E.TUnit.E2ETest
         Fixme(true, "a setup may not skip");
         await SaveSessionAsync("admin");
     }
+
+    [Test, Explicit]
+    [E2ESession("admin")]
+    public void Consumer() { }
 }
 
 /// <summary>

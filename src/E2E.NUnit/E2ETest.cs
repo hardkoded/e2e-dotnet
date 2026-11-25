@@ -155,7 +155,7 @@ public abstract partial class E2ETest : E2EFixture
             return SkipFixmeWithoutSessionAsync(method, fixme);
         }
 
-        return StartSessionAsync(
+        var started = StartSessionAsync(
             CacheTitle(current.Test),
             AttemptOf(current),
             RecordSoftFailure,
@@ -163,6 +163,32 @@ public abstract partial class E2ETest : E2EFixture
             current.CancellationToken,
             method
         );
+        return SkipWhenSetupFailedAsync(started, method, current.CancellationToken);
+    }
+
+    // The setup test that saves the session this test restores failed: the test is reported skipped, as upstream's scheduler does.
+    private async Task SkipWhenSetupFailedAsync(Task started, MethodInfo? method, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await started.ConfigureAwait(false);
+        }
+        catch (SetupFailedException failure)
+        {
+            var discovered = method is null
+                ? null
+                : RunSelection
+                    .Discover([GetType()], GetType().Assembly, includeExplicit: true)
+                    .FirstOrDefault(test => test.Title == method.Name);
+            if (discovered is not null)
+            {
+                await HostTestFilters
+                    .ReportSetupFailedAsync(Config, discovered, failure, ResultsDirectory, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            Assert.Ignore(E2E.Units.SetupFailedSkip(failure.Session, failure.SetupTestId).Reason);
+        }
     }
 
     // A test registered with [Fixme] that the run fixture did not collect (an [Explicit] fixture runs alone) is reported here, and skips before its session starts.

@@ -1499,33 +1499,6 @@
       "baselinedAt": "2026-11-18T15:41:48.2143413+00:00"
     },
     {
-      "hash": "51ca8e87b50866f6",
-      "ruleId": "SW003",
-      "filePath": "src/E2E.XUnit.V3/E2ETest.cs",
-      "lineNumber": 136,
-      "codeSnippet": "catch (OperationCanceledException)\n        {\n            // The look is a courtesy: the test's own failure is the one to report.\n        }",
-      "message": "Empty catch block swallows exceptions without handling",
-      "baselinedAt": "2026-11-18T15:41:48.2143455+00:00"
-    },
-    {
-      "hash": "5a14e5439b5c49e4",
-      "ruleId": "SW003",
-      "filePath": "src/E2E.XUnit.V3/E2ETest.cs",
-      "lineNumber": 185,
-      "codeSnippet": "catch (OperationCanceledException)\n        {\n            // The run was cancelled: the test's own result stands.\n        }",
-      "message": "Empty catch block swallows exceptions without handling",
-      "baselinedAt": "2026-11-18T15:41:48.2143478+00:00"
-    },
-    {
-      "hash": "f9ce5918a5a67d0d",
-      "ruleId": "SW003",
-      "filePath": "src/E2E.XUnit.V3/E2ETest.cs",
-      "lineNumber": 203,
-      "codeSnippet": "catch (OperationCanceledException)\n            {\n                // The run was cancelled: the test's own result stands.\n            }",
-      "message": "Empty catch block swallows exceptions without handling",
-      "baselinedAt": "2026-11-18T15:41:48.2143502+00:00"
-    },
-    {
       "hash": "a724eab5fce6b0cf",
       "ruleId": "SW003",
       "filePath": "tests/E2E.Acp.Tests/Executor/AcpHarness.cs",
@@ -4161,6 +4134,33 @@
       "codeSnippet": "Task.Delay(1500)",
       "message": "Test uses Task.Delay(1500) which may indicate a timing-dependent test",
       "baselinedAt": "2026-11-22T19:04:41.9848951+00:00"
+    },
+    {
+      "hash": "51ca8e87b50866f6",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.XUnit.V3/E2ETest.cs",
+      "lineNumber": 136,
+      "codeSnippet": "catch (OperationCanceledException)\n        {\n            // The look is a courtesy: the test's own failure is the one to report.\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:41:48.2143455+00:00"
+    },
+    {
+      "hash": "f9ce5918a5a67d0d",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.XUnit.V3/E2ETest.cs",
+      "lineNumber": 203,
+      "codeSnippet": "catch (OperationCanceledException)\n            {\n                // The run was cancelled: the test's own result stands.\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:41:48.2143502+00:00"
+    },
+    {
+      "hash": "43d38b513388976b",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.XUnit.V3/E2ETest.cs",
+      "lineNumber": 351,
+      "codeSnippet": "catch (OperationCanceledException)\n        {\n            // The run was cancelled: the test's own result stands.\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-25T21:36:59.2554468+00:00"
     }
   ]
 }

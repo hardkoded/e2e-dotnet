@@ -17,7 +17,7 @@ namespace E2E.XUnit.V3;
 /// A test that restores a session nobody has saved yet runs the setup test that declares it first, once per run, so a dependent can run
 /// alone (upstream's runner schedules the setup too). The dependent runs it on a new instance of the class (parameterless constructor), in a
 /// session of its own and without the class's own <c>InitializeAsync</c> and <c>DisposeAsync</c>; exactly one setup test of the assembly must
-/// declare the name, or the restore fails with <c>SESSION_UNAVAILABLE</c>, as it does when the setup fails. xUnit then skips that setup test
+/// declare the name, or the restore fails with <c>SESSION_UNAVAILABLE</c>. A setup that failed skips the test with the cause <c>setup-failed</c> (upstream's <c>setupFailedSkip</c>). xUnit then skips that setup test
 /// when its turn comes, and still runs one that no selected test needs, which upstream's runner does not. <see cref="E2ETest"/> runs the setup
 /// tests of a class before its other tests (<see cref="SetupTestMethodOrderer"/>).
 /// </para>

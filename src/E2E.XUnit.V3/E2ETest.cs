@@ -104,16 +104,27 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
     /// <summary>
     /// Skips the running test as fixme when <paramref name="condition"/> holds (upstream's <c>test.fixme(condition, reason)</c>). The skip reports
     /// the cause <c>fixme</c> and the reason <c>fixme</c>, or <c>fixme: &lt;reason&gt;</c> for a reason that is not blank. Like <c>Assert.Skip</c>
-    /// it ends the test method at once. A call from a setup test fails it with the message "Fixme() cannot skip a setup test" (the report code is <c>TEST_FAILED</c>: the host keeps only the message); a call outside a test throws
+    /// it ends the test method at once. A call from a setup test fails it with the message "Fixme() cannot skip a setup test" (the report code is <c>INVALID_ARGUMENT</c>); a call outside a test throws
     /// <see cref="InvalidOperationException"/> where upstream has <c>COLLECTION_ERROR</c>.
     /// </summary>
     public void Fixme(bool condition = true, string? reason = null)
     {
-        if (E2E.Internal.Skip.FixmeRunningTest(CurrentSession, condition, reason) is { } skip)
+        try
         {
-            throw new InvalidOperationException(RunSelection.DynamicSkipToken + skip.Reason);
+            if (E2E.Internal.Skip.FixmeRunningTest(CurrentSession, condition, reason) is { } skip)
+            {
+                throw new InvalidOperationException(RunSelection.DynamicSkipToken + skip.Reason);
+            }
+        }
+        catch (TestException refused)
+        {
+            // xUnit keeps only a failure's type and message, so the refusal is kept here for the report to read its code.
+            _refused = refused;
+            throw;
         }
     }
+
+    private TestException? _refused;
 
     /// <summary>
     /// Changes the running test's timeout from its body or a set-up, counted from the start of the attempt like the configured
@@ -149,7 +160,27 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
         }
 
         var started = StartSessionAsync(CacheTitle(test), 1, null, HasFailed, current.CancellationToken, method);
-        return new ValueTask(RegisterRunningAsync(started, test.UniqueID));
+        return new ValueTask(RegisterRunningAsync(started, test.UniqueID, method!, current.CancellationToken));
+    }
+
+    // The setup test that saves the session this test restores failed: the test is reported skipped, as upstream's scheduler does.
+    private async Task SkipSetupFailedAsync(
+        SetupFailedException failure,
+        MethodInfo method,
+        CancellationToken cancellationToken
+    )
+    {
+        var discovered = RunSelection
+            .Discover([GetType()], GetType().Assembly, includeExplicit: true)
+            .FirstOrDefault(test => test.Title == method.Name);
+        if (discovered is not null)
+        {
+            await HostTestFilters
+                .ReportSetupFailedAsync(Config, discovered, failure, ResultsDirectory, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        RunSelection.SkipWith(E2E.Units.SetupFailedSkip(failure.Session, failure.SetupTestId).Reason);
     }
 
     // A test registered with [Fixme] that the run fixture did not collect (an [Explicit] fixture runs alone) is reported here, and skips before its session starts.
@@ -172,9 +203,22 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
         RunSelection.SkipWith(E2E.Internal.Skip.FixmeReason(fixme.Reason));
     }
 
-    private async Task RegisterRunningAsync(Task started, string uniqueId)
+    private async Task RegisterRunningAsync(
+        Task started,
+        string uniqueId,
+        MethodInfo method,
+        CancellationToken cancellationToken
+    )
     {
-        await started.ConfigureAwait(false);
+        try
+        {
+            await started.ConfigureAwait(false);
+        }
+        catch (SetupFailedException failure)
+        {
+            await SkipSetupFailedAsync(failure, method, cancellationToken).ConfigureAwait(false);
+        }
+
         Running[uniqueId] = this;
     }
 
@@ -238,7 +282,7 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
         var late = fixture.SettleLate();
         if (Xunit.TestContext.Current.TestState is { Result: TestResult.Failed } state)
         {
-            Look(fixture, ErrorForCache(state, null)!);
+            Look(fixture, ErrorForCache(state, null, fixture._refused)!);
             return;
         }
 
@@ -336,7 +380,7 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
 
         try
         {
-            session.Complete(ErrorForCache(current.TestState, soft) ?? late, current.CancellationToken);
+            session.Complete(ErrorForCache(current.TestState, soft, _refused) ?? late, current.CancellationToken);
         }
         finally
         {
@@ -382,7 +426,7 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
 
     // xUnit keeps only the failure's type and message. The session itself knows when an agent call hit
     // a model outage or a stale replay, so the cache still keeps its entries then.
-    private static Exception? ErrorForCache(TestResultState? state, TestException? soft)
+    private static Exception? ErrorForCache(TestResultState? state, TestException? soft, TestException? refused = null)
     {
         // A soft failure outranks a skip: xUnit fails the test at dispose, so the cache sees a failure.
         if (state?.Result is TestResult.Passed || (soft is not null && state?.Result is TestResult.Skipped))
@@ -406,6 +450,16 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
             return new OperationCanceledException(
                 string.IsNullOrWhiteSpace(message) ? "The test was cancelled." : message
             );
+        }
+
+        // The refusal of Fixme keeps its own code, which the host's type and message cannot carry.
+        if (
+            refused is not null
+            && string.Equals(type, typeof(TestException).FullName, StringComparison.Ordinal)
+            && string.Equals(message, refused.Message, StringComparison.Ordinal)
+        )
+        {
+            return refused;
         }
 
         return new TestException("TEST_FAILED", string.IsNullOrWhiteSpace(message) ? "The test failed." : message);

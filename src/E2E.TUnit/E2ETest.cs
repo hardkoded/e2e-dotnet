@@ -126,7 +126,34 @@ public abstract class E2ETest : E2EFixture, ITestEndEventReceiver, ITestRegister
         // StartSessionAsync reserved the slot a host the test body launches finds its attempt through, in this hook's flow; TUnit hands the body only
         // the async-local values a hook asks it to.
         context.AddAsyncLocalValues();
-        await started.ConfigureAwait(false);
+        try
+        {
+            await started.ConfigureAwait(false);
+        }
+        catch (SetupFailedException failure)
+        {
+            // The setup test that saves the session this test restores failed: the test is reported skipped, as upstream's scheduler does.
+            await SkipSetupFailedAsync(failure, details, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task SkipSetupFailedAsync(
+        SetupFailedException failure,
+        TestDetails details,
+        CancellationToken cancellationToken
+    )
+    {
+        var discovered = RunSelection
+            .Discover([GetType()], GetType().Assembly, includeExplicit: true)
+            .FirstOrDefault(test => test.Title == details.MethodName);
+        if (discovered is not null)
+        {
+            await HostTestFilters
+                .ReportSetupFailedAsync(Config, discovered, failure, ResultsDirectory, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        Skip.Test(E2E.Units.SetupFailedSkip(failure.Session, failure.SetupTestId).Reason);
     }
 
     /// <summary>

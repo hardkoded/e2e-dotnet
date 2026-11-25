@@ -543,6 +543,7 @@ internal static partial class ReportWire
         Compose(
             ("cause", skip.Cause),
             ("reason", Clip(skip.Reason, 8192)),
+            ("relatedId", string.IsNullOrEmpty(skip.RelatedId) ? null : skip.RelatedId),
             ("filter", skip.Cause == "filtered" && !string.IsNullOrEmpty(skip.Filter) ? Clip(skip.Filter, 256) : null)
         );
 
