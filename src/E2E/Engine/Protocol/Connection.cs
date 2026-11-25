@@ -145,7 +145,6 @@ public sealed class Connection : IDisposable
     private readonly object _gate = new();
     private long _nextId;
     private string? _closed;
-    private bool _stopped;
 
     /// <summary>Reads and writes <paramref name="streams"/> until the input ends, fails, or the connection closes.</summary>
     public Connection(MessageStreams streams, ConnectionOptions? options = null)
@@ -258,15 +257,7 @@ public sealed class Connection : IDisposable
         }
 
         _outbox.Writer.TryComplete();
-        try
-        {
-            _stop.Cancel();
-        }
-        catch (ObjectDisposedException)
-        {
-            // Disposed already: the loops were told.
-            _stopped = true;
-        }
+        _stop.Cancel();
 
         _onClose?.Invoke(reason);
     }
@@ -275,7 +266,6 @@ public sealed class Connection : IDisposable
     public void Dispose()
     {
         Close("the connection was disposed");
-        _stop.Dispose();
     }
 
     private static RpcErrorObject DefaultEncodeError(Exception cause) => new(RpcErrors.InternalError, cause.Message);
