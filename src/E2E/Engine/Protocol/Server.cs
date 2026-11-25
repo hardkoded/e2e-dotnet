@@ -50,7 +50,7 @@ public static class ProtocolServer
 
     private sealed class EngineServer
     {
-        private readonly EngineHandle? _engineSource;
+        private readonly EngineHandle? _source;
         private readonly Func<JsonNode?, Task<EngineHandle>>? _factory;
         private readonly Connection _connection;
         private readonly ManualResetEventSlim _ready = new();
@@ -69,7 +69,7 @@ public static class ProtocolServer
 
         public EngineServer(EngineHandle? engine, Func<JsonNode?, Task<EngineHandle>>? factory, MessageStreams streams)
         {
-            _engineSource = engine;
+            _source = engine;
             _factory = factory;
             _connection = new Connection(
                 streams,
@@ -242,7 +242,7 @@ public static class ProtocolServer
         {
             if (_engine is null)
             {
-                var engine = _engineSource
+                var engine = _source
                     ?? await _factory!(parameters!["initializationOptions"]).ConfigureAwait(false)
                     ?? throw new InvalidOperationException(
                         "the engine factory must return an EngineManifest.DefineEngine handle"
@@ -595,7 +595,7 @@ public static class ProtocolServer
         private OperationContext Operation(WireOperation wire) =>
             new(wire.Origin == "agent" ? OperationOrigin.Agent : OperationOrigin.Test)
             {
-                Signal = Token(wire.Signal),
+                Signal = Signal(wire.Signal),
                 Timeout = TimeSpan.FromMilliseconds(wire.TimeoutMs),
                 RunId = wire.RunId,
                 AttemptId = wire.AttemptId,
@@ -615,19 +615,17 @@ public static class ProtocolServer
         private EngineCleanupContext Cleanup(JsonNode? parameters)
         {
             var wire = WireCodec.Read<WireCleanup>(parameters);
-            return new EngineCleanupContext(Token(wire.Signal), TimeSpan.FromMilliseconds(wire.TimeoutMs));
+            return new EngineCleanupContext(Signal(wire.Signal), TimeSpan.FromMilliseconds(wire.TimeoutMs));
         }
 
         private CancellationToken Signal(JsonNode? parameters) =>
-            Token(WireCodec.Read<WireSignal>(parameters?["signal"]));
-
-        private CancellationToken Signal(WireSignal wire) => Token(wire);
+            Signal(WireCodec.Read<WireSignal>(parameters?["signal"]));
 
         /// <summary>
         /// The local token for a wire signal: one per id, so an engine comparing tokens sees the client's identity. One first seen during an
         /// attempt is forgotten when the attempt ends; the rest live as long as the connection.
         /// </summary>
-        private CancellationToken Token(WireSignal wire)
+        private CancellationToken Signal(WireSignal wire)
         {
             if (wire.Aborted == true)
             {
