@@ -191,6 +191,21 @@ public static class EngineErrorCodes
     /// <summary>Any other engine failure.</summary>
     public const string EngineFailure = "ENGINE_FAILURE";
 
+    /// <summary>Every engine error code, in the contract's order. Upstream's <c>ENGINE_ERROR_CODES</c>.</summary>
+    public static IReadOnlyList<string> All { get; } =
+    [
+        NodeStale,
+        FrameNotFound,
+        FrameAmbiguous,
+        NotActionable,
+        ActionMayHaveCommitted,
+        OperationTimeout,
+        Cancelled,
+        UnsupportedCapability,
+        InvalidState,
+        EngineFailure,
+    ];
+
     /// <summary>Whether <paramref name="code"/> describes a repeatable read and may be retried.</summary>
     public static bool IsRetryable(string? code)
     {

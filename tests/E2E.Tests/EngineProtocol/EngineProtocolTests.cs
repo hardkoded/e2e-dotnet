@@ -2,8 +2,10 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using E2E.Engine;
+using E2E.Engine.Protocol;
 
 namespace E2E.Tests.EngineProtocol;
 
@@ -15,6 +17,41 @@ namespace E2E.Tests.EngineProtocol;
 public sealed class EngineProtocolTests
 {
     private static readonly JsonSchemaCheck Validate = JsonSchemaCheck.FromFile("engine-manifest-v1.schema.json");
+
+    [Fact]
+    public void Encodes_only_wire_payload_bytes_and_keeps_ordinary_path_actions_unchanged()
+    {
+        byte[] bytes = [0, 128, 255];
+        var action = new LocatorAction.SetInputFilePayloads([
+            new FilePayload("a.bin", "application/octet-stream", bytes),
+            new FilePayload("empty.bin", "application/octet-stream", []),
+        ]);
+
+        var wire = Assert.IsType<WireLocatorAction.SetInputFilePayloads>(ProtocolMessages.EncodeLocatorAction(action));
+
+        Assert.Equal(
+            [
+                new WireFilePayload("a.bin", "application/octet-stream", "AID/"),
+                new WireFilePayload("empty.bin", "application/octet-stream", ""),
+            ],
+            wire.Files
+        );
+        var crossed = JsonSerializer.Deserialize<WireLocatorAction.SetInputFilePayloads>(
+            JsonSerializer.Serialize(wire)
+        )!;
+        var decoded = Assert.IsType<LocatorAction.SetInputFilePayloads>(ProtocolMessages.DecodeLocatorAction(crossed));
+        Assert.Equal(action.Files.Count, decoded.Files.Count);
+        for (var index = 0; index < action.Files.Count; index++)
+        {
+            Assert.Equal(action.Files[index].Name, decoded.Files[index].Name);
+            Assert.Equal(action.Files[index].MimeType, decoded.Files[index].MimeType);
+            Assert.Equal(action.Files[index].Buffer, decoded.Files[index].Buffer);
+        }
+
+        var paths = new LocatorAction.SetInputFiles(["a.bin"]);
+        Assert.Same(paths, Assert.IsType<WireLocatorAction.Plain>(ProtocolMessages.EncodeLocatorAction(paths)).Action);
+        Assert.Same(paths, ProtocolMessages.DecodeLocatorAction(new WireLocatorAction.Plain(paths)));
+    }
 
     /// <summary>
     /// Partial: upstream sends the read through a loopback JSON-RPC pair and reads the values on the other side. The port checks that an
@@ -40,12 +77,12 @@ public sealed class EngineProtocolTests
             ReadStyle = read,
         };
 
-        var handle = EngineManifest.DefineEngine(toy);
+        var handle = E2E.Engine.EngineManifest.DefineEngine(toy);
 
         Assert.Contains("computed-style", handle.Capabilities);
         Assert.Same(read, handle.ReadStyle);
         var refused = Assert.Throws<ConfigurationException>(() =>
-            EngineManifest.DefineEngine(
+            E2E.Engine.EngineManifest.DefineEngine(
                 new EngineSpec
                 {
                     Name = "bad",
@@ -59,13 +96,17 @@ public sealed class EngineProtocolTests
     }
 
     /// <summary>
-    /// Partial: upstream also describes a running engine and checks that the manifest it produces validates. The port has no
-    /// <c>describeEngine</c>; it checks the manifests the schema refuses.
+    /// Partial: upstream also checks that <c>connectEngine</c> refuses each manifest the schema refuses. The port has no
+    /// <c>connectEngine</c>; it checks the manifests the schema refuses, and that <c>DescribeEngine</c> yields one the schema accepts.
     /// </summary>
     [Fact]
     public void Partial_Describes_an_engine_with_a_manifest_the_published_schema_accepts_and_the_schema_names_every_method_and_kind()
     {
         var schema = ReportSchema.ReadJson("engine-manifest-v1.schema.json");
+        Assert.Equal(
+            ProtocolMessages.EngineMethods,
+            schema["properties"]!["methods"]!["items"]!["enum"]!.AsArray().Select(method => method!.GetValue<string>())
+        );
         Assert.Equal(
             EngineActionKinds.KnownLocator,
             schema["properties"]!["actions"]!["items"]!["enum"]!.AsArray().Select(kind => kind!.GetValue<string>())
@@ -81,6 +122,40 @@ public sealed class EngineProtocolTests
                 JsonNode.Parse(
                     """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe", "engine/perform", "engine/performAt"], "actions": ["tap", "blur"], "pointerActions": ["tap"] }"""
                 )!
+            )
+        );
+
+        var described = ProtocolManifest.DescribeEngine(
+            E2E.Engine.EngineManifest.DefineEngine(
+                new EngineSpec
+                {
+                    Name = "toy",
+                    Version = "1.0.0",
+                    SpiVersion = 1,
+                    Observe = (_, _) => Task.FromResult<EngineSnapshot>(null!),
+                    Actions = ["tap", "blur"],
+                    Perform = (_, _, _) => Task.CompletedTask,
+                    PointerActions = ["tap"],
+                    PerformAt = (_, _, _) => Task.CompletedTask,
+                    Keyboard = new EngineKeyboardSpec
+                    {
+                        Type = (_, _, _) => Task.CompletedTask,
+                        Press = (_, _) => Task.CompletedTask,
+                    },
+                    Init = _ => Task.CompletedTask,
+                }
+            )
+        );
+        Assert.True(
+            Validate.IsValid(
+                JsonSerializer.SerializeToNode(
+                    described,
+                    new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+                    }
+                )
             )
         );
 
