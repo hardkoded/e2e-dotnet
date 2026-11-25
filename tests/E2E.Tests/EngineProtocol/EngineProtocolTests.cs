@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.Json.Nodes;
+using System.Text.Json;
 using E2E.Engine;
+using E2E.Engine.Protocol;
 
 namespace E2E.Tests.EngineProtocol;
 
@@ -15,6 +17,40 @@ namespace E2E.Tests.EngineProtocol;
 public sealed class EngineProtocolTests
 {
     private static readonly JsonSchemaCheck Validate = JsonSchemaCheck.FromFile("engine-manifest-v1.schema.json");
+
+    [Fact]
+    public void Encodes_only_wire_payload_bytes_and_keeps_ordinary_path_actions_unchanged()
+    {
+        // The port's payload is a byte[]: there is no subarray view, so the bytes are the three the upstream view selects.
+        byte[] bytes = [0, 128, 255];
+        var action = new LocatorAction.SetInputFilePayloads([
+            new FilePayload("a.bin", "application/octet-stream", bytes),
+            new FilePayload("empty.bin", "application/octet-stream", []),
+        ]);
+
+        var wire = Assert.IsType<WireSetInputFilePayloads>(Protocol.EncodeLocatorAction(action));
+
+        Assert.Equal(
+            [
+                new WireFilePayload("a.bin", "application/octet-stream", "AID/"),
+                new WireFilePayload("empty.bin", "application/octet-stream", ""),
+            ],
+            wire.Files
+        );
+        var overTheWire = JsonSerializer.Deserialize<WireSetInputFilePayloads>(JsonSerializer.Serialize(wire))!;
+        var decoded = Assert.IsType<LocatorAction.SetInputFilePayloads>(Protocol.DecodeLocatorAction(overTheWire));
+        Assert.Equal(action.Files.Count, decoded.Files.Count);
+        for (var i = 0; i < action.Files.Count; i++)
+        {
+            Assert.Equal(action.Files[i].Name, decoded.Files[i].Name);
+            Assert.Equal(action.Files[i].MimeType, decoded.Files[i].MimeType);
+            Assert.Equal(action.Files[i].Buffer, decoded.Files[i].Buffer);
+        }
+
+        var paths = new LocatorAction.SetInputFiles(["a.bin"]);
+        Assert.Same(paths, Protocol.EncodeLocatorAction(paths));
+        Assert.Same(paths, Protocol.DecodeLocatorAction(paths));
+    }
 
     /// <summary>
     /// Partial: upstream sends the read through a loopback JSON-RPC pair and reads the values on the other side. The port checks that an
