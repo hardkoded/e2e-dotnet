@@ -66,7 +66,7 @@ public sealed class SetupDependenciesTests
     }
 
     [Test]
-    public void A_failed_setup_test_fails_each_dependent_without_running_again()
+    public void A_failed_setup_test_skips_each_dependent_without_running_again()
     {
         var results = NestedSessionRun.Run(
             nameof(BrokenSetupFixture.Consumes_the_broken_session),
@@ -81,11 +81,8 @@ public sealed class SetupDependenciesTests
             }
         )
         {
-            Assert.That(results[name].ResultState.Status, Is.EqualTo(TestStatus.Failed));
-            Assert.That(
-                results[name].Message,
-                Does.Contain("SESSION_UNAVAILABLE").Or.Contain("session \"broken\" was not produced")
-            );
+            Assert.That(results[name].ResultState.Status, Is.EqualTo(TestStatus.Skipped));
+            Assert.That(results[name].Message, Does.Contain("setup for session \"broken\" failed"));
         }
 
         Assert.That(BrokenSetupFixture.Runs, Is.EqualTo(1));

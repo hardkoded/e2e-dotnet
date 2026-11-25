@@ -18,7 +18,7 @@ namespace E2E.NUnit;
 /// A test that restores a session nobody has saved yet runs the setup test that declares it first, once per run, so a dependent can run
 /// alone (upstream's runner schedules the setup too). The dependent runs it on a new instance of the class (parameterless constructor), in a
 /// session of its own and without the class's own <c>[SetUp]</c> and <c>[TearDown]</c> methods; exactly one setup test of the assembly must
-/// declare the name, or the restore fails with <c>SESSION_UNAVAILABLE</c>, as it does when the setup fails. NUnit then skips that setup test
+/// declare the name, or the restore fails with <c>SESSION_UNAVAILABLE</c>. A setup that failed skips the test with the cause <c>setup-failed</c> (upstream's <c>setupFailedSkip</c>). NUnit then skips that setup test
 /// when its turn comes, and still runs one that no selected test needs, which upstream's runner does not. The setup test gets an early
 /// <c>[Order]</c>, so it runs before the other tests of its own fixture.
 /// </para>
