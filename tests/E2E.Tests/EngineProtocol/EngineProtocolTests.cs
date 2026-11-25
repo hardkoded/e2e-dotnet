@@ -76,12 +76,12 @@ public sealed class EngineProtocolTests
             ReadStyle = read,
         };
 
-        var handle = EngineManifest.DefineEngine(toy);
+        var handle = E2E.Engine.EngineManifest.DefineEngine(toy);
 
         Assert.Contains("computed-style", handle.Capabilities);
         Assert.Same(read, handle.ReadStyle);
         var refused = Assert.Throws<ConfigurationException>(() =>
-            EngineManifest.DefineEngine(
+            E2E.Engine.EngineManifest.DefineEngine(
                 new EngineSpec
                 {
                     Name = "bad",
@@ -95,13 +95,17 @@ public sealed class EngineProtocolTests
     }
 
     /// <summary>
-    /// Partial: upstream also describes a running engine and checks that the manifest it produces validates. The port has no
-    /// <c>describeEngine</c>; it checks the manifests the schema refuses.
+    /// Partial: upstream also checks that <c>connectEngine</c> refuses each manifest the schema refuses. The port has no
+    /// <c>connectEngine</c>; it checks the manifests the schema refuses, and that <c>DescribeEngine</c> yields one the schema accepts.
     /// </summary>
     [Fact]
     public void Partial_Describes_an_engine_with_a_manifest_the_published_schema_accepts_and_the_schema_names_every_method_and_kind()
     {
         var schema = ReportSchema.ReadJson("engine-manifest-v1.schema.json");
+        Assert.Equal(
+            Protocol.EngineMethods,
+            schema["properties"]!["methods"]!["items"]!["enum"]!.AsArray().Select(method => method!.GetValue<string>())
+        );
         Assert.Equal(
             EngineActionKinds.KnownLocator,
             schema["properties"]!["actions"]!["items"]!["enum"]!.AsArray().Select(kind => kind!.GetValue<string>())
@@ -117,6 +121,40 @@ public sealed class EngineProtocolTests
                 JsonNode.Parse(
                     """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe", "engine/perform", "engine/performAt"], "actions": ["tap", "blur"], "pointerActions": ["tap"] }"""
                 )!
+            )
+        );
+
+        var described = ProtocolManifest.DescribeEngine(
+            E2E.Engine.EngineManifest.DefineEngine(
+                new EngineSpec
+                {
+                    Name = "toy",
+                    Version = "1.0.0",
+                    SpiVersion = 1,
+                    Observe = (_, _) => Task.FromResult<EngineSnapshot>(null!),
+                    Actions = ["tap", "blur"],
+                    Perform = (_, _, _) => Task.CompletedTask,
+                    PointerActions = ["tap"],
+                    PerformAt = (_, _, _) => Task.CompletedTask,
+                    Keyboard = new EngineKeyboardSpec
+                    {
+                        Type = (_, _, _) => Task.CompletedTask,
+                        Press = (_, _) => Task.CompletedTask,
+                    },
+                    Init = _ => Task.CompletedTask,
+                }
+            )
+        );
+        Assert.True(
+            Validate.IsValid(
+                JsonSerializer.SerializeToNode(
+                    described,
+                    new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+                    }
+                )
             )
         );
 
