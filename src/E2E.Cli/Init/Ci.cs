@@ -104,6 +104,7 @@ internal sealed record CiTarget(string Name, string Platform);
 /// <param name="YarnBerry">Yarn 2 or later, whose frozen install is <c>--immutable</c> (upstream's <c>yarnBerry</c>).</param>
 /// <param name="NpmLockfile">Whether an npm lockfile is committed, which <c>npm ci</c> needs; without one the install is <c>npm install</c>.</param>
 /// <param name="Junit">Whether the test project writes a JUnit report with the <c>junit</c> logger (upstream's <c>--reporter list,junit</c>).</param>
+/// <param name="WebBuild">The package.json script the web job runs before the tests: the app's production build, which the config serves in CI (upstream's <c>webBuild</c>).</param>
 internal sealed record WorkflowContext(
     string ProjectFile,
     string DotnetVersion,
@@ -114,7 +115,8 @@ internal sealed record WorkflowContext(
     string Manager = "npm",
     bool YarnBerry = false,
     bool Junit = true,
-    bool NpmLockfile = true
+    bool NpmLockfile = true,
+    string? WebBuild = null
 );
 
 /// <summary>One CI service <c>e2e init --ci</c> writes a pipeline for (upstream's <c>CiService</c>).</summary>
@@ -614,7 +616,8 @@ internal static partial class Ci
         )
         {
             if (
-                new[] { "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb", "package-lock.json" }.Any(file =>
+                PackageManagerField(current) is not null
+                || new[] { "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb", "package-lock.json" }.Any(file =>
                     System.IO.File.Exists(Path.Combine(current, file))
                 )
             )
@@ -634,6 +637,13 @@ internal static partial class Ci
         }
 
         bool Has(string file) => System.IO.File.Exists(Path.Combine(found, file));
+
+        // The packageManager field wins, then a lockfile (upstream's detectPackageManager).
+        if (PackageManagerField(found) is { } named)
+        {
+            return (named.Split('@')[0], YarnBerryField().IsMatch(named) || Has(".yarnrc.yml"));
+        }
+
         if (Has("pnpm-lock.yaml"))
         {
             return ("pnpm", false);
@@ -646,6 +656,34 @@ internal static partial class Ci
 
         return Has("bun.lock") || Has("bun.lockb") ? ("bun", false) : ("npm", false);
     }
+
+    /// <summary>The <c>packageManager</c> field of the package.json in <paramref name="dir"/>, such as <c>pnpm@10.0.0</c>, when it names npm, pnpm, yarn, or bun (upstream's <c>fieldManager</c>).</summary>
+    private static string? PackageManagerField(string dir)
+    {
+        try
+        {
+            var file = Path.Combine(dir, "package.json");
+            if (
+                System.IO.File.Exists(file)
+                && JsonNode.Parse(System.IO.File.ReadAllText(file)) is JsonObject manifest
+                && manifest["packageManager"] is JsonValue field
+                && field.TryGetValue<string>(out var text)
+                && text.Split('@')[0] is "npm" or "pnpm" or "yarn" or "bun"
+            )
+            {
+                return text;
+            }
+        }
+        catch (Exception cause) when (cause is JsonException or IOException or UnauthorizedAccessException)
+        {
+            // A package.json that does not read names no manager.
+        }
+
+        return null;
+    }
+
+    [GeneratedRegex(@"^yarn@[2-9]", RegexOptions.None, 1000)]
+    private static partial Regex YarnBerryField();
 
     /// <summary>The SDK version a project file targets, such as <c>10.0</c> for <c>net10.0</c>; the default when it names none.</summary>
     internal static string DotnetVersionOf(string? project)
@@ -735,6 +773,27 @@ internal static partial class Ci
         || (config["targets"] as JsonArray)?.Any(target =>
             (target?["app"] as JsonObject)?.ContainsKey("command") == true
         ) == true;
+
+    /// <summary>
+    /// Whether a config runs the package.json script <paramref name="script"/> as an app command, as in
+    /// <c>"args": ["run", "start"]</c> (upstream's <c>configRunsScript</c>, which reads the text of <c>e2e.config.ts</c> outside comments).
+    /// </summary>
+    internal static bool ConfigRunsScript(JsonObject config, string script)
+    {
+        static bool Runs(JsonNode? app, string script) =>
+            app?["command"]?["args"] is JsonArray
+            {
+                Count: >= 2
+            } args
+            && args[0] is JsonValue first
+            && first.TryGetValue<string>(out var run)
+            && run == "run"
+            && args[1] is JsonValue second
+            && second.TryGetValue<string>(out var name)
+            && name == script;
+
+        return Runs(config["app"], script) || (config["targets"] as JsonArray)?.Any(target => Runs(target?["app"], script)) == true;
+    }
 
     /// <summary>Reads an existing config as the runner does, with comments and trailing commas allowed; null when it is not a JSON object.</summary>
     internal static JsonObject? ReadConfig(string text)
@@ -878,6 +937,41 @@ internal static partial class Ci
         }
     }
 
+    /// <summary>
+    /// Builds the app right before the web job runs the tests (upstream's <c>Build the app</c> step in <c>renderGithubWorkflow</c>).
+    /// The port's web job has no Node, so the same Node setup and install the phone jobs use come first, taken from the template.
+    /// </summary>
+    private static void AddGithubWebBuild(YamlMap job, WorkflowContext context, string webBuild, YamlMap run)
+    {
+        var steps = job.Get<YamlSeq>("steps");
+        var phoneSteps = ((YamlMap)ReadTemplate("github-actions.yml").Contents!)
+            .Get<YamlMap>("jobs")
+            .Get<YamlMap>("ios")
+            .Get<YamlSeq>("steps")
+            .Items;
+        var setupNode = FindItem(phoneSteps, "uses", uses => uses.StartsWith("actions/setup-node@", StringComparison.Ordinal));
+        var install = FindItem(phoneSteps, "name", name => name == "Install JavaScript dependencies");
+        var build = (YamlMap)YamlNode.Create(
+            new KeyValuePair<string, object>[]
+            {
+                new("name", "Build the app"),
+                new("run", RunScriptCommand(context.Manager, webBuild)),
+            }
+        );
+        install.Set("run", RunValue(InstallLines(context)));
+        if (context.AppDir.Length > 0)
+        {
+            SetBefore(install, "working-directory", context.AppDir, "run");
+            SetBefore(build, "working-directory", context.AppDir, "run");
+        }
+
+        build.CommentBefore = $"{E2EConfig.FileName} serves this build in CI.";
+        build.SpaceBefore = true;
+        run.SpaceBefore = true;
+        var at = steps.Items.IndexOf(run);
+        steps.Items.InsertRange(at, [setupNode, install, build]);
+    }
+
     /// <summary>Replaces a phone job's app steps with the project's: Node and the install, then the build in the app's folder; a custom app gets the build step that fails until it is replaced.</summary>
     private static void SetGithubBuild(YamlMap job, WorkflowContext context, AppBuild build, bool custom)
     {
@@ -947,7 +1041,13 @@ internal static partial class Ci
             var job = jobs.Get<YamlMap>("web");
             ByName(job, "Install browsers")
                 .Set("run", $"pwsh {PlaywrightScript(context)} install --with-deps chromium");
-            FinishGithubJob(job, context, ByName(job, "Run e2e"), web.Targets);
+            var run = ByName(job, "Run e2e");
+            if (context.WebBuild is { } webBuild)
+            {
+                AddGithubWebBuild(job, context, webBuild, run);
+            }
+
+            FinishGithubJob(job, context, run, web.Targets);
         }
 
         if (context.Jobs.Ios is { } ios)
@@ -1173,6 +1273,26 @@ internal static partial class Ci
         script.Items.AddRange(rest);
     }
 
+    /// <summary>
+    /// Builds the app right before the web job runs the tests (upstream's <c>webBuild</c> line in <c>renderGitlabPipeline</c>).
+    /// The job's <c>dotnet/sdk</c> image has no Node, so Node and the install come first, in the app's folder.
+    /// </summary>
+    private static void AddGitlabWebBuild(YamlMap job, WorkflowContext context, string webBuild)
+    {
+        var script = job.Get<YamlSeq>("script");
+        var enter = context.AppDir.Length == 0 ? [] : new[] { $"cd \"$CI_PROJECT_DIR/{context.AppDir}\"" };
+        string[] leave = context.AppDir.Length == 0 ? [] : ["cd \"$CI_PROJECT_DIR\""];
+        string[] lines =
+        [
+            "command -v node || (apt-get update -qq && apt-get install -y -qq nodejs npm)",
+            .. enter,
+            .. InstallLines(context),
+            RunScriptCommand(context.Manager, webBuild),
+            .. leave,
+        ];
+        script.Items.InsertRange(script.Items.Count - 1, lines.Select(line => (YamlNode)new YamlScalar(line)));
+    }
+
     private static string GitlabTestCommand(WorkflowContext context) =>
         $"dotnet test -c Release --no-build {Quote(context.ProjectFile)}"
         + (context.Junit ? " --logger \"junit;LogFilePath=$CI_PROJECT_DIR/.e2e/junit.xml\"" : "");
@@ -1200,6 +1320,11 @@ internal static partial class Ci
             script[0].Value = BuildCommand(context);
             script[1].Value = $"pwsh {PlaywrightScript(context)} install --with-deps chromium";
             script[2].Value = GitlabTestCommand(context);
+            if (context.WebBuild is { } webBuild)
+            {
+                AddGitlabWebBuild(job, context, webBuild);
+            }
+
             SetUpGitlabArtifacts(job, context);
         }
 

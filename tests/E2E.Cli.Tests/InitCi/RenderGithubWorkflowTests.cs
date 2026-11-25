@@ -253,4 +253,28 @@ public sealed class RenderGithubWorkflowTests : InitCiTestBase
         var without = Ci.RenderGithubWorkflow(Base with { Jobs = AllJobs, Junit = false });
         Assert.DoesNotContain("junit", without, StringComparison.Ordinal);
     }
+
+    [Fact]
+    // Partial: the config is e2e.config.json, and the port's web job has no Node, so Node and the install come before the build.
+    public void Partial_Builds_the_app_before_the_web_job_runs_e2e_when_the_config_serves_a_production_build()
+    {
+        var workflow = Ci.RenderGithubWorkflow(Base with { Manager = "pnpm", WebBuild = "build" });
+        Assert.Contains("      - name: Build the app\n        run: pnpm build\n", workflow, StringComparison.Ordinal);
+        var names = System
+            .Text.RegularExpressions.Regex.Matches(workflow, @"^      - name: (.+)$", System.Text.RegularExpressions.RegexOptions.Multiline)
+            .Select(match => match.Groups[1].Value)
+            .ToList();
+        Assert.Equal(names.IndexOf("Run e2e") - 1, names.IndexOf("Build the app"));
+        Assert.Contains(
+            "\n\n      # e2e.config.json serves this build in CI.\n      - name: Build the app\n        run: npm run build\n\n      - name: Run e2e\n",
+            Ci.RenderGithubWorkflow(Base with { WebBuild = "build" }),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "      - name: Install JavaScript dependencies\n        run: npm ci\n",
+            Ci.RenderGithubWorkflow(Base with { WebBuild = "build" }),
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("Build the app", Ci.RenderGithubWorkflow(Base), StringComparison.Ordinal);
+    }
 }

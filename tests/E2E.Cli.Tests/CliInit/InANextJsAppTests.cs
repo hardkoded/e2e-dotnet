@@ -8,21 +8,21 @@ namespace E2E.Cli.Tests.CliInit;
 
 /// <summary>
 /// Upstream's <c>describe('in a Next.js app')</c> of <c>tests/unit/cli-init.test.ts</c>. The port's config is JSON, which cannot
-/// switch on <c>CI</c>, so the target runs the dev script everywhere and the pipeline gets no build step. The four <c>it</c>s
-/// about that build step are not ported: "builds the app in the CI pipeline before the tests, and says nothing is missing to start it",
-/// "builds the app in a pipeline added later, when the existing config serves the start script", "builds the app for an
-/// existing config that serves start on another port than dev", and "builds nothing for an existing config that runs only next dev".
+/// switch on <c>CI</c>, so a new config's target runs the dev script everywhere and its pipeline gets no build step; the
+/// <c>it</c> "builds the app in the CI pipeline before the tests, and says nothing is missing to start it" is not ported
+/// (issue: CI switch in the generated target). A pipeline for an existing config that runs the start script does build.
 /// </summary>
 public sealed class InANextJsAppTests : CliInitTestBase
 {
     private const string DefaultScripts = """{ "dev": "next dev", "build": "next build", "start": "next start" }""";
 
     /// <summary>Writes the package.json <c>create-next-app</c> writes, with <paramref name="scripts"/> in place of its own, and the lockfile that names the manager.</summary>
-    private void NextApp(string scripts = DefaultScripts, string? lockfile = null)
+    private void NextApp(string scripts = DefaultScripts, string? lockfile = null, string? packageManager = null)
     {
+        var field = packageManager is null ? "" : $$"""  "packageManager": "{{packageManager}}",""";
         File.WriteAllText(
             Path_("package.json"),
-            $$"""{ "name": "my-app", "private": true, "scripts": {{scripts}}, "dependencies": { "next": "16.4.6", "react": "19.3.0", "react-dom": "19.3.0" } }"""
+            $$"""{ {{field}} "name": "my-app", "private": true, "scripts": {{scripts}}, "dependencies": { "next": "16.4.6", "react": "19.3.0", "react-dom": "19.3.0" } }"""
         );
         if (lockfile is not null)
         {
@@ -55,12 +55,12 @@ public sealed class InANextJsAppTests : CliInitTestBase
     }
 
     [Fact]
-    // Partial: the manager comes from the lockfile, as the port reads it, not from a packageManager field; no production build is written.
+    // Partial: no production build is written.
     public async Task Partial_Runs_the_scripts_with_pnpm_on_the_port_the_dev_script_sets()
     {
         NextApp(
             """{ "dev": "next dev --turbopack -p 3100", "build": "next build", "start": "next start --port 3100" }""",
-            "pnpm-lock.yaml"
+            packageManager: "pnpm@10.0.0"
         );
         Assert.Equal(0, (await RunInitAsync(yes: true)).ExitCode);
         var app = WebApp();
@@ -123,5 +123,53 @@ public sealed class InANextJsAppTests : CliInitTestBase
         Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, Engines = ["mobile"] })).ExitCode);
         Assert.DoesNotContain("localhost", Read("e2e.config.json"), StringComparison.Ordinal);
         Assert.DoesNotContain("Found Next.js", Output, StringComparison.Ordinal);
+    }
+
+    private const string EngineProject = """
+        <Project Sdk="Microsoft.NET.Sdk">
+          <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+          <ItemGroup><PackageReference Include="E2E" Version="*" /><PackageReference Include="E2E.NUnit" Version="*" /></ItemGroup>
+        </Project>
+        """;
+
+    private void ExistingConfig(string config, string scripts = DefaultScripts)
+    {
+        NextApp(scripts);
+        File.WriteAllText(Path_(ProjectFile()), EngineProject);
+        File.WriteAllText(Path_("e2e.config.json"), config);
+    }
+
+    [Fact]
+    // Partial: the config is JSON and runs start everywhere.
+    public async Task Partial_Builds_the_app_in_a_pipeline_added_later_when_the_existing_config_serves_the_start_script()
+    {
+        ExistingConfig(
+            """{ "targets": [{ "platform": "web", "app": { "url": "http://localhost:3000", "command": { "executable": "npm", "args": ["run", "start"] } } }] }"""
+        );
+        Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, Ci = "gitlab" })).ExitCode);
+        Assert.Contains("    - npm run build\n", Read(".gitlab-ci.yml"), StringComparison.Ordinal);
+        Assert.DoesNotContain("Found Next.js", Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    // Partial: the config is JSON, so it serves start on the one URL, where upstream's switches both on CI.
+    public async Task Partial_Builds_the_app_for_an_existing_config_that_serves_start_on_another_port_than_dev()
+    {
+        ExistingConfig(
+            """{ "targets": [{ "platform": "web", "app": { "url": "http://localhost:3000", "command": { "executable": "npm", "args": ["run", "start"] } } }] }""",
+            """{ "dev": "next dev -p 3100", "build": "next build", "start": "next start" }"""
+        );
+        Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, Ci = "github-actions" })).ExitCode);
+        Assert.Contains("      - name: Build the app\n        run: npm run build\n", Read(".github/workflows/e2e.yml"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Builds_nothing_for_an_existing_config_that_runs_only_next_dev()
+    {
+        ExistingConfig(
+            """{ "targets": [{ "platform": "web", "app": { "url": "http://localhost:3000", "command": { "executable": "npm", "args": ["run", "dev"] } } }] }"""
+        );
+        Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, Ci = "github-actions" })).ExitCode);
+        Assert.DoesNotContain("Build the app", Read(".github/workflows/e2e.yml"), StringComparison.Ordinal);
     }
 }

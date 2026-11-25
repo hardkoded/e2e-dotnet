@@ -58,4 +58,40 @@ public sealed class ReadingAnExistingConfigTests
         );
         Assert.False(Ci.ConfigStartsApp(Config("{ \"app\": {\n // \"command\": { \"executable\": \"dotnet\" }\n } }")));
     }
+
+    [Fact]
+    // Partial: a command is a key of app in a JSON config, where upstream reads the text of e2e.config.ts.
+    public void Partial_Finds_a_package_json_script_the_config_runs_as_a_command_outside_comments()
+    {
+        Assert.True(
+            Ci.ConfigRunsScript(
+                Config("""{ "targets": [{ "app": { "command": { "executable": "npm", "args": ["run", "start"] } } }] }"""),
+                "start"
+            )
+        );
+        Assert.True(
+            Ci.ConfigRunsScript(
+                Config("""{ "app": { "command": { "executable": "pnpm", "args": [ "run", "start" ] } } }"""),
+                "start"
+            )
+        );
+        Assert.False(
+            Ci.ConfigRunsScript(
+                Config("""{ "app": { "command": { "executable": "npm", "args": ["run", "start:prod"] } } }"""),
+                "start"
+            )
+        );
+        Assert.False(
+            Ci.ConfigRunsScript(
+                Config("""{ "app": { "command": { "executable": "npm", "args": ["run", "dev"], "reuseExisting": true } } }"""),
+                "start"
+            )
+        );
+        Assert.False(
+            Ci.ConfigRunsScript(
+                Config("{ \"app\": {\n // \"command\": { \"executable\": \"npm\", \"args\": [\"run\", \"start\"] }\n } }"),
+                "start"
+            )
+        );
+    }
 }

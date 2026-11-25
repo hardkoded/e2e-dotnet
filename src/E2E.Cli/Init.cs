@@ -924,6 +924,20 @@ internal static partial class Init
         $"Found {app.Framework}: the web target starts {Ci.RunScriptCommand(manager, app.Dev)} on {app.Url}";
 
     /// <summary>
+    /// The production build an existing config serves in CI (upstream's <c>servedBuild</c>): the build script of an app init
+    /// recognizes, when the config runs its start script. The pipeline builds it before the tests, since the start script serves
+    /// only a build. A new config never serves one: the JSON config cannot switch on <c>CI</c>, so its target runs the dev script.
+    /// </summary>
+    private static string? ServedBuild(string? appFolder, JsonObject? config) =>
+        appFolder is not null
+        && config is not null
+        && Ci.ReadFrameworkManifest(appFolder) is { } manifest
+        && Frameworks.ProductionScripts(manifest) is { } scripts
+        && Ci.ConfigRunsScript(config, scripts.Start)
+            ? scripts.Build
+            : null;
+
+    /// <summary>
     /// Plans the pipeline's jobs from the config's targets and writes it, then says what the user still has to do for it to
     /// pass (upstream's <c>writePipeline</c> and <c>planWorkflow</c>). A config that does not read falls back to its project: with
     /// only the web engine one web job runs; with a mobile engine the targets cannot be told apart, and there is no pipeline.
@@ -1007,8 +1021,9 @@ internal static partial class Init
                 : Ci.GatewaysInConfig(config);
         var secrets = gateways.SelectMany(gateway => gateway.Keys?.Take(1) ?? []).ToList();
         var absoluteProject = Path.Combine(cwd, projectFile);
+        var webBuild = jobs.Web is not null ? ServedBuild(appFolder, config) : null;
         var appDir =
-            appFolder is null || (ios is IosBuild.Custom && android is AndroidBuild.Custom)
+            appFolder is null || (ios is IosBuild.Custom && android is AndroidBuild.Custom && webBuild is null)
                 ? ""
                 : Ci.PosixRelative(repositoryRoot, appFolder);
         var context = new WorkflowContext(
@@ -1021,7 +1036,8 @@ internal static partial class Init
             manager,
             yarnBerry,
             junit,
-            appFolder is null || manager != "npm" || Ci.HasNpmLockfile(appFolder, repositoryRoot)
+            appFolder is null || manager != "npm" || Ci.HasNpmLockfile(appFolder, repositoryRoot),
+            webBuild
         );
         var absolute = Path.Combine(repositoryRoot, file.File);
         System.IO.Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
