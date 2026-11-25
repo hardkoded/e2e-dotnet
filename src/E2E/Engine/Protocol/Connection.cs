@@ -145,6 +145,7 @@ public sealed class Connection : IDisposable
     private readonly object _gate = new();
     private long _nextId;
     private string? _closed;
+    private bool _stopped;
 
     /// <summary>Reads and writes <paramref name="streams"/> until the input ends, fails, or the connection closes.</summary>
     public Connection(MessageStreams streams, ConnectionOptions? options = null)
@@ -264,6 +265,7 @@ public sealed class Connection : IDisposable
         catch (ObjectDisposedException)
         {
             // Disposed already: the loops were told.
+            _stopped = true;
         }
 
         _onClose?.Invoke(reason);
@@ -338,7 +340,8 @@ public sealed class Connection : IDisposable
         }
         catch (OperationCanceledException)
         {
-            // The connection was disposed.
+            // The connection was disposed; closing again is a no-op that keeps the reason.
+            Close("the connection was disposed");
         }
         catch (Exception cause)
         {
@@ -450,7 +453,8 @@ public sealed class Connection : IDisposable
         }
         catch (OperationCanceledException)
         {
-            // The connection was disposed.
+            // The connection was disposed; closing again is a no-op that keeps the reason.
+            Close("the connection was disposed");
         }
         catch (Exception cause)
         {
