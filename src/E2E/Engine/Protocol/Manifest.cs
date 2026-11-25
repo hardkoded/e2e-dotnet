@@ -176,7 +176,8 @@ public static class ProtocolManifest
             ["grantsAllPermissions"] = manifest.GrantsAllPermissions == true,
             ["launchArgumentValues"] = manifest.LaunchArgumentValues == true,
             ["fileApps"] = manifest.FileApps == true,
-            ["isolation"] = manifest.Isolation == EngineIsolation.Worker ? EngineIsolation.Worker : EngineIsolation.Attempt,
+            ["isolation"] =
+                manifest.Isolation == EngineIsolation.Worker ? EngineIsolation.Worker : EngineIsolation.Attempt,
         };
     }
 }

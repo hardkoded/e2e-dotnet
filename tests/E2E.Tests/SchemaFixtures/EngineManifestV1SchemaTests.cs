@@ -49,4 +49,15 @@ public sealed class EngineManifestV1SchemaTests
 
         Assert.False(Validate.IsValid(manifest));
     }
+
+    [Fact]
+    public void Rejects_selectsDevice_without_lifecycle_prepare()
+    {
+        var manifest = ReportSchema.ReadJson("fixtures", "engine-manifest-v1.valid.json");
+        Assert.True(manifest["selectsDevice"]!.GetValue<bool>());
+        var methods = manifest["methods"]!.AsArray();
+        methods.Remove(methods.Single(method => method!.GetValue<string>() == "lifecycle/prepare"));
+
+        Assert.False(Validate.IsValid(manifest));
+    }
 }
