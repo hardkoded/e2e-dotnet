@@ -78,23 +78,11 @@ public sealed record WireSnapshot(EngineNode Root, ViewportSize Viewport)
     public int? MaskedRegionCount { get; init; }
 }
 
-/// <summary>A file payload on the wire: <c>Buffer</c> is base64. Upstream's file entries of a <c>WireLocatorAction</c>.</summary>
+/// <summary>One file of <see cref="WireSetInputFilePayloads"/>: <paramref name="Buffer"/> is the file bytes as base64.</summary>
 public sealed record WireFilePayload(string Name, string MimeType, string Buffer);
 
-/// <summary>
-/// A locator action on the wire: file bytes, like snapshot pixels, cross as base64. Upstream's <c>WireLocatorAction</c>, a union of every
-/// action but <c>setInputFilePayloads</c> and its wire form.
-/// </summary>
-public abstract record WireLocatorAction
-{
-    private protected WireLocatorAction() { }
-
-    /// <summary>Any action other than <c>setInputFilePayloads</c>, unchanged.</summary>
-    public sealed record Plain(LocatorAction Action) : WireLocatorAction;
-
-    /// <summary>The <c>setInputFilePayloads</c> action with its files as base64.</summary>
-    public sealed record SetInputFilePayloads(IReadOnlyList<WireFilePayload> Files) : WireLocatorAction;
-}
+/// <summary>Upstream's <c>WireLocatorAction</c> for <c>setInputFilePayloads</c>: file bytes, like snapshot pixels, cross as base64.</summary>
+public sealed record WireSetInputFilePayloads(IReadOnlyList<WireFilePayload> Files);
 
 /// <summary>Params of <c>attempt/deriveSecret</c>: the value the client resolved, for the forms the engine derives from it. Upstream's <c>DeriveSecretParams</c>.</summary>
 public sealed record DeriveSecretParams(int Derivation, string Plaintext);
@@ -109,10 +97,13 @@ public sealed record AbortParams(int Id, RpcErrorObject? Reason = null);
 /// manifest. Each engine member is one request whose params are the member's arguments as JSON. Upstream's <c>engine/protocol/protocol.ts</c>.
 /// </summary>
 /// <remarks>.NET-only holder name: C# has no free functions.</remarks>
-public static class ProtocolMessages
+public static class Protocol
 {
     /// <summary>The protocol version this runner speaks; <c>initialize</c> refuses any other. Upstream's <c>ENGINE_PROTOCOL_VERSION</c>.</summary>
     public const int Version = 1;
+
+    /// <summary>The <see cref="Exception.Data"/> key a decoded error keeps the stack it crossed with under. .NET-only: a .NET stack trace is read-only.</summary>
+    public const string RemoteStackKey = "e2e.remoteStack";
 
     /// <summary>How deep a cause chain crosses, as deep as a report describes one.</summary>
     private const int MaxWireCauses = 3;
@@ -214,38 +205,36 @@ public static class ProtocolMessages
         };
     }
 
-    /// <summary>Encodes file payload bytes without changing other locator actions. Upstream's <c>encodeLocatorAction</c>.</summary>
-    public static WireLocatorAction EncodeLocatorAction(LocatorAction action)
-    {
-        ArgumentNullException.ThrowIfNull(action);
-        return action is LocatorAction.SetInputFilePayloads payloads
-            ? new WireLocatorAction.SetInputFilePayloads([
+    /// <summary>
+    /// Encodes file payload bytes without changing other locator actions. Returns a <see cref="WireSetInputFilePayloads"/> for
+    /// <see cref="LocatorAction.SetInputFilePayloads"/> and the same action instance for any other kind: upstream's
+    /// <c>WireLocatorAction</c> is a union of the two.
+    /// </summary>
+    public static object EncodeLocatorAction(LocatorAction action) =>
+        action is LocatorAction.SetInputFilePayloads payloads
+            ? new WireSetInputFilePayloads([
                 .. payloads.Files.Select(file => new WireFilePayload(
                     file.Name,
                     file.MimeType,
                     Convert.ToBase64String(file.Buffer)
                 )),
             ])
-            : new WireLocatorAction.Plain(action);
-    }
+            : action;
 
     /// <summary>Restores file payload bytes at the engine protocol boundary. Upstream's <c>decodeLocatorAction</c>.</summary>
-    public static LocatorAction DecodeLocatorAction(WireLocatorAction action)
-    {
-        ArgumentNullException.ThrowIfNull(action);
-        return action switch
+    public static LocatorAction DecodeLocatorAction(object action) =>
+        action switch
         {
-            WireLocatorAction.SetInputFilePayloads payloads => new LocatorAction.SetInputFilePayloads([
-                .. payloads.Files.Select(file => new FilePayload(
+            WireSetInputFilePayloads wire => new LocatorAction.SetInputFilePayloads([
+                .. wire.Files.Select(file => new FilePayload(
                     file.Name,
                     file.MimeType,
                     Convert.FromBase64String(file.Buffer)
                 )),
             ]),
-            WireLocatorAction.Plain plain => plain.Action,
-            _ => throw new ArgumentException("unknown wire locator action", nameof(action)),
+            LocatorAction other => other,
+            _ => throw new ArgumentException($"Not a wire locator action: {action.GetType().Name}", nameof(action)),
         };
-    }
 
     /// <summary>
     /// Encodes an abort reason, or null for the platform's own cancellation, which the receiving side reproduces by aborting without a
@@ -361,9 +350,6 @@ public static class ProtocolMessages
 
         return decoded;
     }
-
-    /// <summary>The <see cref="Exception.Data"/> key a decoded error keeps the stack it crossed with under. .NET-only: a .NET stack trace is read-only.</summary>
-    public const string RemoteStackKey = "e2e.remoteStack";
 
     private static OperationMethod Operation(string member, IReadOnlyList<string> args, string? result = null) =>
         new(member, args, result);

@@ -35,6 +35,17 @@ public static class RpcErrors
 /// <summary>The error object of a failed JSON-RPC response. Upstream's <c>RpcErrorObject</c>.</summary>
 public sealed record RpcErrorObject(int Code, string Message, JsonNode? Data = null)
 {
+    private static bool TryNumber(JsonValue value, out double number)
+    {
+        if (value.TryGetValue<long>(out var whole))
+        {
+            number = whole;
+            return true;
+        }
+
+        return value.TryGetValue<double>(out number);
+    }
+
     /// <summary>
     /// Whether <paramref name="value"/> has the shape of a JSON-RPC error object, and reads it. Upstream's <c>isRpcErrorObject</c>, which
     /// narrows the value where C# returns what it read.
@@ -45,7 +56,7 @@ public sealed record RpcErrorObject(int Code, string Message, JsonNode? Data = n
         if (
             value is not JsonObject obj
             || obj["code"] is not JsonValue code
-            || !code.TryGetValue<double>(out var number)
+            || !TryNumber(code, out var number)
             || number != Math.Floor(number)
             || number is < int.MinValue or > int.MaxValue
             || obj["message"] is not JsonValue message
@@ -109,6 +120,9 @@ public sealed class Connection : IDisposable
     /// <summary>Largest message a peer may send: a tree with pixels fits many times over.</summary>
     private const int MaxMessageBytes = 256 * 1024 * 1024;
 
+    /// <summary>Most bytes a header block may take before its delimiter arrives.</summary>
+    private const int MaxHeaderBytes = 64 * 1024;
+
     private static readonly byte[] HeaderDelimiter = "\r\n\r\n"u8.ToArray();
 
     private static readonly JsonSerializerOptions WriteOptions = new()
@@ -150,8 +164,9 @@ public sealed class Connection : IDisposable
         _encodeError = options.EncodeError ?? DefaultEncodeError;
         _onNotificationError = options.OnNotificationError;
         _onClose = options.OnClose;
-        _ = Task.Run(() => ReadLoopAsync(_stop.Token));
-        _ = Task.Run(() => WriteLoopAsync(_stop.Token));
+        var token = _stop.Token;
+        _ = Task.Run(() => ReadLoopAsync(token));
+        _ = Task.Run(() => WriteLoopAsync(token));
     }
 
     /// <summary>Why the connection closed, or null while it is open.</summary>
@@ -242,6 +257,15 @@ public sealed class Connection : IDisposable
         }
 
         _outbox.Writer.TryComplete();
+        try
+        {
+            _stop.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Disposed already: the loops were told.
+        }
+
         _onClose?.Invoke(reason);
     }
 
@@ -249,7 +273,6 @@ public sealed class Connection : IDisposable
     public void Dispose()
     {
         Close("the connection was disposed");
-        _stop.Cancel();
         _stop.Dispose();
     }
 
@@ -354,6 +377,12 @@ public sealed class Connection : IDisposable
                         var headerEnd = buffer.AsSpan(0, size).IndexOf(HeaderDelimiter);
                         if (headerEnd == -1)
                         {
+                            if (size > MaxHeaderBytes)
+                            {
+                                Close("the peer sent a header without an end");
+                                return;
+                            }
+
                             break;
                         }
 
@@ -526,7 +555,17 @@ public sealed class Connection : IDisposable
         }
         catch (Exception cause)
         {
-            Respond(id, error: _encodeError(cause));
+            RpcErrorObject encoded;
+            try
+            {
+                encoded = _encodeError(cause);
+            }
+            catch (Exception failure) when (failure is not OperationCanceledException)
+            {
+                encoded = DefaultEncodeError(cause);
+            }
+
+            Respond(id, error: encoded);
         }
     }
 

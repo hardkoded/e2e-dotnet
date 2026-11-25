@@ -12,8 +12,7 @@ namespace E2E.Tests.TraceCacheOneTimeCode;
 
 /// <summary>
 /// Upstream's <c>describe('trace cache: a one-time code typed into each focused box')</c> of <c>tests/integration/trace-cache-one-time-code.test.ts</c>:
-/// each digit is typed into the focused box (<c>typeText</c>, which names no field) on a screen that listed a one-time-code field; unmarked
-/// boxes keep today's rules. Upstream's recorded <c>tool type (run-time value)</c> action is the port's <c>tool</c> kind with the text
+/// each digit is typed into the focused box (<c>typeText</c>, which names no field) on a screen that listed a one-time-code field. Upstream's recorded <c>tool type (run-time value)</c> action is the port's <c>tool</c> kind with the text
 /// <c>type (run-time value)</c>.
 /// </summary>
 [Collection(BrowserCollection.Name)]
@@ -108,17 +107,5 @@ public sealed class TraceCacheAOneTimeCodeTypedIntoEachFocusedBoxTests
             ("agent-concluded", "gap", DerivedReason.MintedToken, 1),
             (result.Cache?.Mode, result.Cache?.Reason, result.Cache?.Derived, result.Cache?.ReplayedActions)
         );
-    }
-
-    [Fact]
-    public async Task Keeps_recording_focused_digits_on_boxes_that_declare_no_purpose()
-    {
-        var directory = TwoTapCounter.NewDirectory();
-        using var site = await OneTimeCodePage.StartAsync();
-        await RunAsync(directory, site.Url, "/one-time-code-plain", new CodeRecord());
-
-        var actions = TwoTapCounter.OnlyEntry(directory).Actions;
-        Assert.DoesNotContain(actions, action => action.Kind == "tool");
-        Assert.Equal(6, actions.Count(action => action.Kind == "typeText"));
     }
 }

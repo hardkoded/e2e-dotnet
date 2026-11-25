@@ -236,7 +236,7 @@ public sealed partial class Agent
             stop,
             feed.ArmAfter,
             dispatcher.NotifyToolAsync,
-            () => dispatcher.BeforeAsync(),
+            dispatcher.BeforeToolAsync,
             dispatcher.AssertAllowed
         );
         ActContext? context = null;

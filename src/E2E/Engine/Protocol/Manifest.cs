@@ -53,11 +53,11 @@ public static class ProtocolManifest
             engine.Version,
             engine.SpiVersion,
             [
-                .. ProtocolMessages.EngineMethods.Where(method =>
-                    ProtocolMessages.ServedMethods.Contains(method)
-                    || ProtocolMessages.EngineMember(
+                .. Protocol.EngineMethods.Where(method =>
+                    Protocol.ServedMethods.Contains(method)
+                    || Protocol.EngineMember(
                         engine,
-                        ProtocolMessages.Methods[method] switch
+                        Protocol.Methods[method] switch
                         {
                             OperationMethod operation => operation.Member,
                             LifecycleMethod lifecycle => lifecycle.Member,
@@ -96,7 +96,7 @@ public static class ProtocolManifest
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var method in manifest.Methods)
         {
-            if (method is null || !ProtocolMessages.Methods.ContainsKey(method))
+            if (method is null || !Protocol.Methods.ContainsKey(method))
             {
                 throw Invalid($"manifest.methods names unknown method {JsonSerializer.Serialize(method)}");
             }

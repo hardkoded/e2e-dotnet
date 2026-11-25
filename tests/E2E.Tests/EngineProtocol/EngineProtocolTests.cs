@@ -21,13 +21,14 @@ public sealed class EngineProtocolTests
     [Fact]
     public void Encodes_only_wire_payload_bytes_and_keeps_ordinary_path_actions_unchanged()
     {
+        // The port's payload is a byte[]: there is no subarray view, so the bytes are the three the upstream view selects.
         byte[] bytes = [0, 128, 255];
         var action = new LocatorAction.SetInputFilePayloads([
             new FilePayload("a.bin", "application/octet-stream", bytes),
             new FilePayload("empty.bin", "application/octet-stream", []),
         ]);
 
-        var wire = Assert.IsType<WireLocatorAction.SetInputFilePayloads>(ProtocolMessages.EncodeLocatorAction(action));
+        var wire = Assert.IsType<WireSetInputFilePayloads>(Protocol.EncodeLocatorAction(action));
 
         Assert.Equal(
             [
@@ -36,21 +37,19 @@ public sealed class EngineProtocolTests
             ],
             wire.Files
         );
-        var crossed = JsonSerializer.Deserialize<WireLocatorAction.SetInputFilePayloads>(
-            JsonSerializer.Serialize(wire)
-        )!;
-        var decoded = Assert.IsType<LocatorAction.SetInputFilePayloads>(ProtocolMessages.DecodeLocatorAction(crossed));
+        var overTheWire = JsonSerializer.Deserialize<WireSetInputFilePayloads>(JsonSerializer.Serialize(wire))!;
+        var decoded = Assert.IsType<LocatorAction.SetInputFilePayloads>(Protocol.DecodeLocatorAction(overTheWire));
         Assert.Equal(action.Files.Count, decoded.Files.Count);
-        for (var index = 0; index < action.Files.Count; index++)
+        for (var i = 0; i < action.Files.Count; i++)
         {
-            Assert.Equal(action.Files[index].Name, decoded.Files[index].Name);
-            Assert.Equal(action.Files[index].MimeType, decoded.Files[index].MimeType);
-            Assert.Equal(action.Files[index].Buffer, decoded.Files[index].Buffer);
+            Assert.Equal(action.Files[i].Name, decoded.Files[i].Name);
+            Assert.Equal(action.Files[i].MimeType, decoded.Files[i].MimeType);
+            Assert.Equal(action.Files[i].Buffer, decoded.Files[i].Buffer);
         }
 
         var paths = new LocatorAction.SetInputFiles(["a.bin"]);
-        Assert.Same(paths, Assert.IsType<WireLocatorAction.Plain>(ProtocolMessages.EncodeLocatorAction(paths)).Action);
-        Assert.Same(paths, ProtocolMessages.DecodeLocatorAction(new WireLocatorAction.Plain(paths)));
+        Assert.Same(paths, Protocol.EncodeLocatorAction(paths));
+        Assert.Same(paths, Protocol.DecodeLocatorAction(paths));
     }
 
     /// <summary>
@@ -104,7 +103,7 @@ public sealed class EngineProtocolTests
     {
         var schema = ReportSchema.ReadJson("engine-manifest-v1.schema.json");
         Assert.Equal(
-            ProtocolMessages.EngineMethods,
+            Protocol.EngineMethods,
             schema["properties"]!["methods"]!["items"]!["enum"]!.AsArray().Select(method => method!.GetValue<string>())
         );
         Assert.Equal(
