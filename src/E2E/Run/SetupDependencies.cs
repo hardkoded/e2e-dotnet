@@ -126,21 +126,17 @@ internal static class SetupDependencies
 
         // The run belongs to every dependent, so no one test's token drives it: the setup is bounded by its own timeouts.
         var fixture = (E2EFixture)Activator.CreateInstance(setup.Type)!;
+        var passed = false;
+#pragma warning disable CA1031 // The setup's failure is reported when the framework runs it; each dependent fails with SESSION_UNAVAILABLE.
         try
         {
             await run(fixture, setup.Method, CancellationToken.None).ConfigureAwait(false);
+            passed = true;
+        }
+        catch (Exception) { }
 
-            // Only a setup that saved is skipped later; a failed one runs again when the framework reaches it, so its failure is reported.
-            Ran[KeyOf(setup.Type, setup.Method.Name)] = true;
-            return true;
-        }
-#pragma warning disable CA1031 // The setup's failure is reported when the framework runs it; each dependent fails with SESSION_UNAVAILABLE.
-        catch (Exception)
-#pragma warning restore CA1031
-        {
-            return false;
-        }
-        finally
+        // A dispose that throws folds into the unsuccessful setup, so a dependent fails with SESSION_UNAVAILABLE and not the dispose error.
+        try
         {
             switch (fixture)
             {
@@ -152,5 +148,18 @@ internal static class SetupDependencies
                     break;
             }
         }
+        catch (Exception)
+        {
+            passed = false;
+        }
+#pragma warning restore CA1031
+
+        // Only a setup that saved and cleaned up is skipped later; a failed one runs again when the framework reaches it, so its failure is reported.
+        if (passed)
+        {
+            Ran[KeyOf(setup.Type, setup.Method.Name)] = true;
+        }
+
+        return passed;
     }
 }

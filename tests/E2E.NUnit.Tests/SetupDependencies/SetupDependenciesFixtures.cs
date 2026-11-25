@@ -58,3 +58,24 @@ public sealed class BrokenSetupFixture : SessionFixtureBase
     [E2ESession("broken")]
     public Task Consumes_the_broken_session_again() => Task.CompletedTask;
 }
+
+/// <summary>A setup that saves its session but whose dispose throws, and a consumer of its session.</summary>
+[Explicit("Run by SetupDependenciesTests")]
+public sealed class ThrowingDisposeSetupFixture : SessionFixtureBase, IDisposable
+{
+    public static int Runs;
+
+    [E2ESetup("save then fail to dispose", Saves = ["throwing-dispose"])]
+    public async Task SaveThenFailToDispose()
+    {
+        Interlocked.Increment(ref Runs);
+        await SignInAsync("dependent");
+        await SaveSessionAsync("throwing-dispose");
+    }
+
+    [Test]
+    [E2ESession("throwing-dispose")]
+    public Task Consumes_the_throwing_dispose_session() => Task.CompletedTask;
+
+    public void Dispose() => throw new InvalidOperationException("dispose is down");
+}

@@ -90,4 +90,18 @@ public sealed class SetupDependenciesTests
 
         Assert.That(BrokenSetupFixture.Runs, Is.EqualTo(1));
     }
+
+    [Test]
+    public void A_setup_test_whose_dispose_throws_fails_each_dependent_with_session_unavailable()
+    {
+        var results = NestedSessionRun.Run(nameof(ThrowingDisposeSetupFixture.Consumes_the_throwing_dispose_session));
+
+        var result = results[nameof(ThrowingDisposeSetupFixture.Consumes_the_throwing_dispose_session)];
+        Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Failed));
+        Assert.That(
+            result.Message,
+            Does.Contain("SESSION_UNAVAILABLE").Or.Contain("session \"throwing-dispose\" was not produced")
+        );
+        Assert.That(result.Message, Does.Not.Contain("dispose is down"));
+    }
 }
