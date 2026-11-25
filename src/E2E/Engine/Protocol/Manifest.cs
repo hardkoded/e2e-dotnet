@@ -10,8 +10,7 @@ namespace E2E.Engine.Protocol;
 /// <summary>
 /// What an engine server is, as JSON: the static members of an engine and the methods it answers. The client declares it at config load,
 /// where the harness needs an engine's capabilities synchronously, and the server returns its own from <c>initialize</c>; the two must
-/// agree. Upstream's <c>EngineManifest</c> (<c>engine/protocol/protocol.ts</c>). The port's engine has none of upstream's
-/// <c>selectsDevice</c>, <c>grantsAllPermissions</c>, <c>launchArgumentValues</c>, <c>fileApps</c>, or <c>isolation</c>, so the manifest has none.
+/// agree. Upstream's <c>EngineManifest</c> (<c>engine/protocol/protocol.ts</c>).
 /// </summary>
 public sealed record EngineManifest(string Name, string Version, int SpiVersion, IReadOnlyList<string> Methods)
 {
@@ -27,6 +26,21 @@ public sealed record EngineManifest(string Name, string Version, int SpiVersion,
 
     /// <summary>See <see cref="EngineHandle.TapModifiers"/>.</summary>
     public bool? TapModifiers { get; init; }
+
+    /// <summary>See <see cref="EngineHandle.SelectsDevice"/>.</summary>
+    public bool? SelectsDevice { get; init; }
+
+    /// <summary>See <see cref="EngineHandle.GrantsAllPermissions"/>.</summary>
+    public bool? GrantsAllPermissions { get; init; }
+
+    /// <summary>See <see cref="EngineHandle.LaunchArgumentValues"/>.</summary>
+    public bool? LaunchArgumentValues { get; init; }
+
+    /// <summary>See <see cref="EngineHandle.FileApps"/>.</summary>
+    public bool? FileApps { get; init; }
+
+    /// <summary>See <see cref="EngineHandle.Isolation"/>; left out for <c>attempt</c>.</summary>
+    public string? Isolation { get; init; }
 }
 
 /// <summary>
@@ -74,6 +88,11 @@ public static class ProtocolManifest
             Actions = engine.Actions,
             PointerActions = engine.PointerActions,
             TapModifiers = engine.TapModifiers == true ? true : null,
+            SelectsDevice = engine.SelectsDevice == true ? true : null,
+            GrantsAllPermissions = engine.GrantsAllPermissions == true ? true : null,
+            LaunchArgumentValues = engine.LaunchArgumentValues == true ? true : null,
+            FileApps = engine.FileApps == true ? true : null,
+            Isolation = engine.Isolation == EngineIsolation.Worker ? EngineIsolation.Worker : null,
         };
     }
 
@@ -105,6 +124,12 @@ public static class ProtocolManifest
             {
                 throw Invalid($"manifest.methods lists \"{method}\" twice");
             }
+        }
+
+        // The client serves `prepare` for `lifecycle/finish` alone, so the hook defineEngine requires is there either way.
+        if (manifest.SelectsDevice == true && !seen.Contains("lifecycle/prepare"))
+        {
+            throw Invalid("manifest.selectsDevice needs lifecycle/prepare: prepare binds the device --device names");
         }
 
         return manifest;
@@ -147,6 +172,11 @@ public static class ProtocolManifest
             ["actions"] = Sorted(manifest.Actions),
             ["pointerActions"] = Sorted(manifest.PointerActions),
             ["tapModifiers"] = manifest.TapModifiers == true,
+            ["selectsDevice"] = manifest.SelectsDevice == true,
+            ["grantsAllPermissions"] = manifest.GrantsAllPermissions == true,
+            ["launchArgumentValues"] = manifest.LaunchArgumentValues == true,
+            ["fileApps"] = manifest.FileApps == true,
+            ["isolation"] = manifest.Isolation == EngineIsolation.Worker ? EngineIsolation.Worker : EngineIsolation.Attempt,
         };
     }
 }
