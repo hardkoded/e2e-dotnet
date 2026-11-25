@@ -1,7 +1,7 @@
 {
   "version": 2,
   "createdAt": "2026-11-18T15:41:48.2126131+00:00",
-  "updatedAt": "2026-11-25T19:56:08.5837985+00:00",
+  "updatedAt": "2026-11-18T15:41:48.2152513+00:00",
   "description": "Initial baseline created by 'slopwatch init' on 2026-11-18 15:41:48 UTC",
   "entries": [
     {
@@ -563,6 +563,15 @@
       "baselinedAt": "2026-11-18T15:41:48.2140676+00:00"
     },
     {
+      "hash": "41e57e4ffdfd59c5",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Expect/ScreenshotCapture.cs",
+      "lineNumber": 104,
+      "codeSnippet": "catch (TestException ex) when (ex.Code == \"LOCATOR_NOT_FOUND\") { }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:41:48.2140705+00:00"
+    },
+    {
       "hash": "4fb4087ef38e15b8",
       "ruleId": "SW003",
       "filePath": "src/E2E/Expect/Soft.cs",
@@ -615,6 +624,15 @@
       "codeSnippet": "catch (Exception ex)\n            when (ex\n                    is IOException\n                        or SocketException\n                        or ObjectDisposedException\n    // ...",
       "message": "Empty catch block swallows exceptions without handling",
       "baselinedAt": "2026-11-18T15:41:48.214085+00:00"
+    },
+    {
+      "hash": "df6f2ea30ec96164",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/OAuth/CredentialStore.cs",
+      "lineNumber": 219,
+      "codeSnippet": "catch (IOException)\n                    {\n                        // Another waiter claimed it first; try the lock again.\n                    }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:41:48.2140874+00:00"
     },
     {
       "hash": "fc1f02d7da5245ca",
@@ -696,6 +714,15 @@
       "codeSnippet": "catch (Exception)\n#pragma warning restore CA1031\n            { }",
       "message": "Empty catch block swallows exceptions without handling",
       "baselinedAt": "2026-11-18T15:41:48.2141087+00:00"
+    },
+    {
+      "hash": "8fbdef9475f2d5b7",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/E2ESession.cs",
+      "lineNumber": 927,
+      "codeSnippet": "catch (ObjectDisposedException)\n            {\n                // The session was released already.\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:41:48.2141107+00:00"
     },
     {
       "hash": "3b7a5510b5a87c80",
@@ -1274,6 +1301,15 @@
       "baselinedAt": "2026-11-18T15:41:48.2142729+00:00"
     },
     {
+      "hash": "eb2faddc0ad20b8c",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.NUnit/E2ETest.cs",
+      "lineNumber": 160,
+      "codeSnippet": "catch (OperationCanceledException)\n            {\n                // The run was cancelled: the test's own result stands.\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:41:48.2142764+00:00"
+    },
+    {
       "hash": "f9120e0285f550f2",
       "ruleId": "SW003",
       "filePath": "src/E2E.NUnit/E2ETest.cs",
@@ -1461,24 +1497,6 @@
       "codeSnippet": "<NoWarn>$(NoWarn);NU1701</NoWarn>",
       "message": "Adding warnings to NoWarn: NU1701",
       "baselinedAt": "2026-11-18T15:41:48.2143413+00:00"
-    },
-    {
-      "hash": "51ca8e87b50866f6",
-      "ruleId": "SW003",
-      "filePath": "src/E2E.XUnit.V3/E2ETest.cs",
-      "lineNumber": 136,
-      "codeSnippet": "catch (OperationCanceledException)\n        {\n            // The look is a courtesy: the test's own failure is the one to report.\n        }",
-      "message": "Empty catch block swallows exceptions without handling",
-      "baselinedAt": "2026-11-18T15:41:48.2143455+00:00"
-    },
-    {
-      "hash": "f9ce5918a5a67d0d",
-      "ruleId": "SW003",
-      "filePath": "src/E2E.XUnit.V3/E2ETest.cs",
-      "lineNumber": 203,
-      "codeSnippet": "catch (OperationCanceledException)\n            {\n                // The run was cancelled: the test's own result stands.\n            }",
-      "message": "Empty catch block swallows exceptions without handling",
-      "baselinedAt": "2026-11-18T15:41:48.2143502+00:00"
     },
     {
       "hash": "a724eab5fce6b0cf",
@@ -1749,6 +1767,15 @@
       "codeSnippet": "Task.Delay(50)",
       "message": "Test uses Task.Delay(50) which may indicate a timing-dependent test",
       "baselinedAt": "2026-11-18T15:41:48.2144371+00:00"
+    },
+    {
+      "hash": "77b59b5e0e6e902c",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Cli.Tests/McpSessionHost/SessionHostTests.cs",
+      "lineNumber": 609,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:41:48.2144403+00:00"
     },
     {
       "hash": "a63f682f73f0b8c3",
@@ -2055,6 +2082,15 @@
       "codeSnippet": "catch (Exception ex) when (ex is not OperationCanceledException)\n            {\n                // Upstream ignores a goto that the navigation interrupts.\n            }",
       "message": "Empty catch block swallows exceptions without handling",
       "baselinedAt": "2026-11-18T15:41:48.2145674+00:00"
+    },
+    {
+      "hash": "83b3fa0eff4d8d8a",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/McpTestRun/OpenSessionTestOverE2eMcpTests.cs",
+      "lineNumber": 299,
+      "codeSnippet": "Task.Delay(300)",
+      "message": "Test uses Task.Delay(300) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:41:48.2145712+00:00"
     },
     {
       "hash": "1a2902a6ef6af155",
@@ -3893,6 +3929,78 @@
       "baselinedAt": "2026-11-18T15:41:48.215218+00:00"
     },
     {
+      "hash": "17901094eabbb985",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests.App/Program.cs",
+      "lineNumber": 40,
+      "codeSnippet": "Task.Delay(int.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture))",
+      "message": "Test uses Task.Delay(int.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:41:48.2152209+00:00"
+    },
+    {
+      "hash": "5f3edecb871e8db7",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests.App/Program.cs",
+      "lineNumber": 65,
+      "codeSnippet": "Task.Delay(Timeout.Infinite)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:41:48.2152225+00:00"
+    },
+    {
+      "hash": "65b48afa1275f001",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests.App/Program.cs",
+      "lineNumber": 91,
+      "codeSnippet": "Task.Delay(Timeout.Infinite)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:41:48.2152241+00:00"
+    },
+    {
+      "hash": "1672fa85cb5a8c2f",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests.App/Program.cs",
+      "lineNumber": 104,
+      "codeSnippet": "Task.Delay(Timeout.Infinite)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:41:48.2152257+00:00"
+    },
+    {
+      "hash": "63569de131fd1754",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests.App/Program.cs",
+      "lineNumber": 161,
+      "codeSnippet": "Thread.Sleep(50)",
+      "message": "Test uses Thread.Sleep(50) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:41:48.215228+00:00"
+    },
+    {
+      "hash": "ae54968358e551fd",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests.App/Program.cs",
+      "lineNumber": 178,
+      "codeSnippet": "Thread.Sleep(10)",
+      "message": "Test uses Thread.Sleep(10) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:41:48.2152297+00:00"
+    },
+    {
+      "hash": "d0fd6bda38d2a974",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests.App/Program.cs",
+      "lineNumber": 191,
+      "codeSnippet": "Thread.Sleep(100)",
+      "message": "Test uses Thread.Sleep(100) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:41:48.2152316+00:00"
+    },
+    {
+      "hash": "df0efb81bfaad447",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests.App/Program.cs",
+      "lineNumber": 219,
+      "codeSnippet": "Task.Delay(Timeout.Infinite)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:41:48.2152337+00:00"
+    },
+    {
       "hash": "68f6cbd1bc9f4fac",
       "ruleId": "SW005",
       "filePath": "tests/E2E.TUnit.Tests/E2E.TUnit.Tests.csproj",
@@ -3974,6 +4082,15 @@
       "baselinedAt": "2026-11-18T15:41:48.2152513+00:00"
     },
     {
+      "hash": "aafccecef4d3e419",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/E2ESession.cs",
+      "lineNumber": 1224,
+      "codeSnippet": "catch (ObjectDisposedException)\n            {\n                // The session was released already.\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-21T19:19:03.6420172+00:00"
+    },
+    {
       "hash": "0fe467a0d43a1614",
       "ruleId": "SW003",
       "filePath": "src/E2E/Run/E2ESession.cs",
@@ -3989,7 +4106,7 @@
       "lineNumber": 200,
       "codeSnippet": "catch (OperationCanceledException)\n            {\n                // The run was cancelled: the test's own result stands.\n            }",
       "message": "Empty catch block swallows exceptions without handling",
-      "baselinedAt": "2026-11-22T17:30:00+00:00"
+      "baselinedAt": "2026-11-22T17:30:00.0000000+00:00"
     },
     {
       "hash": "aa92f0bccac579ef",
@@ -4019,589 +4136,31 @@
       "baselinedAt": "2026-11-22T19:04:41.9848951+00:00"
     },
     {
+      "hash": "51ca8e87b50866f6",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.XUnit.V3/E2ETest.cs",
+      "lineNumber": 136,
+      "codeSnippet": "catch (OperationCanceledException)\n        {\n            // The look is a courtesy: the test's own failure is the one to report.\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:41:48.2143455+00:00"
+    },
+    {
+      "hash": "f9ce5918a5a67d0d",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.XUnit.V3/E2ETest.cs",
+      "lineNumber": 203,
+      "codeSnippet": "catch (OperationCanceledException)\n            {\n                // The run was cancelled: the test's own result stands.\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:41:48.2143502+00:00"
+    },
+    {
       "hash": "43d38b513388976b",
       "ruleId": "SW003",
       "filePath": "src/E2E.XUnit.V3/E2ETest.cs",
-      "lineNumber": 288,
+      "lineNumber": 351,
       "codeSnippet": "catch (OperationCanceledException)\n        {\n            // The run was cancelled: the test's own result stands.\n        }",
       "message": "Empty catch block swallows exceptions without handling",
-      "baselinedAt": "2026-11-25T19:56:08.5808562+00:00"
-    },
-    {
-      "hash": "e811cf93d9829c82",
-      "ruleId": "SW002",
-      "filePath": "src/E2E.Decision/Sdk/CreateTelemetryDispatcher.cs",
-      "lineNumber": 12,
-      "codeSnippet": "#pragma warning disable CS0618 // the deprecated aliases are dispatched on purpose",
-      "message": "#pragma warning disable for warnings CS0618 without matching restore in same scope",
-      "baselinedAt": "2026-11-25T19:56:08.5817448+00:00"
-    },
-    {
-      "hash": "535176f8dee21043",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Mobile.Tests/Engine/DeviceFixtureViewportTests.cs",
-      "lineNumber": 124,
-      "codeSnippet": "Task.Delay(TimeSpan.FromMilliseconds(60), h.Clock, token)",
-      "message": "Test uses Task.Delay(TimeSpan.FromMilliseconds(60)) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.581838+00:00"
-    },
-    {
-      "hash": "6f3373eccc7b5ffd",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Mobile.Tests/Engine/DeviceFixtureViewportTests.cs",
-      "lineNumber": 129,
-      "codeSnippet": "Task.Delay(TimeSpan.FromMilliseconds(60), h.Clock, token)",
-      "message": "Test uses Task.Delay(TimeSpan.FromMilliseconds(60)) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.581843+00:00"
-    },
-    {
-      "hash": "ab787c69a3975ba6",
-      "ruleId": "SW002",
-      "filePath": "tests/E2E.Decision.Tests/DeprecatedAliases/DeprecatedAliasesTests.cs",
-      "lineNumber": 5,
-      "codeSnippet": "#pragma warning disable CS0618 // the deprecated aliases are the subject of these tests",
-      "message": "#pragma warning disable for warnings CS0618 without matching restore in same scope",
-      "baselinedAt": "2026-11-25T19:56:08.5818844+00:00"
-    },
-    {
-      "hash": "762b30fc70bcaa50",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Decision.Tests/TypeSafeAiDecisionModel/SdkTransportTests.cs",
-      "lineNumber": 131,
-      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
-      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5818913+00:00"
-    },
-    {
-      "hash": "96b4d0bc09d35421",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Decision.Tests/CreateDownload/CreateDownloadTests.cs",
-      "lineNumber": 76,
-      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
-      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5818972+00:00"
-    },
-    {
-      "hash": "14aad6f788a96501",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests.App/FileLockWorker.cs",
-      "lineNumber": 24,
-      "codeSnippet": "Task.Delay(delay)",
-      "message": "Test uses Task.Delay(delay) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5819298+00:00"
-    },
-    {
-      "hash": "806f538281bc7b7a",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests.App/FileLockWorker.cs",
-      "lineNumber": 37,
-      "codeSnippet": "Task.Delay(1)",
-      "message": "Test uses Task.Delay(1) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5819354+00:00"
-    },
-    {
-      "hash": "a3ca4b0ee1a76095",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests.App/Program.cs",
-      "lineNumber": 42,
-      "codeSnippet": "Task.Delay(int.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture))",
-      "message": "Test uses Task.Delay(int.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture)) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5819403+00:00"
-    },
-    {
-      "hash": "9ca9bae26331895c",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests.App/Program.cs",
-      "lineNumber": 67,
-      "codeSnippet": "Task.Delay(Timeout.Infinite)",
-      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5819447+00:00"
-    },
-    {
-      "hash": "026e5c9be5f2edd4",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests.App/Program.cs",
-      "lineNumber": 93,
-      "codeSnippet": "Task.Delay(Timeout.Infinite)",
-      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5819497+00:00"
-    },
-    {
-      "hash": "10bcdeba1def451a",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests.App/Program.cs",
-      "lineNumber": 106,
-      "codeSnippet": "Task.Delay(Timeout.Infinite)",
-      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5819565+00:00"
-    },
-    {
-      "hash": "a749572c97559370",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests.App/Program.cs",
-      "lineNumber": 169,
-      "codeSnippet": "Thread.Sleep(50)",
-      "message": "Test uses Thread.Sleep(50) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.581961+00:00"
-    },
-    {
-      "hash": "292e4553fc865c00",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests.App/Program.cs",
-      "lineNumber": 186,
-      "codeSnippet": "Thread.Sleep(10)",
-      "message": "Test uses Thread.Sleep(10) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5819663+00:00"
-    },
-    {
-      "hash": "a772d16520e969fb",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests.App/Program.cs",
-      "lineNumber": 199,
-      "codeSnippet": "Thread.Sleep(100)",
-      "message": "Test uses Thread.Sleep(100) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5819711+00:00"
-    },
-    {
-      "hash": "a2e81ec0cc4dce20",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests.App/Program.cs",
-      "lineNumber": 227,
-      "codeSnippet": "Task.Delay(Timeout.Infinite)",
-      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5819754+00:00"
-    },
-    {
-      "hash": "c57fd1c386b1cf41",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Decision.Tests/Filter/DecisionFilterTests.cs",
-      "lineNumber": 232,
-      "codeSnippet": "Task.Delay(50)",
-      "message": "Test uses Task.Delay(50) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5820731+00:00"
-    },
-    {
-      "hash": "59ce592539b775ce",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Decision.Tests/Filter/DecisionFilterTests.cs",
-      "lineNumber": 1201,
-      "codeSnippet": "Task.Delay(200 + (50 * files.IndexOf(file)))",
-      "message": "Test uses Task.Delay(200 + (50 * files.IndexOf(file))) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5820794+00:00"
-    },
-    {
-      "hash": "58111001c836b682",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Decision.Tests/Filter/DecisionFilterTests.cs",
-      "lineNumber": 1205,
-      "codeSnippet": "Task.Delay(Timeout.Infinite, request.AbortSignal)",
-      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5820851+00:00"
-    },
-    {
-      "hash": "bb649372146880ca",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/OpenSession/HostFakeEngine.cs",
-      "lineNumber": 196,
-      "codeSnippet": "Task.Delay(delay ?? TimeSpan.FromMilliseconds(50)).ConfigureAwait(false)",
-      "message": "Test uses Task.Delay(false) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5821435+00:00"
-    },
-    {
-      "hash": "9ad4e7b160664a77",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/OpenSession/HostFakeEngine.cs",
-      "lineNumber": 196,
-      "codeSnippet": "Task.Delay(delay ?? TimeSpan.FromMilliseconds(50))",
-      "message": "Test uses Task.Delay(delay ?? TimeSpan.FromMilliseconds(50)) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5821493+00:00"
-    },
-    {
-      "hash": "e83cc80786eb0b63",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/Store/FileCredentialStoreTests.cs",
-      "lineNumber": 273,
-      "codeSnippet": "Task.Delay(1)",
-      "message": "Test uses Task.Delay(1) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5822875+00:00"
-    },
-    {
-      "hash": "2ae357eba5159c27",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/AgentActSameTurnVerdict/AgentActSameTurnVerdictHelpers.cs",
-      "lineNumber": 40,
-      "codeSnippet": "Task.Delay(700)\n                    .ContinueWith(\n                        _ =>\n                        {\n                            next!.Hidden = true;\n                            second.Hidden = false;\n                        },\n                        TaskScheduler.Default\n                    )",
-      "message": "Test uses Task.Delay(_ =>\n                        {\n                            next!.Hidden = true;\n                            second.Hidden = false;\n                        }) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.582386+00:00"
-    },
-    {
-      "hash": "7bdf5697fbf3c5e8",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/AgentActSameTurnVerdict/AgentActSameTurnVerdictHelpers.cs",
-      "lineNumber": 40,
-      "codeSnippet": "Task.Delay(700)",
-      "message": "Test uses Task.Delay(700) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5823911+00:00"
-    },
-    {
-      "hash": "6acceb30279b691c",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/EngineBrowserConnection/EngineBrowserConnectionTests.cs",
-      "lineNumber": 133,
-      "codeSnippet": "SpinWait.SpinUntil(() => Volatile.Read(ref disposed) == 1, TimeSpan.FromSeconds(5))",
-      "message": "Test uses SpinWait which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5826422+00:00"
-    },
-    {
-      "hash": "9bcfb715ca3235ed",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/Fetch/CreateOAuthFetchTests.cs",
-      "lineNumber": 301,
-      "codeSnippet": "Task.Delay(500)",
-      "message": "Test uses Task.Delay(500) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5826926+00:00"
-    },
-    {
-      "hash": "967976e5118d312d",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/StepHold/AttemptTimeoutTests.cs",
-      "lineNumber": 31,
-      "codeSnippet": "Task.Delay(20)",
-      "message": "Test uses Task.Delay(20) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5827941+00:00"
-    },
-    {
-      "hash": "15d9da3654a290ef",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/StepHold/AttemptTimeoutTests.cs",
-      "lineNumber": 46,
-      "codeSnippet": "Task.Delay(80)",
-      "message": "Test uses Task.Delay(80) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5827989+00:00"
-    },
-    {
-      "hash": "e4160904bd95ac83",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/StepHold/AttemptTimeoutTests.cs",
-      "lineNumber": 55,
-      "codeSnippet": "Task.Delay(200)",
-      "message": "Test uses Task.Delay(200) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.582806+00:00"
-    },
-    {
-      "hash": "76c1201e0041e38d",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/StepHold/AttemptHoldsTests.cs",
-      "lineNumber": 48,
-      "codeSnippet": "Thread.Sleep(40)",
-      "message": "Test uses Thread.Sleep(40) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5828111+00:00"
-    },
-    {
-      "hash": "02d1e18046116a73",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/StepHold/AttemptHoldsTests.cs",
-      "lineNumber": 75,
-      "codeSnippet": "Task.Delay(300)",
-      "message": "Test uses Task.Delay(300) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.582817+00:00"
-    },
-    {
-      "hash": "4d880dad89c74a74",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/ChromiumSandbox/BrowserConnectionTests.cs",
-      "lineNumber": 60,
-      "codeSnippet": "Task.Delay(20)\n                    .ContinueWith<IBrowser>(\n                        _ => throw new PlaywrightException(\"browserType.launch: Chromium sandboxing failed!\"),\n                        TaskScheduler.Default\n                    )",
-      "message": "Test uses Task.Delay(_ => throw new PlaywrightException(\"browserType.launch: Chromium sandboxing failed!\")) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5828816+00:00"
-    },
-    {
-      "hash": "57be4d6e0c66335a",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/ChromiumSandbox/BrowserConnectionTests.cs",
-      "lineNumber": 60,
-      "codeSnippet": "Task.Delay(20)",
-      "message": "Test uses Task.Delay(20) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5828867+00:00"
-    },
-    {
-      "hash": "7dcd050da149ef52",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/ChromiumSandbox/BrowserConnectionTests.cs",
-      "lineNumber": 78,
-      "codeSnippet": "Task.Delay(1)",
-      "message": "Test uses Task.Delay(1) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5828924+00:00"
-    },
-    {
-      "hash": "db5ff0c64b99eeb0",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/FileLock/WithFileLockTests.cs",
-      "lineNumber": 175,
-      "codeSnippet": "Task.Delay(50)",
-      "message": "Test uses Task.Delay(50) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5829633+00:00"
-    },
-    {
-      "hash": "0f8eddd007609b6a",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/FileLock/WithFileLockTests.cs",
-      "lineNumber": 255,
-      "codeSnippet": "Task.Delay(100)",
-      "message": "Test uses Task.Delay(100) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5829684+00:00"
-    },
-    {
-      "hash": "9956c5e9eaf615fd",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/FileLock/WithFileLockTests.cs",
-      "lineNumber": 633,
-      "codeSnippet": "Task.Delay(150)",
-      "message": "Test uses Task.Delay(150) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.582973+00:00"
-    },
-    {
-      "hash": "64db0052cbd6937c",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/FileLock/WithFileLockTests.cs",
-      "lineNumber": 706,
-      "codeSnippet": "Task.Delay(1)",
-      "message": "Test uses Task.Delay(1) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5829801+00:00"
-    },
-    {
-      "hash": "b4efb43f4d4bca69",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/ExpectPoll/ExpectFnToPassTests.cs",
-      "lineNumber": 132,
-      "codeSnippet": "Task.Delay(Ms(165)).ContinueWith(_ => live.Cancel(), TaskScheduler.Default)",
-      "message": "Test uses Task.Delay(_ => live.Cancel()) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5830307+00:00"
-    },
-    {
-      "hash": "777232147b4a57a7",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/ExpectPoll/ExpectFnToPassTests.cs",
-      "lineNumber": 132,
-      "codeSnippet": "Task.Delay(Ms(165))",
-      "message": "Test uses Task.Delay(Ms(165)) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5830362+00:00"
-    },
-    {
-      "hash": "9e6fa967f5f43532",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/ExpectPoll/ExpectFnToPassTests.cs",
-      "lineNumber": 143,
-      "codeSnippet": "Task.Delay(Ms(40)).ContinueWith(_ => live.ShiftDeadline(Ms(1000)), TaskScheduler.Default)",
-      "message": "Test uses Task.Delay(_ => live.ShiftDeadline(Ms(1000))) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5830409+00:00"
-    },
-    {
-      "hash": "2b5c1b2a07603cb0",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/ExpectPoll/ExpectFnToPassTests.cs",
-      "lineNumber": 143,
-      "codeSnippet": "Task.Delay(Ms(40))",
-      "message": "Test uses Task.Delay(Ms(40)) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5830464+00:00"
-    },
-    {
-      "hash": "ae635c72fbf96b65",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/ExpectPoll/ExpectFnToPassTests.cs",
-      "lineNumber": 299,
-      "codeSnippet": "Task.Delay(50)",
-      "message": "Test uses Task.Delay(50) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5830508+00:00"
-    },
-    {
-      "hash": "162832f97695f315",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/ExpectPoll/ExpectPollInAPollScopeTests.cs",
-      "lineNumber": 51,
-      "codeSnippet": "Task.Delay(20)",
-      "message": "Test uses Task.Delay(20) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5830563+00:00"
-    },
-    {
-      "hash": "88e73c7495e112f7",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/ExpectPoll/ExpectPollInAPollScopeTests.cs",
-      "lineNumber": 67,
-      "codeSnippet": "Task.Delay(30)",
-      "message": "Test uses Task.Delay(30) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5830616+00:00"
-    },
-    {
-      "hash": "c2e01cfdbc4ee5fb",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/OpenHostDeadline/OpenHostDeadlineTests.cs",
-      "lineNumber": 315,
-      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
-      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.583067+00:00"
-    },
-    {
-      "hash": "128fbaabfce314c6",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/OpenHostDeadline/OpenHostDeadlineTests.cs",
-      "lineNumber": 434,
-      "codeSnippet": "Task.Delay(200)",
-      "message": "Test uses Task.Delay(200) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5830732+00:00"
-    },
-    {
-      "hash": "cf6e319a4043037e",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/LaunchInTestReport/ALaunchSessionOpenedInsideATestInTheTestsReportTests.cs",
-      "lineNumber": 169,
-      "codeSnippet": "Task.Delay(300)",
-      "message": "Test uses Task.Delay(300) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5832056+00:00"
-    },
-    {
-      "hash": "85dcd1b73db8e48f",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Cli.Tests/McpSessionHost/SessionHostTests.cs",
-      "lineNumber": 609,
-      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
-      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5833352+00:00"
-    },
-    {
-      "hash": "85b60b6b1661f2fd",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.TUnit.Tests/TestSetTimeout/TestSetTimeoutFixtures.cs",
-      "lineNumber": 66,
-      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(12))",
-      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(12)) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5834068+00:00"
-    },
-    {
-      "hash": "8111584ebcfa00eb",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.NUnit.Tests/TestSetTimeout/TestSetTimeoutFixtures.cs",
-      "lineNumber": 60,
-      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(12))",
-      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(12)) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5834545+00:00"
-    },
-    {
-      "hash": "09f17aeea1ad00eb",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.NUnit.Tests/TestSetTimeout/TestSetTimeoutFixtures.cs",
-      "lineNumber": 70,
-      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(12))",
-      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(12)) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5834601+00:00"
-    },
-    {
-      "hash": "75b98f18559f72f6",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.NUnit.Tests/TestSetTimeout/TestSetTimeoutFixtures.cs",
-      "lineNumber": 88,
-      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(12))",
-      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(12)) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5834651+00:00"
-    },
-    {
-      "hash": "def2b54a8dc96631",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.NUnit.Tests/TestSetTimeout/TestSetTimeoutFixtures.cs",
-      "lineNumber": 103,
-      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(12))",
-      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(12)) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5834711+00:00"
-    },
-    {
-      "hash": "093d8c627eb594b8",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.NUnit.Tests/TestSetTimeout/TestSetTimeoutFixtures.cs",
-      "lineNumber": 112,
-      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(2))",
-      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(2)) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.583476+00:00"
-    },
-    {
-      "hash": "55f0f3af9c066a85",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.NUnit.Tests/TestSetTimeout/TestSetTimeoutFixtures.cs",
-      "lineNumber": 114,
-      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(1))",
-      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(1)) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5834805+00:00"
-    },
-    {
-      "hash": "51a0fe32f851e225",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.NUnit.Tests/McpTestRun/OpenSessionTestOverE2eMcpTests.cs",
-      "lineNumber": 302,
-      "codeSnippet": "Task.Delay(300)",
-      "message": "Test uses Task.Delay(300) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5835388+00:00"
-    },
-    {
-      "hash": "da396629f9e81070",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.NUnit.Tests/McpTestRun/OpenSessionTestOverE2eMcpTests.cs",
-      "lineNumber": 622,
-      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(12))",
-      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(12)) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5835545+00:00"
-    },
-    {
-      "hash": "9583bf80548cd85a",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.NUnit.Tests/McpTestRun/OpenSessionTestOverE2eMcpTests.cs",
-      "lineNumber": 647,
-      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(11))",
-      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(11)) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5835594+00:00"
-    },
-    {
-      "hash": "5002e61ef0629a70",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.NUnit.Tests/ExpectedFailure/ExpectedFailureFixtures.cs",
-      "lineNumber": 145,
-      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(6))",
-      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(6)) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.583606+00:00"
-    },
-    {
-      "hash": "6f3fb2ac59ed645d",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.NUnit.Tests/SerialSession/SerialSetTimeoutTests.cs",
-      "lineNumber": 79,
-      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(8))",
-      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(8)) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.583625+00:00"
-    },
-    {
-      "hash": "ece79d5b754dd170",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.NUnit.Tests/SerialSession/SerialSetTimeoutTests.cs",
-      "lineNumber": 90,
-      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(8))",
-      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(8)) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5836295+00:00"
-    },
-    {
-      "hash": "74f633ce271b5827",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.NUnit.Tests/SerialSession/SerialSetTimeoutTests.cs",
-      "lineNumber": 98,
-      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(8))",
-      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(8)) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.5836351+00:00"
-    },
-    {
-      "hash": "f4de33d7899e3722",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.XUnit.V3.Tests/TestSetTimeout/TestSetTimeoutFixtures.cs",
-      "lineNumber": 66,
-      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(12))",
-      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(12)) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-25T19:56:08.583681+00:00"
+      "baselinedAt": "2026-11-25T21:36:59.2554468+00:00"
     }
   ]
 }
