@@ -68,7 +68,7 @@ public sealed class LaunchArgumentsTests
                     Prepare = info =>
                     {
                         spread.Add([.. info.App!.LaunchArguments ?? []]);
-                        return Task.CompletedTask;
+                        return Task.FromResult<EnginePrepareResult?>(null);
                     },
                 }
             )

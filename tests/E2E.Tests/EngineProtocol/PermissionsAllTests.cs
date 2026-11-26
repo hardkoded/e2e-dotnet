@@ -31,7 +31,7 @@ public sealed class PermissionsAllTests
                                 AllPermissions = info.App.AllPermissions,
                             }
                         );
-                        return Task.CompletedTask;
+                        return Task.FromResult<EnginePrepareResult?>(null);
                     },
                 }
             ),
