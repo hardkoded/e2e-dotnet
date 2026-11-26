@@ -76,6 +76,16 @@ internal static partial class Routes
             && app.AbsoluteUri == resolved.AbsoluteUri
         )
         {
+            // The file may have changed since the config loaded (a directory now, or a link out of its directory): the same rule applies again.
+            if (!Urls.FileScope(resolved))
+            {
+                throw new TestException(
+                    "POLICY_DENIED",
+                    "file navigation stays in the directory of the app's file, and opens a file, not a directory: file://"
+                        + resolved.AbsolutePath
+                );
+            }
+
             return resolved.AbsoluteUri;
         }
 

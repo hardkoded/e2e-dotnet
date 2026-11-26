@@ -189,7 +189,7 @@ public static partial class Urls
     /// <c>inside</c>. Paths are compared decoded and with symbolic links resolved. A path this machine cannot resolve (a NUL, a name too
     /// long, a directory it may not search) is not a file: the rule fails closed.
     /// </summary>
-    private static bool FileScope(Uri url)
+    internal static bool FileScope(Uri url)
     {
         var path = LocalFile(url);
         if (path is null)
