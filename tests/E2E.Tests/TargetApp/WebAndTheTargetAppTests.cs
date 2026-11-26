@@ -4,6 +4,7 @@
 
 using System.Reflection;
 using E2E.Engine;
+using E2E.Tests.BrowserProvider;
 using Microsoft.Playwright;
 
 namespace E2E.Tests.TargetApp;
@@ -34,6 +35,87 @@ public sealed class WebAndTheTargetAppTests
                 error.Message
             );
         }
+    }
+
+    [Fact]
+    public void Declares_that_it_opens_a_file_app_in_a_browser_it_launches_itself_and_with_no_credentials_to_scope()
+    {
+        // The harness reads the URL and says so; the engine never parses the scheme itself.
+        var info = new EngineAppCheckInfo { TargetName = "web", FileApp = true };
+        var app = new EngineAppDeclaration { Url = "file:///tmp/site/index.html" };
+        static ConfigurationException Refused(IEngine engine, EngineAppDeclaration app, EngineAppCheckInfo info)
+        {
+            var error = Assert.Throws<ConfigurationException>(() => engine.ValidateApp(app, info));
+            Assert.Equal("INVALID_CONFIG", error.Code);
+            return error;
+        }
+
+        foreach (var browser in new[] { BrowserName.Chromium, BrowserName.Firefox, BrowserName.Webkit })
+        {
+            var engine = new WebEngine(new WebEngineOptions { BrowserName = browser });
+            Assert.True(((IEngine)engine).FileApps);
+            ((IEngine)engine).ValidateApp(app, info);
+        }
+
+        var hosted = new InlineProvider("hosted", _ =>
+            Task.FromResult(new BrowserLease { Id = "s", CdpEndpoint = "ws://localhost:9222" })
+        );
+        Assert.Contains(
+            "target \"web\" opens a file app.url, which browser provider \"hosted\" cannot read",
+            Refused(new WebEngine(new WebEngineOptions { Browser = hosted }), app, info).Message,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "web({ connect }) attaches to a browser that may run on another machine",
+            Refused(
+                new WebEngine(
+                    new WebEngineOptions
+                    {
+                        Connect = new WebConnectOptions
+                        {
+                            CdpEndpoint = _ => Task.FromResult(new CdpTarget { Endpoint = "ws://localhost:9222" }),
+                        },
+                    }
+                ),
+                app,
+                info
+            ).Message,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "web({ headers }) always goes to the app's origin, which a file does not have",
+            Refused(
+                new WebEngine(
+                    new WebEngineOptions { Headers = new Dictionary<string, string> { ["x-preview"] = "synthetic" } }
+                ),
+                app,
+                info
+            ).Message,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "web({ basicAuth }) always goes to the app's origin, which a file does not have",
+            Refused(
+                new WebEngine(new WebEngineOptions { BasicAuth = new WebBasicAuth("user", "synthetic") }),
+                app,
+                info
+            ).Message,
+            StringComparison.Ordinal
+        );
+        // A host named file is not a file app: the harness says nothing, and the options stand.
+        (
+            (IEngine)
+                new WebEngine(
+                    new WebEngineOptions
+                    {
+                        Browser = hosted,
+                        Headers = new Dictionary<string, string> { ["x-preview"] = "synthetic" },
+                    }
+                )
+        ).ValidateApp(
+            new EngineAppDeclaration { Url = "file:8443/report" },
+            new EngineAppCheckInfo { TargetName = "web" }
+        );
     }
 
     [Fact]

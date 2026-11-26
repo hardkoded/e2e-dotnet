@@ -6,6 +6,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace E2E.Engine.Protocol;
@@ -81,6 +82,9 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
 {
     /// <summary>Characters of a server's stderr kept for the message of a failure. Upstream's <c>STDERR_TAIL_BYTES</c>.</summary>
     private const int StderrTailBytes = 4096;
+
+    /// <summary>The <c>X_OK</c> mode of <c>access(2)</c>.</summary>
+    private const int ExecuteOk = 1;
 
     /// <summary>
     /// How long the end of a server's stdout waits for the server to exit and its stderr to close, so a failure message can carry both.
@@ -174,7 +178,10 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
     private static string DefaultPath =>
         OperatingSystem.IsWindows() ? Environment.GetEnvironmentVariable("PATH") ?? "" : "/usr/bin:/bin";
 
-    /// <summary>A file the system could start: on Unix one with an execute bit, so a search goes on past one it could not.</summary>
+    /// <summary>
+    /// A file the system could start by this user, so a search goes on past one it could not, as the kernel does for Node's <c>spawn</c>: on
+    /// Unix <c>access(X_OK)</c>, which weighs the owner, group and other execute bits against the current user.
+    /// </summary>
     private static bool IsExecutable(string path)
     {
         if (!File.Exists(path))
@@ -182,19 +189,18 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
             return false;
         }
 
-        return OperatingSystem.IsWindows()
-            || (
-                File.GetUnixFileMode(path)
-                & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)
-            ) != 0;
+        return OperatingSystem.IsWindows() || Access(path, ExecuteOk) == 0;
     }
+
+    [DllImport("libc", EntryPoint = "access", SetLastError = true)]
+    private static extern int Access([MarshalAs(UnmanagedType.LPUTF8Str)] string path, int mode);
 
     /// <summary>
     /// The executable to start. .NET looks a command up against the parent's directory and <c>PATH</c>, where upstream's <c>spawn</c> applies the
     /// child's <c>cwd</c> and <c>env.PATH</c>: a relative path resolves against <paramref name="cwd"/>, and a bare name against the child's
     /// <c>PATH</c>. A name found in no directory of an explicit child <c>PATH</c> is a <see cref="FileNotFoundException"/>, as upstream's <c>spawn</c> reports <c>ENOENT</c>.
     /// </summary>
-    private static string ResolveCommand(string command, string cwd, IDictionary<string, string?> environment)
+    internal static string ResolveCommand(string command, string cwd, IDictionary<string, string?> environment)
     {
         if (Path.IsPathRooted(command))
         {

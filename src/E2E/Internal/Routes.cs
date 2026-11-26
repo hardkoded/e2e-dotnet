@@ -67,6 +67,28 @@ internal static partial class Routes
 
         // An allowlist, because a browser wraps and nests schemes (view-source:file:, blob:, filesystem:)
         // and a list of forbidden ones misses the wrapper. The exact about:blank loads nothing.
+        // A target whose app is a file opens that file (upstream's resolveNavigationUrl admits the file's directory too, #2236).
+        if (
+            resolved.Scheme == "file"
+            && baseUrl is not null
+            && Uri.TryCreate(baseUrl, UriKind.Absolute, out var app)
+            && app.Scheme == "file"
+            && app.AbsoluteUri == resolved.AbsoluteUri
+        )
+        {
+            // The file may have changed since the config loaded (a directory now, or a link out of its directory): the same rule applies again.
+            if (!Urls.FileScope(resolved))
+            {
+                throw new TestException(
+                    "POLICY_DENIED",
+                    "file navigation stays in the directory of the app's file, and opens a file, not a directory: file://"
+                        + resolved.AbsolutePath
+                );
+            }
+
+            return resolved.AbsoluteUri;
+        }
+
         if (resolved.Scheme is not ("http" or "https") && resolved.AbsoluteUri != "about:blank")
         {
             throw new TestException("POLICY_DENIED", "forbidden URL scheme: " + resolved.Scheme + ":");
