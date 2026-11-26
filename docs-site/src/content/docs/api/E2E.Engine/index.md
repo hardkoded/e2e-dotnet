@@ -42,6 +42,7 @@ Public types in the `E2E.Engine` namespace.
 | [EngineAppDeclaration](/api/E2E.Engine/EngineAppDeclaration/) | The app a target declares, as its engine reads it at config load (upstream's EngineAppDeclaration): the target's app, with the URL the target opens. The harness has checked the shape of every field before ValidateApp sees it. |
 | [EngineAppInfo](/api/E2E.Engine/EngineAppInfo/) | The app the harness resolved from the target's declaration, as an engine's doctor hook reads it: the origin and site policy, and what a device launches. The URL itself stays with the harness. Upstream's EngineAppInfo, with the members the port's config declares. |
 | [EngineArtifactsSpec](/api/E2E.Engine/EngineArtifactsSpec/) | Upstream's artifacts hooks of an engine: the screenshot, and video started and stopped together. |
+| [EngineAttemptContext](/api/E2E.Engine/EngineAttemptContext/) | Upstream's EngineAttemptContext (engine/index.ts): what an engine's StartAttempt is given once per attempt, with the callbacks that carry what the engine learns back to the harness. Over the engine protocol each callback is a message to the client. |
 | [EngineCleanupContext](/api/E2E.Engine/EngineCleanupContext/) | Upstream's EngineCleanupContext: the signal and the cleanup budget the harness hands an engine's cleanup hooks. |
 | [EngineDisposeContext](/api/E2E.Engine/EngineDisposeContext/) | What DisposeAsync is given: the cleanup budget of one engine's dispose, and whether it may keep what it holds for a replacement worker. Upstream's EngineDisposeContext (engine/index.ts). |
 | [EngineDoctorCheck](/api/E2E.Engine/EngineDoctorCheck/) | One finding of DoctorAsync. Upstream's EngineDoctorCheck. |
@@ -80,6 +81,7 @@ Public types in the `E2E.Engine` namespace.
 | [LocatorAction.Focus](/api/E2E.Engine/LocatorAction.Focus/) |  |
 | [LocatorAction.Hover](/api/E2E.Engine/LocatorAction.Hover/) | Moves the pointer over the node. |
 | [LocatorAction.LongPress](/api/E2E.Engine/LocatorAction.LongPress/) | A press held on the node for Duration, or for the engine's own default hold when it is null. |
+| [LocatorAction.MultiTap](/api/E2E.Engine/LocatorAction.MultiTap/) | Count taps in a row on one point: 3 or more, since 2 is LocatorAction.DoubleTap. A browser reads them as one multi-click (a triple click selects a paragraph); a device presses them at its own cadence, which a gesture detector may not read as one. Not a kind of SPI v1, so an engine lists it explicitly. Modifiers are held for every click, as for LocatorAction.Tap. Upstream's multiTap. |
 | [LocatorAction.Press](/api/E2E.Engine/LocatorAction.Press/) |  |
 | [LocatorAction.ScrollIntoView](/api/E2E.Engine/LocatorAction.ScrollIntoView/) | Scrolls the node's nearest scrollable container until the node is in the viewport. |
 | [LocatorAction.SecondaryTap](/api/E2E.Engine/LocatorAction.SecondaryTap/) | A right click, or the platform's equivalent. Modifiers are held for the click, as for LocatorAction.Tap. |
@@ -114,6 +116,7 @@ Public types in the `E2E.Engine` namespace.
 | [ProviderRecordingStopContext](/api/E2E.Engine/ProviderRecordingStopContext/) | Handed to StopAsync, once per recording. |
 | [ProviderRecordingTarget](/api/E2E.Engine/ProviderRecordingTarget/) | Where the attempt's recording lands and who made it, for StopProviderRecordingAsync. |
 | [ResolveExpressionOptions](/api/E2E.Engine/ResolveExpressionOptions/) | Options for ResolveExpression: upstream's ResolveExpressionOptions (engine/resolve.ts). |
+| [ResolveSecretOptions](/api/E2E.Engine/ResolveSecretOptions/) | What an engine asks of ResolveSecret beside the value. Upstream's ResolveSecretOptions. |
 | [RouteContinueOverrides](/api/E2E.Engine/RouteContinueOverrides/) | What ContinueAsync(RouteContinueOverrides) changes about the request before it goes to the network. |
 | [RouteFulfillResponse](/api/E2E.Engine/RouteFulfillResponse/) | How FulfillAsync(RouteFulfillResponse) answers a request. Give at most one of Json, Body, or Path; none is an empty body. |
 | [ScreenRoute](/api/E2E.Engine/ScreenRoute/) | Upstream's ScreenRoute (engine/session.ts): where the screens of an attempt go for its trace. Without a sink they are dropped, and nothing waits for them. |

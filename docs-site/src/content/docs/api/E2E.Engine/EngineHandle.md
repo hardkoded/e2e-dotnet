@@ -78,11 +78,11 @@ The capabilities the spec declares: `observation`, `computed-style`, `actions`, 
 
 
 ```csharp
-public Func<EngineCleanupContext, Task>? Dispose { get; }
+public Func<EngineDisposeContext, Task>? Dispose { get; }
 ```
 
 
-**Value:** [Func&lt;EngineCleanupContext, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
+**Value:** [Func&lt;EngineDisposeContext, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 
 <a id="E2E_Engine_EngineHandle_Doctor_"></a>
 <a id="E2E_Engine_EngineHandle_Doctor"></a>
@@ -417,11 +417,11 @@ public int SpiVersion { get; }
 
 
 ```csharp
-public Func<OperationContext, Task>? StartAttempt { get; }
+public Func<EngineAttemptContext, Task>? StartAttempt { get; }
 ```
 
 
-**Value:** [Func&lt;OperationContext, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
+**Value:** [Func&lt;EngineAttemptContext, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 
 <a id="E2E_Engine_EngineHandle_State_"></a>
 <a id="E2E_Engine_EngineHandle_State"></a>

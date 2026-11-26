@@ -23,7 +23,7 @@ public enum EngineCapabilities
     /// <summary><see cref="IEngineSession.ScreenshotAsync(CancellationToken)"/>, which <c>toHaveScreenshot</c> compares.</summary>
     Screenshot = 64,
 
-    /// <summary>The <c>Modifiers</c> of <see cref="LocatorAction.Tap"/> and <see cref="LocatorAction.DoubleTap"/>: keys held for the click.</summary>
+    /// <summary>The <c>Modifiers</c> of <see cref="LocatorAction.Tap"/> and <see cref="LocatorAction.DoubleTap"/>, and <see cref="LocatorAction.MultiTap"/>: keys held for the click.</summary>
     TapModifiers = 128,
 
     /// <summary><see cref="IEngineSession.StartVideoAsync(CancellationToken)"/> and <see cref="IEngineSession.StopVideoAsync(CancellationToken)"/>: the engine can record the attempt as video.</summary>

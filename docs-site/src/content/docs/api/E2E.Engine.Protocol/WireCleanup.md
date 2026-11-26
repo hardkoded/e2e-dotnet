@@ -30,13 +30,13 @@ An engine cleanup context on the wire. Upstream's `WireCleanup`.
 ## Constructors
 
 <a id="E2E_Engine_Protocol_WireCleanup__ctor_"></a>
-<a id="E2E_Engine_Protocol_WireCleanup__ctor_E2E_Engine_Protocol_WireSignal_System_Int32_"></a>
+<a id="E2E_Engine_Protocol_WireCleanup__ctor_E2E_Engine_Protocol_WireSignal_System_Double_"></a>
 
-### WireCleanup(WireSignal, int)
+### WireCleanup(WireSignal, double)
 
 
 ```csharp
-public WireCleanup(WireSignal Signal, int TimeoutMs)
+public WireCleanup(WireSignal Signal, double TimeoutMs)
 ```
 
 
@@ -47,7 +47,7 @@ An engine cleanup context on the wire. Upstream's `WireCleanup`.
 | Name | Type | Description |
 | --- | --- | --- |
 | `Signal` | [WireSignal](/api/E2E.Engine.Protocol/WireSignal/) |  |
-| `TimeoutMs` | [int](https://learn.microsoft.com/dotnet/api/system.int32) |  |
+| `TimeoutMs` | [double](https://learn.microsoft.com/dotnet/api/system.double) |  |
 
 ## Properties
 
@@ -71,8 +71,8 @@ public WireSignal Signal { get; init; }
 
 
 ```csharp
-public int TimeoutMs { get; init; }
+public double TimeoutMs { get; init; }
 ```
 
 
-**Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
+**Value:** [double](https://learn.microsoft.com/dotnet/api/system.double)
