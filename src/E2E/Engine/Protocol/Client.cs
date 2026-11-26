@@ -82,7 +82,7 @@ public static partial class ProtocolClient
     {
         ArgumentNullException.ThrowIfNull(options);
         var handle = E2E.Engine.EngineManifest.DefineEngine(
-            new EngineClient(ProtocolManifest.CheckManifest(options.Manifest), options).Engine()
+            new EngineClient(Snapshot(ProtocolManifest.CheckManifest(options.Manifest)), options).Engine()
         );
         Clients.Add(handle, handle);
         return handle;
@@ -122,6 +122,15 @@ public static partial class ProtocolClient
             return client;
         }
     }
+
+    /// <summary>A copy of the manifest's lists, so a caller changing its own after the call cannot split the methods the handle serves from the ones the handshake compares.</summary>
+    private static EngineManifest Snapshot(EngineManifest manifest) =>
+        manifest with
+        {
+            Methods = [.. manifest.Methods],
+            Actions = manifest.Actions is null ? null : [.. manifest.Actions],
+            PointerActions = manifest.PointerActions is null ? null : [.. manifest.PointerActions],
+        };
 
     /// <summary>What opening a connection needs from the hook that opens it. Upstream's <c>OpenContext</c>.</summary>
     private sealed record OpenContext(
