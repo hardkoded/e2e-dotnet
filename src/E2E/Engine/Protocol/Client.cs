@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
@@ -1243,9 +1244,10 @@ public static partial class ProtocolClient
 /// </summary>
 internal sealed class SignalEncoder : IDisposable
 {
+    private static readonly ConcurrentDictionary<CancellationToken, int> s_listeners = new();
     private readonly object _gate = new();
     private readonly Dictionary<CancellationToken, int> _ids = [];
-    private readonly List<CancellationTokenRegistration> _registrations = [];
+    private readonly List<Listener> _registrations = [];
     private Connection? _connection;
     private int _next = 1;
     private bool _disposed;
@@ -1256,7 +1258,7 @@ internal sealed class SignalEncoder : IDisposable
     /// <summary>Removes every cancellation callback this encoder added.</summary>
     public void Dispose()
     {
-        List<CancellationTokenRegistration> registrations;
+        List<Listener> registrations;
         lock (_gate)
         {
             _disposed = true;
@@ -1270,6 +1272,13 @@ internal sealed class SignalEncoder : IDisposable
             registration.Dispose();
         }
     }
+
+    /// <summary>
+    /// How many cancellation callbacks encoders have left on <paramref name="signal"/>. Upstream's tests count them with
+    /// <c>getEventListeners(signal, 'abort')</c>, which a <see cref="CancellationToken"/> has no counterpart of.
+    /// </summary>
+    internal static int GetEventListeners(CancellationToken signal) =>
+        s_listeners.TryGetValue(signal, out var count) ? count : 0;
 
     public WireSignal Encode(CancellationToken signal)
     {
@@ -1286,25 +1295,71 @@ internal sealed class SignalEncoder : IDisposable
                 if (!signal.IsCancellationRequested && !_disposed && signal.CanBeCanceled)
                 {
                     var aborted = id;
-                    _registrations.Add(
-                        signal.UnsafeRegister(
-                            _ =>
+                    var listener = new Listener(signal);
+                    _registrations.Add(listener);
+                    listener.Registration = signal.UnsafeRegister(
+                        _ =>
+                        {
+                            // A listener runs once, as upstream's does.
+                            listener.Remove();
+                            // A canceled token is encoded as aborted from here on, so its id is not kept.
+                            lock (_gate)
                             {
-                                // A canceled token is encoded as aborted from here on, so its id is not kept.
-                                lock (_gate)
-                                {
-                                    _ids.Remove(signal);
-                                }
+                                _ids.Remove(signal);
+                            }
 
-                                _connection?.Notify("$/abort", WireCodec.Write(new AbortParams(aborted)));
-                            },
-                            null
-                        )
+                            _connection?.Notify("$/abort", WireCodec.Write(new AbortParams(aborted)));
+                        },
+                        null
                     );
                 }
             }
 
             return signal.IsCancellationRequested ? new WireSignal(id, true) : new WireSignal(id);
+        }
+    }
+
+    /// <summary>One cancellation callback on a token, counted until it runs or is disposed.</summary>
+    private sealed class Listener : IDisposable
+    {
+        private readonly CancellationToken _signal;
+        private int _removed;
+
+        public Listener(CancellationToken signal)
+        {
+            _signal = signal;
+            s_listeners.AddOrUpdate(signal, 1, static (_, count) => count + 1);
+        }
+
+        public CancellationTokenRegistration Registration { get; set; }
+
+        public void Remove()
+        {
+            if (Interlocked.Exchange(ref _removed, 1) == 0)
+            {
+                while (true)
+                {
+                    if (!s_listeners.TryGetValue(_signal, out var count))
+                    {
+                        return;
+                    }
+
+                    if (
+                        count <= 1
+                            ? s_listeners.TryRemove(new(_signal, count))
+                            : s_listeners.TryUpdate(_signal, count - 1, count)
+                    )
+                    {
+                        return;
+                    }
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            Registration.Dispose();
+            Remove();
         }
     }
 }

@@ -105,6 +105,12 @@ public static class Protocol
     /// <summary>The <see cref="Exception.Data"/> key a decoded error keeps the stack it crossed with under. .NET-only: a .NET stack trace is read-only.</summary>
     public const string RemoteStackKey = "e2e.remoteStack";
 
+    /// <summary>
+    /// The <see cref="Exception.Data"/> key a plain error keeps its own error code under, such as <c>ECONNREFUSED</c>, on both sides of the
+    /// protocol. Upstream carries a Node error's <c>code</c> as <c>errno</c>. .NET-only: a .NET exception has no such property.
+    /// </summary>
+    public const string ErrnoKey = "e2e.errno";
+
     /// <summary>How deep a cause chain crosses, as deep as a report describes one.</summary>
     private const int MaxWireCauses = 3;
 
@@ -324,6 +330,11 @@ public static class Protocol
             return new RpcErrorObject(RpcErrors.EngineError, cause.Message, trace);
         }
 
+        if (cause.Data[ErrnoKey] is string errno)
+        {
+            trace["errno"] = errno;
+        }
+
         return new RpcErrorObject(RpcErrors.InternalError, cause.Message, trace.Count == 0 ? null : trace);
     }
 
@@ -333,8 +344,10 @@ public static class Protocol
         ArgumentNullException.ThrowIfNull(error);
         Exception? inner = null;
         string? stack = null;
+        string? errno = null;
         if (error.Data is JsonObject data)
         {
+            errno = data["errno"] is JsonValue code && code.TryGetValue<string>(out var c) ? c : null;
             stack = data["stack"] is JsonValue text && text.TryGetValue<string>(out var s) ? s : null;
             if (depth < MaxWireCauses && RpcErrorObject.IsRpcErrorObject(data["cause"], out var cause))
             {
@@ -347,6 +360,11 @@ public static class Protocol
         {
             // .NET cannot assign a stack trace, so the engine's own stack rides in Data for a report to show.
             decoded.Data[RemoteStackKey] = stack;
+        }
+
+        if (errno is not null && decoded.GetType() == typeof(Exception))
+        {
+            decoded.Data[ErrnoKey] = errno;
         }
 
         return decoded;
