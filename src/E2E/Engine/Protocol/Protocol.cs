@@ -119,14 +119,14 @@ public static class Protocol
 
     /// <summary>
     /// Every engine method a server may answer, one per engine member: the one table the manifest, the client, and the server are all read
-    /// off. Upstream's <c>METHODS</c>, in protocol order. The port has no <c>engine/viewportIntersection</c>, which upstream lists
-    /// after <c>engine/readStyle</c>.
+    /// off. Upstream's <c>METHODS</c>, in protocol order.
     /// </summary>
     public static IReadOnlyDictionary<string, ProtocolMethod> Methods { get; } =
         new Dictionary<string, ProtocolMethod>(StringComparer.Ordinal)
         {
             ["engine/observe"] = Operation("observe", ["operation", "options"], "snapshot"),
             ["engine/readStyle"] = Operation("readStyle", ["ref", "properties", "operation"]),
+            ["engine/viewportIntersection"] = Operation("viewportIntersection", ["ref", "operation"]),
             ["engine/locate"] = Operation("locate", ["expression", "operation"]),
             ["engine/perform"] = Operation("perform", ["ref", "action", "operation"]),
             ["engine/performAt"] = Operation("performAt", ["point", "action", "operation"]),
@@ -165,7 +165,7 @@ public static class Protocol
 
     /// <summary>
     /// An engine member's function, read off a <c>member</c> path of <see cref="Methods"/>; null when the engine lacks it. Upstream's
-    /// <c>engineMember</c>. The port's engine has no <c>viewportIntersection</c>.
+    /// <c>engineMember</c>.
     /// </summary>
     public static Delegate? EngineMember(EngineHandle engine, string member)
     {
@@ -174,6 +174,7 @@ public static class Protocol
         {
             "observe" => engine.Observe,
             "readStyle" => engine.ReadStyle,
+            "viewportIntersection" => engine.ViewportIntersection,
             "locate" => engine.Locate,
             "perform" => engine.Perform,
             "performAt" => engine.PerformAt,

@@ -41,6 +41,7 @@
         "enum": [
           "engine/observe",
           "engine/readStyle",
+          "engine/viewportIntersection",
           "engine/locate",
           "engine/perform",
           "engine/performAt",
@@ -94,7 +95,8 @@
           "dragTo",
           "swipe",
           "blur",
-          "setInputFilePayloads"
+          "setInputFilePayloads",
+          "multiTap"
         ]
       }
     },
@@ -117,6 +119,26 @@
     },
     "tapModifiers": {
       "type": "boolean"
+    },
+    "selectsDevice": {
+      "description": "prepare binds the device e2e run --device names.",
+      "type": "boolean"
+    },
+    "grantsAllPermissions": {
+      "description": "The engine grants app.permissions: 'all', which it receives as the app's allPermissions.",
+      "type": "boolean"
+    },
+    "launchArgumentValues": {
+      "description": "The engine reads the object form of app.launchArguments from EngineAppInfo.launchArgumentValues; without it the harness refuses an object at config load.",
+      "type": "boolean"
+    },
+    "fileApps": {
+      "description": "The engine opens an app whose url is a file: URL, read from the disk of the machine the harness runs on; without it the harness refuses a file app.url at config load.",
+      "type": "boolean"
+    },
+    "isolation": {
+      "description": "What one attempt leaves for the next: present only as worker, when the engine's fixtures, app, and screen outlive an attempt.",
+      "const": "worker"
     }
   },
   "allOf": [
@@ -214,6 +236,7 @@
                 "engine/perform",
                 "engine/locate",
                 "engine/readStyle",
+                "engine/viewportIntersection",
                 "engine/performAt",
                 "keyboard/type",
                 "keyboard/press",
@@ -388,6 +411,27 @@
           "methods": {
             "contains": {
               "const": "artifacts/screenshot"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "selectsDevice": {
+            "const": true
+          }
+        },
+        "required": [
+          "selectsDevice"
+        ]
+      },
+      "then": {
+        "properties": {
+          "methods": {
+            "contains": {
+              "const": "lifecycle/prepare"
             }
           }
         }

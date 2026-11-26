@@ -141,10 +141,12 @@ public sealed class EngineProtocolTests
                         Type = (_, _, _) => Task.CompletedTask,
                         Press = (_, _) => Task.CompletedTask,
                     },
+                    GrantsAllPermissions = true,
                     Init = _ => Task.CompletedTask,
                 }
             )
         );
+        Assert.True(described.GrantsAllPermissions);
         Assert.True(
             Validate.IsValid(
                 JsonSerializer.SerializeToNode(
@@ -164,8 +166,13 @@ public sealed class EngineProtocolTests
                 """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe", "engine/teleport"] }""",
                 """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/readStyle"] }""",
                 """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe"], "actions": ["tap"] }""",
+                """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/viewportIntersection"] }""",
                 """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe"], "tapModifiers": true }""",
+                """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe"], "selectsDevice": true }""",
+                // The client serves prepare for finish alone, which would drop the device it never forwards.
+                """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["lifecycle/finish"], "selectsDevice": true }""",
                 """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe"], "pointerActions": ["tap"] }""",
+                """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe"], "grantsAllPermissions": "yes" }""",
                 """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/locate"] }""",
                 """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe", "keyboard/type"] }""",
                 """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["state/capture"] }""",
@@ -175,5 +182,33 @@ public sealed class EngineProtocolTests
         {
             Assert.False(Validate.IsValid(JsonNode.Parse(refused)!), refused);
         }
+
+        // Upstream's connectEngine refuses these at config load; the port's CheckManifest is that check's shape part.
+        foreach (
+            var refusedByCheck in new[]
+            {
+                new E2E.Engine.Protocol.EngineManifest("x", "1", 1, ["engine/observe", "engine/teleport"]),
+                new E2E.Engine.Protocol.EngineManifest("x", "1", 1, ["engine/observe"]) { SelectsDevice = true },
+                new E2E.Engine.Protocol.EngineManifest("x", "1", 1, ["lifecycle/finish"]) { SelectsDevice = true },
+            }
+        )
+        {
+            Assert.Throws<ConfigurationException>(() => ProtocolManifest.CheckManifest(refusedByCheck));
+        }
+
+        Assert.NotNull(
+            ProtocolManifest.CheckManifest(
+                new E2E.Engine.Protocol.EngineManifest("x", "1", 1, ["lifecycle/prepare"]) { SelectsDevice = true }
+            )
+        );
+
+        // Only a worker-isolated engine names its isolation; `attempt` is the default, left out.
+        Assert.False(
+            Validate.IsValid(
+                JsonNode.Parse(
+                    """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe"], "isolation": "attempt" }"""
+                )!
+            )
+        );
     }
 }

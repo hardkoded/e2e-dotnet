@@ -27,6 +27,18 @@ public enum PixelsWithheld
     MaskingUnproven,
 }
 
+/// <summary>
+/// How much of a node's box is inside the viewport, after clipping by the viewport and by every ancestor that clips its content (a scroll
+/// container, <c>overflow: hidden</c>, a frame), as <see cref="EngineSpec.ViewportIntersection"/> measures it. It says nothing about another
+/// node covering the box. Upstream's <c>ViewportIntersection</c> (<c>engine/contract.ts</c>).
+/// </summary>
+/// <param name="Intersects">Whether a positive area of the box is inside; false for a node with no box or an empty one.</param>
+/// <param name="Ratio">
+/// The inside area over the whole box's area, from 0 to 1. Null where the platform reports only the visible part of a box, so the whole is
+/// unknown.
+/// </param>
+public sealed record ViewportIntersection(bool Intersects, double? Ratio = null);
+
 /// <summary>Upstream's <c>SemanticNode.states</c>: the flags of a node the harness reads.</summary>
 public sealed record EngineNodeStates(bool? Secure = null, bool? Hidden = null);
 

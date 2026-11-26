@@ -106,6 +106,32 @@ public sealed class DefineEngineTests
     }
 
     [Fact]
+    public void Rejects_viewportIntersection_without_locate_it_measures_located_nodes()
+    {
+        Func<NodeRef, OperationContext, Task<ViewportIntersection>> viewportIntersection = (_, _) =>
+            Task.FromResult(new ViewportIntersection(true));
+
+        Assert.Contains(
+            "viewportIntersection without locate",
+            Assert
+                .Throws<ConfigurationException>(() =>
+                    EngineManifest.DefineEngine(Toy() with { ViewportIntersection = viewportIntersection })
+                )
+                .Message,
+            StringComparison.Ordinal
+        );
+
+        var handle = EngineManifest.DefineEngine(
+            Toy() with
+            {
+                Locate = (_, _) => Task.FromResult<IReadOnlyList<EngineNode>>([]),
+                ViewportIntersection = viewportIntersection,
+            }
+        );
+        Assert.Contains("viewport-intersection", handle.Capabilities);
+    }
+
+    [Fact]
     public void Requires_the_action_list_with_perform_and_perform_with_the_action_list()
     {
         var withoutActions = Assert.Throws<ConfigurationException>(() =>

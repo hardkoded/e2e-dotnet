@@ -7,6 +7,8 @@
   "methods": [
     "engine/observe",
     "engine/readStyle",
+    "engine/viewportIntersection",
+    "engine/locate",
     "engine/perform",
     "engine/performAt",
     "keyboard/type",
@@ -18,11 +20,17 @@
     "session/closeTab",
     "session/restart",
     "session/reset",
+    "lifecycle/prepare",
     "lifecycle/doctor",
     "lifecycle/init",
     "lifecycle/startAttempt",
     "lifecycle/endAttempt"
   ],
   "actions": ["tap", "doubleTap", "longPress", "fill", "clear", "press", "check", "uncheck", "focus", "scrollIntoView", "dragTo", "swipe"],
-  "pointerActions": ["tap", "doubleTap", "longPress", "dragTo", "swipe", "swipeTo"]
+  "pointerActions": ["tap", "doubleTap", "longPress", "dragTo", "swipe", "swipeTo"],
+  "selectsDevice": true,
+  "grantsAllPermissions": true,
+  "launchArgumentValues": true,
+  "fileApps": true,
+  "isolation": "worker"
 }
