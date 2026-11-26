@@ -32,13 +32,24 @@ public sealed class EngineManifestV1SchemaTests
     [Fact]
     public void Rejects_the_duplicate_payload_action_specifically()
     {
+        var manifest = JsonNode.Parse(
+            """{ "name": "web", "version": "0.1.0", "spiVersion": 1, "methods": ["engine/observe", "engine/perform"], "actions": ["setInputFiles", "setInputFilePayloads", "setInputFilePayloads"] }"""
+        )!;
+
+        Assert.False(Validate.IsValid(manifest));
+        // Upstream's Ajv stops at its first error, which is this one; the port's validator lists every error, this one first.
+        Assert.Equal(("/actions", "uniqueItems"), Validate.Errors(manifest)[0]);
+    }
+
+    [Fact]
+    public void Rejects_the_invalid_fixture_for_viewportIntersection_without_engine_observe_and_for_a_non_boolean_fileApps()
+    {
         var invalid = ReportSchema.ReadJson("fixtures", "engine-manifest-v1.invalid.json");
 
         Assert.False(Validate.IsValid(invalid));
-        Assert.Contains(("/actions", "uniqueItems"), Validate.Errors(invalid));
-        // Upstream's Ajv lists that error alone; with the repeat removed the same manifest is valid, so the repeat is the only fault.
-        invalid["actions"]!.AsArray().RemoveAt(2);
-        Assert.True(Validate.IsValid(invalid));
+        var errors = Validate.Errors(invalid);
+        Assert.Contains(("/methods", "contains"), errors);
+        Assert.Contains(("/fileApps", "type"), errors);
     }
 
     [Fact]

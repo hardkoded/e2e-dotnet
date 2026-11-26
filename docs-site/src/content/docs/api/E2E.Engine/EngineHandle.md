@@ -67,7 +67,7 @@ public IReadOnlySet<string> Capabilities { get; }
 ```
 
 
-The capabilities the spec declares: `observation`, `computed-style`, `actions`, `location`, `pointer`, `keyboard`, `state`, `artifacts`, and each fixture name.
+The capabilities the spec declares: `observation`, `computed-style`, `actions`, `location`, `viewport-intersection`, `pointer`, `keyboard`, `state`, `artifacts`, and each fixture name.
 
 **Value:** [IReadOnlySet&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlyset-1)
 
@@ -110,6 +110,21 @@ public Func<EngineCleanupContext, Task>? EndAttempt { get; }
 
 **Value:** [Func&lt;EngineCleanupContext, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 
+<a id="E2E_Engine_EngineHandle_FileApps_"></a>
+<a id="E2E_Engine_EngineHandle_FileApps"></a>
+
+### FileApps
+
+
+```csharp
+public bool? FileApps { get; }
+```
+
+
+Whether the engine opens a `file:` URL app; null when the spec does not declare it.
+
+**Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_EngineHandle_Finish_"></a>
 <a id="E2E_Engine_EngineHandle_Finish"></a>
 
@@ -136,6 +151,21 @@ public IReadOnlyDictionary<string, Delegate>? Fixtures { get; }
 
 **Value:** [IReadOnlyDictionary&lt;string, Delegate&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
+<a id="E2E_Engine_EngineHandle_GrantsAllPermissions_"></a>
+<a id="E2E_Engine_EngineHandle_GrantsAllPermissions"></a>
+
+### GrantsAllPermissions
+
+
+```csharp
+public bool? GrantsAllPermissions { get; }
+```
+
+
+Whether the engine grants `app.permissions: 'all'`; null when the spec does not declare it.
+
+**Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_EngineHandle_Init_"></a>
 <a id="E2E_Engine_EngineHandle_Init"></a>
 
@@ -149,6 +179,21 @@ public Func<EngineInitInfo, Task>? Init { get; }
 
 **Value:** [Func&lt;EngineInitInfo, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 
+<a id="E2E_Engine_EngineHandle_Isolation_"></a>
+<a id="E2E_Engine_EngineHandle_Isolation"></a>
+
+### Isolation
+
+
+```csharp
+public string? Isolation { get; }
+```
+
+
+[Worker](/api/E2E.Engine/EngineIsolation/#E2E_Engine_EngineIsolation_Worker) when the engine's fixtures, app, and screen outlive an attempt; null for the default, [Attempt](/api/E2E.Engine/EngineIsolation/#E2E_Engine_EngineIsolation_Attempt).
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_Engine_EngineHandle_Keyboard_"></a>
 <a id="E2E_Engine_EngineHandle_Keyboard"></a>
 
@@ -161,6 +206,21 @@ public EngineKeyboardSpec? Keyboard { get; }
 
 
 **Value:** [EngineKeyboardSpec](/api/E2E.Engine/EngineKeyboardSpec/)
+
+<a id="E2E_Engine_EngineHandle_LaunchArgumentValues_"></a>
+<a id="E2E_Engine_EngineHandle_LaunchArgumentValues"></a>
+
+### LaunchArgumentValues
+
+
+```csharp
+public bool? LaunchArgumentValues { get; }
+```
+
+
+Whether the engine reads the object form of `app.launchArguments`; null when the spec does not declare it.
+
+**Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
 <a id="E2E_Engine_EngineHandle_Locate_"></a>
 <a id="E2E_Engine_EngineHandle_Locate"></a>
@@ -296,6 +356,21 @@ The secrets the engine holds, each name once; null when the spec declares none.
 
 **Value:** [IReadOnlyList&lt;Secret&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
+<a id="E2E_Engine_EngineHandle_SelectsDevice_"></a>
+<a id="E2E_Engine_EngineHandle_SelectsDevice"></a>
+
+### SelectsDevice
+
+
+```csharp
+public bool? SelectsDevice { get; }
+```
+
+
+Whether `Prepare` binds the device `--device` names; null when the spec does not declare it.
+
+**Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_EngineHandle_Session_"></a>
 <a id="E2E_Engine_EngineHandle_Session"></a>
 
@@ -401,6 +476,19 @@ public string Version { get; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+<a id="E2E_Engine_EngineHandle_ViewportIntersection_"></a>
+<a id="E2E_Engine_EngineHandle_ViewportIntersection"></a>
+
+### ViewportIntersection
+
+
+```csharp
+public Func<NodeRef, OperationContext, Task<ViewportIntersection>>? ViewportIntersection { get; }
+```
+
+
+**Value:** [Func&lt;NodeRef, OperationContext, Task&lt;ViewportIntersection&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-3)
 
 <a id="E2E_Engine_EngineHandle_Workers_"></a>
 <a id="E2E_Engine_EngineHandle_Workers"></a>
