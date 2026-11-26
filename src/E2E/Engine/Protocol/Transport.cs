@@ -150,7 +150,8 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
         return Task.FromResult<ITransportConnection>(new SpawnConnection(process, tail, stderrClosed, ExitAfterStdout));
     }
 
-    private static string DefaultPath => OperatingSystem.IsWindows() ? "" : "/usr/bin:/bin";
+    private static string DefaultPath =>
+        OperatingSystem.IsWindows() ? Environment.GetEnvironmentVariable("PATH") ?? "" : "/usr/bin:/bin";
 
     /// <summary>A file the system could start: on Unix one with an execute bit, so a search goes on past one it could not.</summary>
     private static bool IsExecutable(string path)
