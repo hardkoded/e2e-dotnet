@@ -468,6 +468,9 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
         }
     }
 
+    /// <summary>The web engine grants <c>app.permissions: 'all'</c>: each permission its browser takes (<see cref="WebPermissions.GrantedPermissions"/>).</summary>
+    public bool GrantsAllPermissions => true;
+
     // A provider or a CDP attach speaks CDP, so it takes Chromium's names.
     private BrowserName PermissionBrowser(WebConnectOptions? connect) =>
         connect is null && _options.Browser is null ? _options.BrowserName : BrowserName.Chromium;
@@ -616,7 +619,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                         options.ActionTimeout,
                         _options,
                         initScripts,
-                        context => SetUpContextAsync(context, origins, options.Permissions),
+                        context => SetUpContextAsync(context, origins, options, connect),
                         url => ConfiguredHeadersFor(url, origins),
                         SiteOf(app),
                         seams,
@@ -720,7 +723,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                     options.ActionTimeout,
                     _options,
                     initScripts,
-                    context => SetUpContextAsync(context, origins, options.Permissions),
+                    context => SetUpContextAsync(context, origins, options, connect),
                     url => ConfiguredHeadersFor(url, origins),
                     seams,
                     credentials: credentials,
@@ -1656,15 +1659,21 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
     private async Task SetUpContextAsync(
         IBrowserContext context,
         IReadOnlySet<string> origins,
-        IReadOnlyDictionary<string, AppPermissionState>? permissions
+        EngineStartOptions options,
+        WebConnectOptions? connect
     )
     {
         await InstallConfiguredHeadersAsync(context, origins).ConfigureAwait(false);
 
-        // ValidatePermissions admitted only grants.
-        if (permissions is { Count: > 0 })
+        // ValidatePermissions admitted only grants. For 'all' a name an older browser refuses as unknown is left out.
+        var granted = WebPermissions.GrantedPermissions(
+            PermissionBrowser(connect),
+            options.Permissions,
+            options.AllPermissions
+        );
+        if (granted.Count > 0)
         {
-            await context.GrantPermissionsAsync([.. permissions.Keys]).ConfigureAwait(false);
+            await WebPermissions.GrantPermissionsAsync(context, granted, options.AllPermissions).ConfigureAwait(false);
         }
     }
 
