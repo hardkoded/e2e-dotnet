@@ -383,6 +383,21 @@ The default agent's `judgmentTimeout`: the deadline of one `assert`, `waitFor`, 
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
+<a id="E2E_E2ESessionOptions_LaunchArgumentValues_"></a>
+<a id="E2E_E2ESessionOptions_LaunchArgumentValues"></a>
+
+### LaunchArgumentValues
+
+
+```csharp
+public IReadOnlyDictionary<string, LaunchArgumentValue>? LaunchArgumentValues { get; init; }
+```
+
+
+The target's `app.launchArguments` when declared as an object, handed to the engine as [LaunchArgumentValues](/api/E2E.Engine/EngineStartOptions/#E2E_Engine_EngineStartOptions_LaunchArgumentValues).
+
+**Value:** [IReadOnlyDictionary&lt;string, LaunchArgumentValue&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
+
 <a id="E2E_E2ESessionOptions_LaunchArguments_"></a>
 <a id="E2E_E2ESessionOptions_LaunchArguments"></a>
 

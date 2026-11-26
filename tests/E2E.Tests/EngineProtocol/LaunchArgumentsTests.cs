@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json.Nodes;
 using E2E.Engine;
 using E2E.Engine.Protocol;
 using static E2E.Tests.EngineProtocol.OverLoopback;
@@ -10,14 +11,143 @@ namespace E2E.Tests.EngineProtocol;
 
 /// <summary>
 /// Upstream's <c>describe('launch arguments')</c> of <c>describe('engine protocol')</c> (<c>packages/e2e/tests/unit/engine-protocol.test.ts</c>).
-/// Not ported: <c>hands an engine that predates the object form a list it can spread, and refuses an object at config load</c> and the config
-/// half of <c>carries the object form to an engine that declares launchArgumentValues</c> (the port's <c>app.launchArguments</c> is a list
-/// only, and its config types a target's engine as <see cref="IEngine"/>, which holds no <see cref="EngineHandle"/>);
-/// <c>refuses a fileApps flag that is not a boolean</c> and <c>refuses a launchArgumentValues flag that is not a boolean</c> (the flags are
-/// typed <c>bool?</c>, so a string does not compile).
+/// The two <c>Partial_</c> tests that resolve a config check the declaration and the refusal: the port's config holds an <see cref="IEngine"/>,
+/// not the <see cref="EngineHandle"/> <c>connectEngine</c> returns, so they cannot run <c>prepare</c> through the client (#2240).
+/// Not ported: <c>refuses a fileApps flag that is not a boolean</c>, whose flag is typed <c>bool?</c> so a string does not compile.
 /// </summary>
 public sealed class LaunchArgumentsTests
 {
+    private static readonly JsonSchemaCheck Validate = JsonSchemaCheck.FromFile("engine-manifest-v1.schema.json");
+
+    private static TargetConfig Phone(AppConfig app) =>
+        new()
+        {
+            Name = "phone",
+            Platform = "ios",
+            App = app,
+        };
+
+    private static IEngine Create(TargetConfig target, IEngine engine) =>
+        TargetEngines.Create(target, headless: true, mobile: _ => engine);
+
+    private sealed class ToyEngine(bool launchArgumentValues, List<EngineAppDeclaration> seen) : IEngine
+    {
+        public string Name => "toy";
+
+        public string Platform => "ios";
+
+        public string Version => "1.0.0";
+
+        public EngineCapabilities Capabilities => EngineCapabilities.PinnedApp;
+
+        public bool LaunchArgumentValues => launchArgumentValues;
+
+        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        void IEngine.ValidateApp(EngineAppDeclaration app, EngineAppCheckInfo info) => seen.Add(app);
+    }
+
+    /// <summary>Partial: upstream also checks what the engine's <c>prepare</c> receives, through <c>resolveConfig</c> and <c>engineAppInfo</c>; the port checks <c>validateApp</c>'s declaration and the refusal.</summary>
+    [Fact]
+    public void Partial_Hands_an_engine_that_predates_the_object_form_a_list_it_can_spread_and_refuses_an_object_at_config_load()
+    {
+        var seen = new List<EngineAppDeclaration>();
+        var legacy = new ToyEngine(false, seen);
+        Create(Phone(new AppConfig { BundleId = "dev.shop.app", LaunchArguments = ["-AppleLocale", "fr_FR"] }), legacy);
+        Assert.Equal(["-AppleLocale", "fr_FR"], [.. seen.Single().LaunchArguments ?? []]);
+
+        var refused = Assert.Throws<ConfigurationException>(() =>
+            Create(
+                Phone(
+                    new AppConfig
+                    {
+                        BundleId = "dev.shop.app",
+                        LaunchArgumentValues = new Dictionary<string, LaunchArgumentValue?>
+                        {
+                            ["AppleLocale"] = "fr_FR",
+                            ["AppleLanguages"] = new[] { "fr" },
+                        },
+                    }
+                ),
+                legacy
+            )
+        );
+        Assert.Equal("INVALID_CONFIG", refused.Code);
+        Assert.Equal(
+            "target \"phone\" app.launchArguments is an object, and engine \"toy\" takes only a list of strings: write the arguments as a list, or use an engine version that supports the object syntax",
+            refused.Message
+        );
+        Assert.Single(seen);
+    }
+
+    /// <summary>Partial: upstream carries the declaration through <c>connectEngine</c> over a loopback transport to a remote handle; the port has no client, so it checks the manifest flag and the declaration the engine reads.</summary>
+    [Fact]
+    public void Partial_Carries_the_object_form_to_an_engine_that_declares_launchArgumentValues()
+    {
+        var handle = E2E.Engine.EngineManifest.DefineEngine(
+            new EngineSpec
+            {
+                Name = "toy",
+                Version = "1.0.0",
+                SpiVersion = 1,
+                LaunchArgumentValues = true,
+                Observe = (_, _) => Task.FromResult<EngineSnapshot>(null!),
+            }
+        );
+        Assert.True(ProtocolManifest.DescribeEngine(handle).LaunchArgumentValues);
+
+        var seen = new List<EngineAppDeclaration>();
+        var engine = new ToyEngine(true, seen);
+        Create(
+            Phone(
+                new AppConfig
+                {
+                    BundleId = "dev.shop.app",
+                    LaunchArgumentValues = new Dictionary<string, LaunchArgumentValue?>
+                    {
+                        ["AppleLocale"] = "fr_FR",
+                        ["AppleLanguages"] = new[] { "fr" },
+                        ["e2e"] = true,
+                        ["retries"] = 3,
+                        ["token"] = null,
+                    },
+                }
+            ),
+            engine
+        );
+        var declaration = seen.Single();
+        Assert.Null(declaration.LaunchArguments);
+        Assert.Equal(["AppleLocale", "AppleLanguages", "e2e", "retries"], declaration.LaunchArgumentValues!.Keys);
+        Assert.Equal(["fr"], declaration.LaunchArgumentValues["AppleLanguages"].Items);
+        Assert.Equal(3, declaration.LaunchArgumentValues["retries"].Number);
+
+        seen.Clear();
+        Create(Phone(new AppConfig { BundleId = "dev.shop.app", LaunchArguments = ["-e2e", "YES"] }), engine);
+        Assert.Equal(["-e2e", "YES"], seen.Single().LaunchArguments);
+        Assert.Null(seen.Single().LaunchArgumentValues);
+    }
+
+    /// <summary>Partial: the flag is a <c>bool?</c> in C#, so <c>'yes'</c> cannot be declared; a manifest that spells it so is refused by the published schema.</summary>
+    [Fact]
+    public void Partial_Refuses_a_launchArgumentValues_flag_that_is_not_a_boolean()
+    {
+        Assert.False(
+            Validate.IsValid(
+                JsonNode.Parse(
+                    """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe"], "launchArgumentValues": "yes" }"""
+                )!
+            )
+        );
+        Assert.True(
+            Validate.IsValid(
+                JsonNode.Parse(
+                    """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe"], "launchArgumentValues": true }"""
+                )!
+            )
+        );
+    }
+
     [Fact]
     public void Carries_fileApps_in_the_manifest_so_a_served_engine_opens_a_file_app_and_one_that_does_not_declare_it_is_refused()
     {
@@ -46,18 +176,5 @@ public sealed class LaunchArgumentsTests
         var refused = await Assert.ThrowsAsync<EngineException>(() => remote.Init!(InitInfo()));
 
         Assert.Contains("fileApps is false, declared true", refused.Message, StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// Partial: upstream resolves a config target, sends its object-form <c>launchArguments</c> through <c>prepare</c>, and checks the
-    /// engine reads them. The port's app has the list form only, so the port checks the flag the manifest carries.
-    /// </summary>
-    [Fact]
-    public void Partial_Carries_the_object_form_to_an_engine_that_declares_launchArgumentValues()
-    {
-        var (local, remote) = Of(Toy(toy => toy with { LaunchArgumentValues = true }));
-
-        Assert.True(ProtocolManifest.DescribeEngine(local).LaunchArgumentValues);
-        Assert.True(remote.LaunchArgumentValues);
     }
 }

@@ -48,6 +48,12 @@ public sealed record OpenAppOptions
     public IReadOnlyList<string>? LaunchArguments { get; init; }
 
     /// <summary>
+    /// Arguments this launch hands the app, as an object of argument name to value; see <see cref="AppConfig.LaunchArgumentValues"/>. Replaces the
+    /// target's launch arguments for a relaunch of the pinned app. At most one of this and <see cref="LaunchArguments"/> is set.
+    /// </summary>
+    public IReadOnlyDictionary<string, LaunchArgumentValue?>? LaunchArgumentValues { get; init; }
+
+    /// <summary>
     /// Permissions the app holds before this launch, each granted, denied, or reset. Replaces the target's
     /// <c>Permissions</c> for a relaunch of the pinned app.
     /// </summary>
@@ -94,7 +100,20 @@ public sealed partial class DeviceSession
 
         var relaunch = options.Relaunch;
         var configured = relaunch && app == PinnedApp;
-        var launchArguments = options.LaunchArguments ?? (configured ? _app.LaunchArguments : null);
+        var launchArguments = DeviceLaunchArguments.LaunchArgumentsForOpen(
+            Options.Platform,
+            options.LaunchArguments,
+            options.LaunchArgumentValues
+        )
+            ?? (
+                configured
+                    ? LaunchArgumentRules.CheckLaunchArguments(
+                        "app.launchArguments",
+                        _app.LaunchArguments,
+                        _app.LaunchArgumentValues
+                    )
+                    : null
+            );
         // The launch's own permissions win over the target's, as upstream's `options.permissions ?? configuredPermissions(app)`.
         var all = options.AllPermissions || (options.Permissions is null && configured && _app.AllPermissions);
         var permissions = options.Permissions ?? (configured ? _app.Permissions : null);
@@ -120,10 +139,11 @@ public sealed partial class DeviceSession
     private async Task LaunchAsync(
         string app,
         bool relaunch,
-        IReadOnlyList<string>? launchArguments,
+        ResolvedLaunchArguments? launchArguments,
         CancellationToken cancellationToken
     )
     {
+        var launchArgs = DeviceLaunchArguments.LaunchArgumentList(Options.Platform, launchArguments);
         var result = await CommandAsync(
                 $"open {app}",
                 DeviceMethods.AppsOpen,
@@ -132,10 +152,8 @@ public sealed partial class DeviceSession
                     ("relaunch", relaunch ? JsonValue.Create(true) : null),
                     (
                         "launchArgs",
-                        launchArguments is { Count: > 0 }
-                            ? new JsonArray([
-                                .. launchArguments.Select(argument => (JsonNode?)JsonValue.Create(argument)),
-                            ])
+                        launchArgs is { Count: > 0 }
+                            ? new JsonArray([.. launchArgs.Select(argument => (JsonNode?)JsonValue.Create(argument))])
                             : null
                     )
                 ),

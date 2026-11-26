@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
+using E2E.Internal;
 
 namespace E2E;
 
@@ -401,6 +402,7 @@ public abstract class E2EFixture
                     AppPath = DeclaredTarget.App.AppPath,
                     LinkBase = DeclaredTarget.App.LinkBase,
                     LaunchArguments = DeclaredTarget.App.LaunchArguments,
+                    LaunchArgumentValues = LaunchArgumentRules.WithoutNulls(DeclaredTarget.App.LaunchArgumentValues),
                     ProjectRoot = ProjectRoot,
                     TargetName = TargetName,
                     UpdateSnapshots = UpdateSnapshots,
