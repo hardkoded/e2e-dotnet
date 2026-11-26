@@ -444,7 +444,10 @@ public sealed class ConfigTests
     [Theory]
     [InlineData("http://example.test", "plain HTTP is allowed only for loopback hosts: http://example.test")]
     [InlineData("https://user:pw@example.test", "app URL must not contain userinfo")]
-    [InlineData("ftp://example.test", "app URL must be http(s): ftp://example.test")]
+    [InlineData(
+        "ftp://example.test",
+        "app URL must be http(s), or a file: URL of a file on this machine: ftp://example.test"
+    )]
     public void Rejects_an_invalid_app_URL(string url, string message)
     {
         var error = Assert.Throws<ConfigurationException>(() =>

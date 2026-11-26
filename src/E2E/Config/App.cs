@@ -82,6 +82,59 @@ internal static partial class TargetApps
     }
 
     /// <summary>
+    /// Config load: checks the target's app against the engine that will drive it (upstream's <c>checkTargetApp</c>, run once per target): the
+    /// link base against the engine that must open its links, a <c>file:</c> URL against the engine's <c>FileApps</c>, then the engine's own
+    /// <see cref="IEngine.ValidateApp"/>, told that the app is a file by the harness's one reading of the URL.
+    /// </summary>
+    public static void CheckTargetApp(TargetConfig target, IEngine engine)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(engine);
+        var where = $"target \"{target.Name}\" app";
+        CheckLinkBase(target.App.LinkBase, engine, where);
+        CheckLaunchArgumentsFor(target.App, engine, where);
+        CheckAllPermissions(target.App.AllPermissions, engine, where);
+        var file = target.App.Url is { } url && Urls.NamesFile(url);
+        if (file && !engine.FileApps)
+        {
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"{where}.url is a file, and engine \"{engine.Name}\" does not declare that it opens one from this machine's disk: use an engine version that does, or serve the app over http(s)"
+            );
+        }
+
+        engine.ValidateApp(
+            EngineAppDeclarationOf(target.Name, target.App),
+            new EngineAppCheckInfo { TargetName = target.Name, FileApp = file ? true : null }
+        );
+    }
+
+    /// <summary>
+    /// A <c>file:</c> app URL against the engine that will open it, for a session started with a base URL and no target config: the engine
+    /// must declare <see cref="IEngine.FileApps"/>, and its own <see cref="IEngine.ValidateApp"/> is told <see cref="EngineAppCheckInfo.FileApp"/>.
+    /// Any other URL passes. The same two checks as <see cref="CheckTargetApp"/>.
+    /// </summary>
+    public static void CheckFileAppUrl(EngineAppDeclaration app, IEngine engine, string targetName)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+        ArgumentNullException.ThrowIfNull(engine);
+        if (app.Url is not { } url || !Urls.NamesFile(url))
+        {
+            return;
+        }
+
+        if (!engine.FileApps)
+        {
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"target \"{targetName}\" app.url is a file, and engine \"{engine.Name}\" does not declare that it opens one from this machine's disk: use an engine version that does, or serve the app over http(s)"
+            );
+        }
+
+        engine.ValidateApp(app, new EngineAppCheckInfo { TargetName = targetName, FileApp = true });
+    }
+
+    /// <summary>
     /// Checks <c>app.linkBase</c>: an absolute URL, or a bare custom scheme (<c>shopapp://</c>), with no query or fragment for a path to land after, on
     /// an engine that opens links. The message never echoes the value: it may carry a token. Upstream's <c>checkLinkBase</c>.
     /// </summary>
@@ -221,6 +274,8 @@ internal static partial class TargetApps
                 ? Urls.WithPort(declaredBase, assigned)
                 : declaredBase;
         int? appPort = baseUrl is null ? null : Urls.PortOf(baseUrl);
+        // A file has no host: no site to read frames on, no origin, and nothing to poll.
+        var file = baseUrl is not null && Urls.IsFileBase(baseUrl);
 
         if (app.Command is null && portRequest is not null)
         {
@@ -248,24 +303,31 @@ internal static partial class TargetApps
         }
 
         var readyUrl = app.ReadyUrl is null
-            ? baseUrl?.Href
+            ? (file ? null : baseUrl?.Href)
             : HttpUrl(ExpandPort(app.ReadyUrl, appPort, where + " app.readyUrl"), where + " app.readyUrl");
         if (command is not null && readyUrl is null)
         {
             throw new ConfigurationException(
                 "APP_URL_REQUIRED",
-                where + " declares app.command without a URL to poll: declare app.url or app.readyUrl beside it"
+                file
+                    ? where
+                        + " declares app.command beside a file app.url, and a file answers no readiness poll: declare app.readyUrl, the http(s) URL the command serves once it is ready"
+                    : where + " declares app.command without a URL to poll: declare app.url or app.readyUrl beside it"
             );
         }
 
-        var hostname = baseUrl is null ? null : new Uri(baseUrl.Href).Host;
+        var hostname = baseUrl is null || file ? null : new Uri(baseUrl.Href).Host;
         return new ResolvedApp(
             baseUrl,
             portRequest,
             hostname is null ? null : Urls.SiteOf(hostname),
             app.Environment ?? (hostname is not null && !Urls.IsImplicitTestHost(hostname) ? "production" : "test"),
             app.Identity
-                ?? (declaredBase is null ? null : declaredBase.Origin + declaredBase.BasePath)
+                ?? (
+                    declaredBase is null ? null
+                    : file ? declaredBase.Href
+                    : declaredBase.Origin + declaredBase.BasePath
+                )
                 ?? app.BundleId
                 ?? app.AppPath,
             app.BundleId,
@@ -293,7 +355,9 @@ internal static partial class TargetApps
         ArgumentNullException.ThrowIfNull(targetName);
         ArgumentNullException.ThrowIfNull(app);
         var site =
-            app.Url is { } url && Uri.TryCreate(url, UriKind.Absolute, out var uri) ? Urls.SiteOf(uri.Host) : null;
+            app.Url is { } url && !Urls.NamesFile(url) && Uri.TryCreate(url, UriKind.Absolute, out var uri)
+                ? Urls.SiteOf(uri.Host)
+                : null;
         var (launchArguments, launchArgumentValues) = LaunchArgumentRules.EngineLaunchArguments(
             LaunchArgumentRules.CheckLaunchArguments(
                 "target \"" + targetName + "\" app.launchArguments",
@@ -326,7 +390,8 @@ internal static partial class TargetApps
         var (launchArguments, launchArgumentValues) = LaunchArgumentRules.EngineLaunchArguments(app.LaunchArguments);
         return new EngineAppInfo
         {
-            Origin = unassigned ? null : app.Base?.Origin,
+            // A file has no origin to scope a credential to.
+            Origin = unassigned || app.Base is null || Urls.IsFileBase(app.Base) ? null : app.Base.Origin,
             Site = app.Site,
             BundleId = app.BundleId,
             AppPath = app.AppPath,
