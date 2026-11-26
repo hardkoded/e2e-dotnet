@@ -114,11 +114,11 @@ internal static partial class TargetApps
     /// must declare <see cref="IEngine.FileApps"/>, and its own <see cref="IEngine.ValidateApp"/> is told <see cref="EngineAppCheckInfo.FileApp"/>.
     /// Any other URL passes. The same two checks as <see cref="CheckTargetApp"/>.
     /// </summary>
-    public static void CheckFileAppUrl(string url, IEngine engine, string targetName)
+    public static void CheckFileAppUrl(EngineAppDeclaration app, IEngine engine, string targetName)
     {
-        ArgumentNullException.ThrowIfNull(url);
+        ArgumentNullException.ThrowIfNull(app);
         ArgumentNullException.ThrowIfNull(engine);
-        if (!Urls.NamesFile(url))
+        if (app.Url is not { } url || !Urls.NamesFile(url))
         {
             return;
         }
@@ -131,10 +131,7 @@ internal static partial class TargetApps
             );
         }
 
-        engine.ValidateApp(
-            new EngineAppDeclaration { Url = url },
-            new EngineAppCheckInfo { TargetName = targetName, FileApp = true }
-        );
+        engine.ValidateApp(app, new EngineAppCheckInfo { TargetName = targetName, FileApp = true });
     }
 
     /// <summary>
