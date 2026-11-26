@@ -754,16 +754,29 @@ public sealed partial class Agent
         {
             // Upstream's judgment look asks the pixel fallback unless vision is off (`pixelFallback: vision !== false`), so a screen whose tree
             // cannot be read still answers with its pixels, and its listing says the tree is unavailable instead of listing nothing.
+            // A file app's pixels can show a frame of another local file, which no tree lists and no rule can place.
+            var fileApp = _scope.IsFileApp;
+            if (fileApp && vision == VisionMode.Only)
+            {
+                throw new TestException(
+                    "POLICY_DENIED",
+                    api
+                        + " was called with Vision = VisionMode.Only, but no screenshot of an app opened from a file is sent to a model"
+                );
+            }
+
             var seen = await Phases
                 .RetryingObserveAsync(
                     () =>
-                        vision == VisionMode.Off
+                        vision == VisionMode.Off || fileApp
                             ? _scope.ObserveAsync(OperationContext.Agent, token)
                             : _scope.ObserveAsync(JudgmentLook, OperationContext.Agent, token),
                     guard,
                     token
                 )
                 .ConfigureAwait(false);
+
+            Urls.CheckObservedLocation(seen.Location, _scope.BaseUrl);
 
             // Where the screen is, as the judgment reads it: the whole address off the app's origin, its path on it. An engine that reports no location reads its route.
             var judgedLocation = seen.Location is null
@@ -816,7 +829,7 @@ public sealed partial class Agent
             }
         );
         var shape = AgentObservation.JudgmentShape(tree, body, judged, vision == VisionMode.Only);
-        if (vision == VisionMode.Off)
+        if (vision == VisionMode.Off || _scope.IsFileApp)
         {
             return new Look(tree, null, tree, shape);
         }
@@ -937,7 +950,8 @@ public sealed partial class Agent
     // Best effort, never fails the step: none from an engine that captures none.
     private async Task<string?> KeepEvidenceAsync(CancellationToken token, CancellationToken cancellationToken)
     {
-        if (_scope.Screenshots is not { } screenshots)
+        // Nothing checks where a second capture is taken, and a file app's page can leave its directory in between.
+        if (_scope.Screenshots is not { } screenshots || _scope.IsFileApp)
         {
             return null;
         }
@@ -1946,6 +1960,9 @@ internal sealed class AttemptScope : ISecretFillRuntime
 
     /// <summary>The base URL a navigate action resolves against, under the same URL rule as <c>app.open</c>.</summary>
     public string? BaseUrl { get; init; }
+
+    /// <summary>Whether the app is a file the browser opens from disk (upstream's <c>isFileApp</c>): no pixels of it reach a model or a report.</summary>
+    public bool IsFileApp => Urls.IsFileAppUrl(BaseUrl);
 
     /// <summary>The origin of <see cref="BaseUrl"/>, which a link target on it shows without.</summary>
     public string? AppOrigin =>

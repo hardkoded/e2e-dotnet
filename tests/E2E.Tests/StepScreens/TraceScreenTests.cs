@@ -46,7 +46,7 @@ public sealed class TraceScreenTests
         );
 
         // The port's location is the route, as its observation carries it, not the whole URL.
-        Assert.Equal("/<secret:pw>", kept.Location);
+        Assert.Equal("/<secret:pw>", kept!.Location);
         Assert.Equal(
             [
                 new ScreenLine("root", "document"),
@@ -71,7 +71,7 @@ public sealed class TraceScreenTests
 
         var kept = Screens.TraceScreen(Observed(children), new TraceScreenOptions(Secrecy, 200, null));
 
-        Assert.True(kept.Lines.Sum(line => System.Text.Encoding.UTF8.GetByteCount(line.Text) + 1) <= 200);
+        Assert.True(kept!.Lines.Sum(line => System.Text.Encoding.UTF8.GetByteCount(line.Text) + 1) <= 200);
         Assert.True(kept.Lines.Count > 1);
     }
 
@@ -90,7 +90,7 @@ public sealed class TraceScreenTests
 
         var kept = Screens.TraceScreen(Observed(children), new TraceScreenOptions(Secrecy, 60, null));
 
-        Assert.True(kept.Lines.Count > 1);
+        Assert.True(kept!.Lines.Count > 1);
         Assert.True(kept.Lines.Count < 10);
     }
 }

@@ -274,6 +274,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
             throw SemanticOnlyDenied(ex);
         }
 
+        Urls.CheckObservedLocation(observation.Location, Scope?.BaseUrl);
         if (!PixelsAllowed && observation.TreeUnavailable)
         {
             throw SemanticOnlyDenied();

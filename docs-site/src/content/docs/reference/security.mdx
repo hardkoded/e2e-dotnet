@@ -29,6 +29,18 @@ On macOS and Windows, Chromium launches with its OS sandbox on, which helps cont
 | `e2e explore` | Offers every configured credential to every step. The explorer sees account names and usernames. Passwords stay handles and are filled by secret. |
 | `e2e explore --changed-since` | Sends the commit messages, the changed files' names, and the committed patches since the base to the model, cut to fit its context. A file no commit changed, such as one CI wrote, and a committed file's later local edits go by name only, never read. Secret values the config gives as strings, and runs of 8 or more of their characters, are redacted. A secret provider's value, and a secret committed to the repository that the config doesn't name, reach the model. |
 
+## Navigation
+
+Navigation is `POLICY_DENIED` for any scheme but `http:` and `https:`, other than the exact `about:blank`. `data:`, `javascript:`, and wrappers such as `view-source:file:` would load local or inline content, so the rule is an allowlist.
+
+A target whose `app.url` is a `file:` URL has two more rules, because the agent names navigation URLs and a page can tell it to. Without them it could open any file you can read and carry it to an http(s) address.
+
+- Navigation takes a `file:` URL only for a file in the directory of the app's file or below it, with symbolic links resolved. A file outside it and any directory are `POLICY_DENIED`: a directory listing links to its parent. A path that starts with `/` is the disk's root, so write it relative.
+- A link or a script in a local page can still take the browser to a file outside the directory, where a typed URL cannot. Once it has, no model observation, trace screen, or failure screen text is taken: the observation is `POLICY_DENIED` (`a file app stays in the directory of the app's file`), and the trace and the failure evidence keep only where the page was. Your test's own reads (`Locator.TextContentAsync`, `Screen.TreeAsync`, `App.ScreenshotAsync`) still work, as test code is trusted.
+- No screenshot of a file app is sent to a model or kept on its own. `Agent.AssertAsync` and a failure keep none, `Vision = VisionMode.On` judges from the tree, and `VisionMode.Only` is `POLICY_DENIED`. A local page can embed another file in a frame, which the tree leaves out and pixels would show.
+- A video you turn on records the browser wherever it goes, a file outside the directory included.
+- The directory of the app's file is the whole readable scope. In a project root that includes `.env` and `.git`: keep the file in a folder that holds only the app.
+
 ## Tool calls
 
 - Built-in tools have closed schemas and appear only when the engine supports them. A tool that declares fields rejects a key it does not declare. A tool with no fields (`observe`, `back`, `dismiss_keyboard`, `screenshot`) drops extra keys and runs; a value that is not an object still fails.

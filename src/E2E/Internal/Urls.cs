@@ -12,6 +12,14 @@ namespace E2E.Internal;
 /// <param name="BasePath">The path every relative navigation resolves under.</param>
 internal sealed record NormalizedBaseUrl(string Href, string Origin, string BasePath);
 
+/// <summary>Where a <c>file:</c> URL lies for a file app. Upstream's <c>fileScope</c> result.</summary>
+internal enum FileScopeKind
+{
+    Inside,
+    Directory,
+    Outside,
+}
+
 /// <summary>URL normalization and origin policy helpers.</summary>
 public static partial class Urls
 {
@@ -173,7 +181,7 @@ public static partial class Urls
             );
         }
 
-        if (!FileScope(url))
+        if (FileScope(url, url) != FileScopeKind.Inside)
         {
             throw Invalid(
                 "a file app URL names one file this machine can reach, not a directory, such as file:///path/to/index.html: "
@@ -185,50 +193,102 @@ public static partial class Urls
     }
 
     /// <summary>
-    /// Whether <paramref name="url"/> is a file in the directory of the app's file, which is itself: upstream's <c>fileScope</c> reads
-    /// <c>inside</c>. Paths are compared decoded and with symbolic links resolved. A path this machine cannot resolve (a NUL, a name too
-    /// long, a directory it may not search) is not a file: the rule fails closed.
+    /// Where a <c>file:</c> URL lies for a file app (upstream's <c>fileScope</c>): <see cref="FileScopeKind.Inside"/> for a file in the directory
+    /// of the app's file or below it, <see cref="FileScopeKind.Directory"/> for a directory there, <see cref="FileScopeKind.Outside"/> for
+    /// everything else. Paths are compared decoded and with symbolic links resolved, so neither an encoded separator nor a link in the directory
+    /// leads out of it. A path this machine cannot resolve (a NUL, a name too long, a directory it may not search) is outside: the rule fails closed.
     /// </summary>
-    internal static bool FileScope(Uri url)
+    internal static FileScopeKind FileScope(Uri url, Uri app)
     {
         var path = LocalFile(url);
-        if (path is null)
+        var appFile = LocalFile(app);
+        if (path is null || appFile is null)
         {
-            return false;
+            return FileScopeKind.Outside;
         }
 
         try
         {
             var target = RealPath(path);
-            var relative = Path.GetRelativePath(RealPath(Path.GetDirectoryName(path)!), target);
+            var relative = Path.GetRelativePath(RealPath(Path.GetDirectoryName(appFile)!), target);
             if (
                 relative == ".."
                 || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
                 || Path.IsPathRooted(relative)
             )
             {
-                return false;
+                return FileScopeKind.Outside;
             }
 
             var directory = relative == "." || url.AbsolutePath.EndsWith('/') || Directory.Exists(target);
-            return !directory;
+            return directory ? FileScopeKind.Directory : FileScopeKind.Inside;
         }
         catch (Exception ex)
             when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
-            return false;
+            return FileScopeKind.Outside;
         }
     }
 
     /// <summary>
-    /// The path a <c>file:</c> URL names on this machine, or null when it names none: a form with an encoded path separator, which a
+    /// Why a file app must not show a <c>file:</c> location, or null when it may: a file outside the directory of the app's file, or a
+    /// directory. <paramref name="what"/> names what asked. Upstream's <c>fileScopeProblem</c>.
+    /// </summary>
+    internal static string? FileScopeProblem(Uri url, Uri app, string what) =>
+        FileScope(url, app) switch
+        {
+            FileScopeKind.Outside => what
+                + " stays in the directory of the app's file: file://"
+                + url.AbsolutePath
+                + " is outside it",
+            FileScopeKind.Directory => what + " opens a file, not a directory: file://" + url.AbsolutePath,
+            _ => null,
+        };
+
+    /// <summary>True when the app URL (the base URL as declared) names a file the browser opens from disk.</summary>
+    internal static bool IsFileAppUrl(string? baseUrl) =>
+        baseUrl is not null && Uri.TryCreate(baseUrl, UriKind.Absolute, out var app) && app.Scheme == "file";
+
+    /// <summary>
+    /// Why the screen at <paramref name="location"/> is not one a file app may show, or null when it is: a link or a script in a local page can
+    /// take the browser to any file the user can read, where a typed URL cannot. Every sink that keeps or sends a screen on its own asks this: a
+    /// model's observation (<see cref="CheckObservedLocation"/>), the trace's step screens, and the evidence of a failure. Any other location,
+    /// and any other app, passes. Upstream's <c>leftFileApp</c>; the app is its URL, where upstream passes the normalized base.
+    /// </summary>
+    internal static string? LeftFileApp(string? location, string? baseUrl)
+    {
+        if (
+            location is null
+            || !IsFileAppUrl(baseUrl)
+            || !Uri.TryCreate(location, UriKind.Absolute, out var url)
+            || url.Scheme != "file"
+        )
+        {
+            return null;
+        }
+
+        return FileScopeProblem(url, new Uri(baseUrl!, UriKind.Absolute), "a file app");
+    }
+
+    /// <summary>Refuses the location an observation taken for a model was at when a file app has left the directory of its file; see <see cref="LeftFileApp"/>. Upstream's <c>checkObservedLocation</c>.</summary>
+    internal static void CheckObservedLocation(string? location, string? baseUrl)
+    {
+        if (LeftFileApp(location, baseUrl) is { } problem)
+        {
+            throw new TestException("POLICY_DENIED", problem);
+        }
+    }
+
+    /// <summary>
+    /// The path a <c>file:</c> URL names on this machine, or null when it names none: a host, or a form with an encoded path separator, which a
     /// browser decodes into a path the URL's own segments do not show. Upstream's <c>localFile</c>.
     /// </summary>
     private static string? LocalFile(Uri url)
     {
         var path = url.AbsolutePath;
         return
-            path.Contains("%2f", StringComparison.OrdinalIgnoreCase)
+            url.Host.Length > 0
+            || path.Contains("%2f", StringComparison.OrdinalIgnoreCase)
             // A backslash is a name character on POSIX, as fileURLToPath reads it; on Windows it separates, and is refused like %2f.
             || (OperatingSystem.IsWindows() && path.Contains("%5c", StringComparison.OrdinalIgnoreCase))
             || path.Contains("%00", StringComparison.Ordinal)

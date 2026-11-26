@@ -34,7 +34,12 @@ internal sealed record StepScreen
 }
 
 /// <summary>What <see cref="StepScreens.TraceScreen"/> redacts with and bounds by. Upstream's <c>TraceScreenOptions</c>.</summary>
-internal sealed record TraceScreenOptions(Redactor Redactor, int MaxBytes, string? AppOrigin);
+internal sealed record TraceScreenOptions(
+    Redactor Redactor,
+    int MaxBytes,
+    string? AppOrigin,
+    string? AppBaseUrl = null
+);
 
 /// <summary>
 /// How the screen changed from one step to the next, for the trace (upstream <c>run/step-screens.ts</c>). Each step keeps the last
@@ -161,8 +166,14 @@ internal static class StepScreens
     /// reads, in screen order, up to <see cref="TraceScreenOptions.MaxBytes"/> of text. Nodes the page does not show are left out,
     /// as the lines the model reads leave them out. Focus is not compared: it moves with every action.
     /// </summary>
-    public static ScreenText TraceScreen(Observation observation, TraceScreenOptions options)
+    public static ScreenText? TraceScreen(Observation observation, TraceScreenOptions options)
     {
+        // A file app that left the directory of its file keeps no screen.
+        if (Urls.LeftFileApp(observation.Location, options.AppBaseUrl) is not null)
+        {
+            return null;
+        }
+
         var lines = new List<ScreenLine>();
         var bytes = 0;
         bool Walk(SemanticNode node)
