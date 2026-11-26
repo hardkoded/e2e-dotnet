@@ -62,7 +62,7 @@ public static class ProtocolServer
         private readonly Dictionary<int, CancellationTokenSource> _signals = [];
 
         /// <summary>The <c>derived</c> option of each <c>resolveSecret</c> in flight, by the id the client asks back with.</summary>
-        private readonly Dictionary<int, Func<string, IReadOnlyList<string>>> _derivations = [];
+        private readonly Dictionary<int, ResolveSecretOptions> _derivations = [];
 
         private readonly TaskCompletionSource _closed = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly List<Task> _aborts = [];
@@ -318,7 +318,7 @@ public static class ProtocolServer
         private async Task<JsonNode?> DeriveSecretAsync(JsonNode? parameters)
         {
             var asked = WireCodec.Read<DeriveSecretParams>(parameters);
-            Func<string, IReadOnlyList<string>>? derive;
+            ResolveSecretOptions? derive;
             lock (_gate)
             {
                 _derivations.TryGetValue(asked.Derivation, out derive);
@@ -332,7 +332,7 @@ public static class ProtocolServer
             }
 
             // Off the reader: a derivation that waits on a device must not keep the connection from reading `$/abort` or its end.
-            var values = await Task.Run(() => derive(asked.Plaintext)).ConfigureAwait(false);
+            var values = await Task.Run(() => Secrecy.DeriveAsync(derive, asked.Plaintext)).ConfigureAwait(false);
             return new JsonObject { ["values"] = WireCodec.Write(values) };
         }
 
@@ -580,7 +580,7 @@ public static class ProtocolServer
                 Signal = signal,
                 ResolveSecret = async (secret, options) =>
                 {
-                    if (options?.Derived is not { } derived)
+                    if (options is not { Derived: not null } and not { DerivedAsync: not null })
                     {
                         return await ResolveSecretAsync(attemptId, secret.Name, null).ConfigureAwait(false);
                     }
@@ -589,7 +589,7 @@ public static class ProtocolServer
                     lock (_gate)
                     {
                         derivation = _nextDerivation++;
-                        _derivations[derivation] = derived;
+                        _derivations[derivation] = options;
                     }
 
                     try

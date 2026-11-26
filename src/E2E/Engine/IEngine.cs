@@ -250,6 +250,13 @@ public sealed record ResolveSecretOptions
 {
     /// <summary>The forms of the plaintext the engine hands to the app in its place, which are redacted wherever the value is.</summary>
     public Func<string, IReadOnlyList<string>>? Derived { get; init; }
+
+    /// <summary>
+    /// The asynchronous form of <see cref="Derived"/>, for an engine that derives a credential by waiting on something, such as a
+    /// device. Upstream's <c>derived</c> may return a promise; C# keeps the synchronous callback and adds this one. When both are
+    /// set, the forms of both are redacted.
+    /// </summary>
+    public Func<string, Task<IReadOnlyList<string>>>? DerivedAsync { get; init; }
 }
 
 /// <summary>
