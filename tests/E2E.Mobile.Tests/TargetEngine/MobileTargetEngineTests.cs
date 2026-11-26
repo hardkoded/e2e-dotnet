@@ -100,7 +100,7 @@ public sealed class MobileTargetEngineTests
         Assert.Null(engine.Options.App.Permissions);
         // Config load hands an engine 'all' as AllPermissions, never as a map.
         ((IEngine)engine).ValidateApp(
-            TargetApps.EngineAppDeclarationOf(app),
+            TargetApps.EngineAppDeclarationOf("ios", app),
             new EngineAppCheckInfo { TargetName = "ios" }
         );
     }

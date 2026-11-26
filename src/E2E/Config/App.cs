@@ -35,7 +35,7 @@ internal sealed record PortRequest(string Host, int? Port);
 /// <param name="BundleId"><c>app.bundleId</c>.</param>
 /// <param name="AppPath"><c>app.appPath</c>.</param>
 /// <param name="LinkBase">The link base <c>App.OpenAsync(path)</c> joins on a device target; see <see cref="AppConfig.LinkBase"/>.</param>
-/// <param name="LaunchArguments"><c>app.launchArguments</c>.</param>
+/// <param name="LaunchArguments"><c>app.launchArguments</c>, checked: a list of strings or an object of argument name to value.</param>
 /// <param name="Permissions"><c>app.permissions</c> as a map of permission name to state.</param>
 /// <param name="AllPermissions"><c>app.permissions: 'all'</c>.</param>
 /// <param name="Command"><c>app.command</c> with <c>{port}</c> expanded to the port the app is served on.</param>
@@ -49,7 +49,7 @@ internal sealed record ResolvedApp(
     string? BundleId,
     string? AppPath,
     string? LinkBase,
-    IReadOnlyList<string>? LaunchArguments,
+    ResolvedLaunchArguments? LaunchArguments,
     IReadOnlyDictionary<string, AppPermissionState>? Permissions,
     bool AllPermissions,
     CommandConfig? Command,
@@ -92,6 +92,7 @@ internal static partial class TargetApps
         ArgumentNullException.ThrowIfNull(engine);
         var where = $"target \"{target.Name}\" app";
         CheckLinkBase(target.App.LinkBase, engine, where);
+        CheckLaunchArgumentsFor(target.App, engine, where);
         CheckAllPermissions(target.App.AllPermissions, engine, where);
         var file = target.App.Url is { } url && Urls.NamesFile(url);
         if (file && !engine.FileApps)
@@ -103,7 +104,7 @@ internal static partial class TargetApps
         }
 
         engine.ValidateApp(
-            EngineAppDeclarationOf(target.App),
+            EngineAppDeclarationOf(target.Name, target.App),
             new EngineAppCheckInfo { TargetName = target.Name, FileApp = file ? true : null }
         );
     }
@@ -167,6 +168,36 @@ internal static partial class TargetApps
         }
 
         return linkBase;
+    }
+
+    /// <summary>
+    /// Checks that the engine takes the form <c>app.launchArguments</c> was declared in: an object only on an engine that declares
+    /// <see cref="IEngine.LaunchArgumentValues"/>. Upstream's refusal in <c>checkTargetApp</c>, which the port runs where it runs <see cref="CheckLinkBase"/>.
+    /// </summary>
+    public static void CheckLaunchArgumentsFor(AppConfig? app, IEngine engine, string where)
+    {
+        ArgumentNullException.ThrowIfNull(engine);
+        ArgumentNullException.ThrowIfNull(where);
+        if (app is null)
+        {
+            return;
+        }
+
+        var launchArguments = LaunchArgumentRules.CheckLaunchArguments(
+            where + ".launchArguments",
+            app.LaunchArguments,
+            app.LaunchArgumentValues
+        );
+        if (launchArguments?.Values is not null && !engine.LaunchArgumentValues)
+        {
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                where
+                    + ".launchArguments is an object, and engine \""
+                    + engine.Name
+                    + "\" takes only a list of strings: write the arguments as a list, or use an engine version that supports the object syntax"
+            );
+        }
     }
 
     /// <summary>
@@ -277,7 +308,11 @@ internal static partial class TargetApps
             app.BundleId,
             app.AppPath,
             app.LinkBase,
-            app.LaunchArguments,
+            LaunchArgumentRules.CheckLaunchArguments(
+                where + " app.launchArguments",
+                app.LaunchArguments,
+                app.LaunchArgumentValues
+            ),
             app.Permissions,
             app.AllPermissions,
             command,
@@ -288,21 +323,31 @@ internal static partial class TargetApps
     /// <summary>
     /// The target's app as the engine reads it at config load (upstream's <c>EngineAppDeclaration</c>): the declaration, and the site its URL
     /// names. The site is a URL's registrable domain, as <see cref="Urls.SiteOf"/> reads it, and null for an app without a URL.
+    /// The launch arguments are checked here, so a target built in code is held to what <c>e2e.config.json</c> is.
     /// </summary>
-    public static EngineAppDeclaration EngineAppDeclarationOf(AppConfig app)
+    public static EngineAppDeclaration EngineAppDeclarationOf(string targetName, AppConfig app)
     {
+        ArgumentNullException.ThrowIfNull(targetName);
         ArgumentNullException.ThrowIfNull(app);
         var site =
             app.Url is { } url && !Urls.NamesFile(url) && Uri.TryCreate(url, UriKind.Absolute, out var uri)
                 ? Urls.SiteOf(uri.Host)
                 : null;
+        var (launchArguments, launchArgumentValues) = LaunchArgumentRules.EngineLaunchArguments(
+            LaunchArgumentRules.CheckLaunchArguments(
+                "target \"" + targetName + "\" app.launchArguments",
+                app.LaunchArguments,
+                app.LaunchArgumentValues
+            )
+        );
         return new EngineAppDeclaration
         {
             Url = app.Url,
             Site = site,
             BundleId = app.BundleId,
             AppPath = app.AppPath,
-            LaunchArguments = app.LaunchArguments is null ? null : [.. app.LaunchArguments],
+            LaunchArguments = launchArguments,
+            LaunchArgumentValues = launchArgumentValues,
             Permissions = app.Permissions,
             AllPermissions = app.AllPermissions,
         };
@@ -317,6 +362,7 @@ internal static partial class TargetApps
     {
         ArgumentNullException.ThrowIfNull(app);
         var unassigned = app.PortRequest is { Port: null };
+        var (launchArguments, launchArgumentValues) = LaunchArgumentRules.EngineLaunchArguments(app.LaunchArguments);
         return new EngineAppInfo
         {
             // A file has no origin to scope a credential to.
@@ -324,7 +370,8 @@ internal static partial class TargetApps
             Site = app.Site,
             BundleId = app.BundleId,
             AppPath = app.AppPath,
-            LaunchArguments = app.LaunchArguments,
+            LaunchArguments = launchArguments,
+            LaunchArgumentValues = launchArgumentValues,
             Permissions = app.Permissions,
             AllPermissions = app.AllPermissions,
         };
@@ -354,9 +401,30 @@ internal static partial class TargetApps
         Add("environment", app.Environment);
         Add(
             "launchArguments",
-            app.LaunchArguments is null
-                ? null
-                : new JsonArray([.. app.LaunchArguments.Select(argument => (JsonNode?)JsonValue.Create(argument))])
+            app.LaunchArguments is not null
+                    ? new JsonArray([.. app.LaunchArguments.Select(argument => (JsonNode?)JsonValue.Create(argument))])
+                : app.LaunchArgumentValues is null ? null
+                : new JsonObject(
+                    app.LaunchArgumentValues.Where(pair => pair.Value is not null)
+                        .Select(pair =>
+                            KeyValuePair.Create(
+                                pair.Key,
+                                (JsonNode?)(
+                                    pair.Value!.Value.Kind switch
+                                    {
+                                        LaunchArgumentValueKind.String => JsonValue.Create(pair.Value.Value.Text),
+                                        LaunchArgumentValueKind.Number => JsonValue.Create(pair.Value.Value.Number),
+                                        LaunchArgumentValueKind.Boolean => JsonValue.Create(pair.Value.Value.Flag),
+                                        _ => new JsonArray([
+                                            .. pair.Value.Value.Items!.Select(item =>
+                                                (JsonNode?)JsonValue.Create(item)
+                                            ),
+                                        ]),
+                                    }
+                                )
+                            )
+                        )
+                )
         );
         Add(
             "permissions",

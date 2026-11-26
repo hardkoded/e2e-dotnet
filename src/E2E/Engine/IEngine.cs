@@ -172,6 +172,13 @@ public sealed class EngineStartOptions
     public IReadOnlyList<string>? LaunchArguments { get; init; }
 
     /// <summary>
+    /// Arguments every fresh launch passes the app, when the target declared them as an object of argument name to value (upstream's
+    /// <c>EngineAppInfo.launchArgumentValues</c>); the engine spells them for its launch command. Only an engine that declares
+    /// <see cref="IEngine.LaunchArgumentValues"/> receives one.
+    /// </summary>
+    public IReadOnlyDictionary<string, LaunchArgumentValue>? LaunchArgumentValues { get; init; }
+
+    /// <summary>
     /// The permissions the app holds, by name: the target's <c>app.permissions</c> (upstream's <c>EngineAppInfo.permissions</c>). What each
     /// state means is the engine's. A browser grants each name to every page of the attempt and takes <c>grant</c> only.
     /// </summary>
@@ -250,6 +257,13 @@ public sealed record ResolveSecretOptions
 {
     /// <summary>The forms of the plaintext the engine hands to the app in its place, which are redacted wherever the value is.</summary>
     public Func<string, IReadOnlyList<string>>? Derived { get; init; }
+
+    /// <summary>
+    /// The asynchronous form of <see cref="Derived"/>, for an engine that derives a credential by waiting on something, such as a
+    /// device. Upstream's <c>derived</c> may return a promise; C# keeps the synchronous callback and adds this one. When both are
+    /// set, the forms of both are redacted.
+    /// </summary>
+    public Func<string, Task<IReadOnlyList<string>>>? DerivedAsync { get; init; }
 }
 
 /// <summary>
@@ -284,6 +298,13 @@ public interface IEngine
     /// config can check each against <c>secrets</c>. Upstream's <c>EngineHandle.secrets</c>. The default holds none, so an engine without a secret option keeps compiling.
     /// </summary>
     IReadOnlyList<Secret> Secrets => [];
+
+    /// <summary>
+    /// Whether the engine reads the object form of <c>app.launchArguments</c> from <see cref="EngineAppInfo.LaunchArgumentValues"/> (upstream's
+    /// <c>EngineHandle.launchArgumentValues</c>). Without it the harness refuses an object at config load, and the engine only ever receives a list in
+    /// <see cref="EngineAppInfo.LaunchArguments"/>. The default is false, so an engine that predates the object form keeps compiling.
+    /// </summary>
+    bool LaunchArgumentValues => false;
 
     Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken);
 
@@ -857,8 +878,11 @@ public record EngineAppInfo
     /// <summary>The build to install, as the target declared it; relative to <see cref="EngineDoctorInfo.ProjectRoot"/>.</summary>
     public string? AppPath { get; init; }
 
-    /// <summary>Arguments every fresh launch passes the app.</summary>
+    /// <summary>Arguments every fresh launch passes the app, when the target declared them as a list of strings.</summary>
     public IReadOnlyList<string>? LaunchArguments { get; init; }
+
+    /// <summary>Arguments every fresh launch passes the app, when the target declared them as an object of argument name to value; see <see cref="EngineStartOptions.LaunchArgumentValues"/>.</summary>
+    public IReadOnlyDictionary<string, LaunchArgumentValue>? LaunchArgumentValues { get; init; }
 
     /// <summary>Permissions the app holds, by name; what each state means is the engine's.</summary>
     public IReadOnlyDictionary<string, AppPermissionState>? Permissions { get; init; }

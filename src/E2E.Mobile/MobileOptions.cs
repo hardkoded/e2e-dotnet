@@ -92,6 +92,12 @@ public sealed record MobileApp
     /// <summary>Arguments every fresh launch of the app takes: process arguments on iOS, <c>am start</c> arguments on Android.</summary>
     public IReadOnlyList<string>? LaunchArguments { get; init; }
 
+    /// <summary>
+    /// Arguments every fresh launch of the app takes, as an object of argument name to value: <c>NSUserDefaults</c> arguments on iOS, <c>am start</c>
+    /// extras of each value's type on Android; see <see cref="AppConfig.LaunchArgumentValues"/>. At most one of this and <see cref="LaunchArguments"/> is set.
+    /// </summary>
+    public IReadOnlyDictionary<string, LaunchArgumentValue?>? LaunchArgumentValues { get; init; }
+
     /// <summary>Permissions the app holds before every fresh launch.</summary>
     public IReadOnlyDictionary<DevicePermission, PermissionState>? Permissions { get; init; }
 

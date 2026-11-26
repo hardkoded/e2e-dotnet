@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
+using E2E.Internal;
 
 namespace E2E.Mobile;
 
@@ -292,6 +293,9 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
         | EngineCapabilities.PinnedApp
         | EngineCapabilities.OpenLink;
 
+    /// <summary>The device engine reads the object form of <c>app.launchArguments</c>, spelling it for the platform.</summary>
+    bool IEngine.LaunchArgumentValues => true;
+
     /// <summary>
     /// A device target launches an installed app or a build: one of the bundle id and the build path is required. A URL
     /// (a website in the device's browser) is not supported yet, and a link as the bundle id is a mistake: a test opens
@@ -307,6 +311,11 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
                 BundleId = app.BundleId,
                 AppPath = app.AppPath,
                 LaunchArguments = app.LaunchArguments,
+                LaunchArgumentValues = app.LaunchArgumentValues?.ToDictionary(
+                    pair => pair.Key,
+                    pair => (LaunchArgumentValue?)pair.Value,
+                    StringComparer.Ordinal
+                ),
                 AllPermissions = app.AllPermissions,
             },
             app.Url,
@@ -346,6 +355,16 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
                 $"{where} app.bundleId names an app by bundle id, package, or display name, not a link; a test opens a deep link or web link with device.openLink"
             );
         }
+
+        DeviceLaunchArguments.AssertLaunchArgumentsFor(
+            platform,
+            $"{where} app.launchArguments",
+            LaunchArgumentRules.CheckLaunchArguments(
+                $"{where} app.launchArguments",
+                app.LaunchArguments,
+                app.LaunchArgumentValues
+            )
+        );
     }
 
     /// <summary>

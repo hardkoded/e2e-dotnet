@@ -161,7 +161,7 @@ public enum OperationOrigin { Test, Agent }
 
 `EngineSpec.ViewportIntersection` (upstream's `viewportIntersection`) measures how much of a node `Locate` returned is inside the viewport, as a `ViewportIntersection(Intersects, Ratio)`, after clipping by the viewport and by every ancestor that clips its content. `Ratio` is null where the platform reports only the visible part of a box. It needs `Locate` (`viewportIntersection without locate` is `INVALID_CONFIG`) and adds `viewport-intersection` to `Capabilities`. Throw `NODE_STALE` if the node no longer binds, and `UNSUPPORTED_CAPABILITY` for a node whose geometry the platform does not report. Nothing in the port calls it yet: `toBeInViewport` is not ported.
 
-`EngineSpec` also declares `SelectsDevice` (needs `Prepare`; `selectsDevice without prepare` is `INVALID_CONFIG`), `GrantsAllPermissions`, `LaunchArgumentValues`, `FileApps`, and `Isolation` (`EngineIsolation.Attempt`, the default, or `EngineIsolation.Worker`; anything else is `INVALID_CONFIG`). The engine manifest carries them. The port reads `GrantsAllPermissions` (see `IEngine.GrantsAllPermissions`); it does not read the rest yet: it has no `--device` flag, no object form of `launchArguments`, and no worker isolation. `FileApps` is read, below.
+`EngineSpec` also declares `SelectsDevice` (needs `Prepare`; `selectsDevice without prepare` is `INVALID_CONFIG`), `GrantsAllPermissions`, `LaunchArgumentValues`, `FileApps`, and `Isolation` (`EngineIsolation.Attempt`, the default, or `EngineIsolation.Worker`; anything else is `INVALID_CONFIG`). The engine manifest carries them. The port reads `GrantsAllPermissions` (see `IEngine.GrantsAllPermissions`), `LaunchArgumentValues` (see `IEngine.LaunchArgumentValues`), and `FileApps` (below); it does not read the rest yet: it has no `--device` flag and no worker isolation.
 
 `IEngine.FileApps` (upstream's `fileApps`) says the engine opens an app whose `app.url` is a `file:` URL, reading the file from the disk of the machine the harness runs on. Without it the harness refuses a file `app.url` at config load with `INVALID_CONFIG`. An engine that is handed one gets `EngineAppCheckInfo.FileApp = true` in `ValidateApp`, from the harness's own reading of the URL (`file:8443/report` is the host `file` on port 8443, not a file). Refuse there what cannot read the runner's disk. `WebEngine` declares `FileApps`, and refuses a file app with a browser provider (`WebEngineOptions.Browser`), `Connect`, `Headers`, or `BasicAuth` as `INVALID_CONFIG`.
 
@@ -347,7 +347,7 @@ Upstream's `EngineDisposeContext` is in the port with `ReuseSignal` in place of 
 
 ### ValidateApp
 
-`ValidateApp` checks the app a target declares against what the engine can drive, at config load: it throws `INVALID_CONFIG` naming `EngineAppCheckInfo.TargetName` for a field the platform needs and the target left out (a URL, a bundle id), or one it cannot drive. Upstream's `validateApp(app, { targetName })`. The default checks nothing. The harness calls it once per target, before any session starts (`TargetEngines.Create`), and the app it passes is the `EngineAppDeclaration` the target declared: `Url`, `Site`, `BundleId`, `AppPath`, `LaunchArguments`, and `Permissions`.
+`ValidateApp` checks the app a target declares against what the engine can drive, at config load: it throws `INVALID_CONFIG` naming `EngineAppCheckInfo.TargetName` for a field the platform needs and the target left out (a URL, a bundle id), or one it cannot drive. Upstream's `validateApp(app, { targetName })`. The default checks nothing. The harness calls it once per target, before any session starts (`TargetEngines.Create`), and the app it passes is the `EngineAppDeclaration` the target declared: `Url`, `Site`, `BundleId`, `AppPath`, `LaunchArguments`, `LaunchArgumentValues`, and `Permissions`.
 
 ```csharp
 void IEngine.ValidateApp(EngineAppDeclaration app, EngineAppCheckInfo info)
@@ -455,7 +455,7 @@ The app under test is declared on the target (`targets[].app`); an engine only d
 | `bundleId`, `appPath`, `launchArguments` | The port's `MobileEngine` and `WinAppEngine` take them from their own options; a custom engine's options carry them. They are not on `EngineStartOptions`. |
 | `command`, `readyUrl` | Never. The host starts the app. |
 
-`EngineAppInfo` (`Site`, `BundleId`, `AppPath`, `LaunchArguments`, `Permissions`, `AllPermissions`) is what `EngineDoctorInfo.App` carries; `Site` is the registrable domain of the app URL. `AppPermissionState` is `Grant`, `Deny`, or `Reset`: held, refused, or not asked for yet, so the OS asks again.
+`EngineAppInfo` (`Site`, `BundleId`, `AppPath`, `LaunchArguments`, `LaunchArgumentValues`, `Permissions`, `AllPermissions`) is what `EngineDoctorInfo.App` carries; `Site` is the registrable domain of the app URL. `AppPermissionState` is `Grant`, `Deny`, or `Reset`: held, refused, or not asked for yet, so the OS asks again.
 
 Upstream's `validateApp` hook and `EngineAppDeclaration` are not members of `IEngine`. `WebEngine.ValidateApp`, `MobileEngine.ValidateApp`, and `WinAppEngine.ValidateApp` check their app at configuration time from their target engines; throw `ConfigurationException` `INVALID_CONFIG` naming the target.
 

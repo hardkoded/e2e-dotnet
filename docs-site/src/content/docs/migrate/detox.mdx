@@ -40,7 +40,7 @@ Set up a target with the [mobile guide](/get-started/mobile/) and a model with t
 | Jest config, `maxWorkers` | the framework's parallelism; the engine drives every booted device that no other session holds |
 | `detox build` | Your normal build |
 | `device.launchApp({ permissions })` | `app.permissions` on the target, set before every fresh launch, or `Device.OpenAppAsync(app, new OpenAppOptions { Relaunch = true, Permissions = ... })` for one; `PermissionState.Grant`, `Deny`, `Reset` for `YES`, `NO`, `unset` |
-| `device.launchApp({ launchArgs })` | `app.launchArguments` on the target, or `OpenAppOptions.LaunchArguments` for one launch; a list of strings the platform launch command takes, not a map |
+| `device.launchApp({ launchArgs })` | `app.launchArguments` on the target, or `OpenAppOptions.LaunchArguments` for one launch; a list of strings the platform launch command takes, or `LaunchArgumentValues` for an object of argument name to value |
 
 ```json title="e2e.config.json"
 {

@@ -481,7 +481,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             {
                 ("bundleId", app.BundleId is not null),
                 ("appPath", app.AppPath is not null),
-                ("launchArguments", app.LaunchArguments is not null),
+                ("launchArguments", app.LaunchArguments is not null || app.LaunchArgumentValues is not null),
             }
         )
         {

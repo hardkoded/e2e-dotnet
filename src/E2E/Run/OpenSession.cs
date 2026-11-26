@@ -141,6 +141,7 @@ public sealed class E2EHost : IAsyncDisposable
             var engine = options.EngineFactory?.Invoke(declared)
                 ?? TargetEngines.Create(declared, options.Headed ? false : null, null);
             TargetApps.CheckLinkBase(declared.App.LinkBase, engine, $"target \"{declared.Name}\" app");
+            TargetApps.CheckLaunchArgumentsFor(declared.App, engine, $"target \"{declared.Name}\" app");
             TargetApps.CheckAllPermissions(declared.App.AllPermissions, engine, $"target \"{declared.Name}\" app");
             Action<string>? notice = options.OnNotice is { } onNotice
                 ? line => OpenSession.Notify(onNotice, declared.Name, line)
@@ -308,6 +309,7 @@ public sealed class E2EHost : IAsyncDisposable
             AppPath = _target.App.AppPath,
             LinkBase = _target.App.LinkBase,
             LaunchArguments = _target.App.LaunchArguments,
+            LaunchArgumentValues = LaunchArgumentRules.WithoutNulls(_target.App.LaunchArgumentValues),
             ProjectRoot = _config.ProjectRoot,
             ResultsDirectory = OutputLayout.Of(_config.Output).Results,
             TargetName = _target.Name,

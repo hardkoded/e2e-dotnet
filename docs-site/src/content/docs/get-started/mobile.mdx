@@ -322,6 +322,10 @@ App = new MobileApp
 },
 ```
 
+- As an object, the same launch is `LaunchArgumentValues = new Dictionary<string, LaunchArgumentValue?> { ["AppleLanguages"] = new[] { "fr" }, ["AppleLocale"] = "fr_FR" }`. Declare one of `LaunchArguments` and `LaunchArgumentValues`, not both. A value is a string, a finite number below 2^53 in magnitude, a boolean, or a list of strings, and a null value leaves its entry out. A name has no leading dash (the engine adds it), whitespace, or control characters.
+- On iOS each entry becomes `-name value` in the format `NSUserDefaults` reads: `YES` or `NO` for a boolean, a plist array for a list, and quotes around a string the parser could read as a plist or a comment, such as `(draft)`, `a b`, or `//cdn`. An app that reads `ProcessInfo.processInfo.arguments` takes the list form instead.
+- On Android each entry becomes an `am start` extra of the value's type: `--ez` for a boolean, `--ei` for a whole number (`--el` beyond Java's `int`), `--ef` for a fraction, `--es` for a string, `--esa` for a list. The app reads it with the matching `Intent` getter. Android reads none of Apple's arguments, so `AppleLanguages` or `AppleLocale` in an object on an Android target fails with `INVALID_CONFIG`. `am start` splits a list at each comma, so an empty list, an empty item, an item with a comma, or an item that ends in a backslash fails too.
+- `OpenAppOptions.LaunchArgumentValues` does the same for one `Device.OpenAppAsync` launch, and fails with `INVALID_ARGUMENT`.
 - The app must ship the language. If it doesn't, iOS shows its development language.
 - Android has no launch argument for the language. Set the device's language before the run.
 - BrowserStack takes `Language` and `Locale` in `BrowserStackDevicesOptions`, for example `fr` and `fr_FR`. Other hosted providers may lack these options. Set the device's language before the run in that case.
