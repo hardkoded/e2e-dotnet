@@ -229,7 +229,8 @@ public static partial class Urls
         var path = url.AbsolutePath;
         return
             path.Contains("%2f", StringComparison.OrdinalIgnoreCase)
-            || path.Contains("%5c", StringComparison.OrdinalIgnoreCase)
+            // A backslash is a name character on POSIX, as fileURLToPath reads it; on Windows it separates, and is refused like %2f.
+            || (OperatingSystem.IsWindows() && path.Contains("%5c", StringComparison.OrdinalIgnoreCase))
             || path.Contains("%00", StringComparison.Ordinal)
             ? null
             : url.LocalPath;
