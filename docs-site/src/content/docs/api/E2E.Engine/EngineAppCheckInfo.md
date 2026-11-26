@@ -29,6 +29,23 @@ Handed to `ValidateApp` beside the declaration (upstream's `EngineAppCheckInfo`)
 
 ## Properties
 
+<a id="E2E_Engine_EngineAppCheckInfo_FileApp_"></a>
+<a id="E2E_Engine_EngineAppCheckInfo_FileApp"></a>
+
+### FileApp
+
+
+```csharp
+public bool? FileApp { get; init; }
+```
+
+
+The app's `url` names a file on the runner's disk, as the harness reads the URL. Only an engine that declares
+`FileApps` is handed one. Refuse here what cannot read that disk, such as a browser on another machine. Upstream's
+`EngineAppCheckInfo.fileApp`.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)?
+
 <a id="E2E_Engine_EngineAppCheckInfo_TargetName_"></a>
 <a id="E2E_Engine_EngineAppCheckInfo_TargetName"></a>
 
