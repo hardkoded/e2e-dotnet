@@ -147,7 +147,7 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
     /// <summary>
     /// The executable to start. .NET looks a command up against the parent's directory and <c>PATH</c>, where upstream's <c>spawn</c> applies the
     /// child's <c>cwd</c> and <c>env.PATH</c>: a relative path resolves against <paramref name="cwd"/>, and a bare name against the child's
-    /// <c>PATH</c>. A name found nowhere is left to the operating system to refuse.
+    /// <c>PATH</c>. A name found in no directory of an explicit child <c>PATH</c> is a <see cref="FileNotFoundException"/>, as upstream's <c>spawn</c> reports <c>ENOENT</c>.
     /// </summary>
     private static string ResolveCommand(string command, string cwd, IDictionary<string, string?> environment)
     {
@@ -161,10 +161,17 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
             return Path.GetFullPath(command, Path.GetFullPath(cwd));
         }
 
-        var path = environment.TryGetValue("PATH", out var value) ? value : null;
-        string[] extensions = OperatingSystem.IsWindows() ? ["", ".exe", ".cmd", ".bat"] : [""];
-        foreach (var directory in (path ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        // Without a PATH of its own the child inherits the parent's, which is the lookup .NET already does.
+        if (!environment.TryGetValue("PATH", out var path) || path is null)
         {
+            return command;
+        }
+
+        string[] extensions = OperatingSystem.IsWindows() ? ["", ".exe", ".cmd", ".bat"] : [""];
+        foreach (var entry in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            // A relative entry is relative to the directory the child starts in, as it is to upstream's `spawn`.
+            var directory = Path.GetFullPath(entry, Path.GetFullPath(cwd));
             foreach (var extension in extensions)
             {
                 var candidate = Path.Combine(directory, command + extension);
@@ -175,7 +182,10 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
             }
         }
 
-        return command;
+        // An explicit PATH that has no match is a command that does not exist: the parent's PATH must not launch another one.
+        throw new FileNotFoundException(
+            $"the server command \"{command}\" was not found in the PATH the server is started with"
+        );
     }
 
     /// <summary>The last <see cref="StderrTailBytes"/> characters a server wrote to stderr.</summary>
