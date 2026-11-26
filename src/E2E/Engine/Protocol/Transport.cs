@@ -173,7 +173,8 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
             }
             catch (Exception cause) when (cause is IOException or ObjectDisposedException)
             {
-                // The process is gone and its pipe with it.
+                // The process is gone and its pipe with it: what was read is the tail.
+                return;
             }
         }
     }
@@ -214,18 +215,39 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
             );
         }
 
+        /// <summary>Closes stdin; false when the server already closed its end.</summary>
+        private bool TryCloseOutput()
+        {
+            try
+            {
+                Output.Close();
+                return true;
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>Kills the server's process tree; false when it exited between the check and the kill.</summary>
+        private bool TryKill()
+        {
+            try
+            {
+                _process.Kill(entireProcessTree: true);
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }
+
         public async Task CloseAsync(TimeSpan timeout)
         {
             try
             {
-                try
-                {
-                    Output.Close();
-                }
-                catch (IOException)
-                {
-                    // The server already closed its end.
-                }
+                _ = TryCloseOutput();
 
                 if (!_process.HasExited)
                 {
@@ -241,15 +263,7 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
                     }
                     catch (OperationCanceledException)
                     {
-                        try
-                        {
-                            _process.Kill(entireProcessTree: true);
-                        }
-                        catch (InvalidOperationException)
-                        {
-                            // It exited between the check and the kill.
-                        }
-
+                        _ = TryKill();
                         await _exited.ConfigureAwait(false);
                     }
                 }

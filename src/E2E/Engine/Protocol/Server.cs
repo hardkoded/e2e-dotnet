@@ -156,9 +156,11 @@ public static class ProtocolServer
             {
                 source.Cancel();
             }
-            catch (Exception)
+            catch (Exception cause)
             {
-                // A callback the engine registered threw: that is its failure, and it must not stop the server from closing.
+                // A callback the engine registered threw: that is its failure, and it must not stop the server from closing. Stdout
+                // carries the protocol, so it is reported on stderr.
+                Console.Error.WriteLine($"an engine's cancellation callback threw: {cause.Message}");
             }
         }
 
