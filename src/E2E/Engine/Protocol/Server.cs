@@ -80,7 +80,7 @@ public static class ProtocolServer
                 new ConnectionOptions
                 {
                     EncodeError = cause => Protocol.EncodeError(cause),
-                    OnClose = _ =>
+                    OnClose = reason =>
                     {
                         // A client that vanished cannot abort what it started; one that shut down cleanly has nothing left running,
                         // and its signals stay as it left them.
