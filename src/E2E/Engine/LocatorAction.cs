@@ -15,6 +15,13 @@ public abstract record LocatorAction
     /// <summary>A double tap. <paramref name="Modifiers"/> are held for both clicks, as for <see cref="Tap"/>.</summary>
     public sealed record DoubleTap(IReadOnlyList<KeyModifier>? Modifiers = null) : LocatorAction;
 
+    /// <summary>
+    /// <paramref name="Count"/> taps in a row on one point: 3 or more, since 2 is <see cref="DoubleTap"/>. A browser reads them as one multi-click (a
+    /// triple click selects a paragraph); a device presses them at its own cadence, which a gesture detector may not read as one. Not a kind of SPI v1,
+    /// so an engine lists it explicitly. <paramref name="Modifiers"/> are held for every click, as for <see cref="Tap"/>. Upstream's <c>multiTap</c>.
+    /// </summary>
+    public sealed record MultiTap(long Count, IReadOnlyList<KeyModifier>? Modifiers = null) : LocatorAction;
+
     /// <summary>A right click, or the platform's equivalent. <paramref name="Modifiers"/> are held for the click, as for <see cref="Tap"/>.</summary>
     public sealed record SecondaryTap(IReadOnlyList<KeyModifier>? Modifiers = null) : LocatorAction;
 

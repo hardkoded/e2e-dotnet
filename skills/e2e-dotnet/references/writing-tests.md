@@ -313,6 +313,12 @@ engine has them all; the document engine has swipe only and fails the rest with
 `UNSUPPORTED_CAPABILITY`. An engine declares the action kinds it takes, and the
 screen refuses another before it resolves the node.
 
+`TapAsync(new TapOptions { Count = 3 })` (also `ClickAsync`) taps the node that many times in a row, a triple click in a browser.
+`Count` is a positive integer, 1 by default; 2 is `DoubleTapAsync()`, and 3 or more needs an engine that declares the
+`multiTap` action (the web and mobile engines do; the mobile engine refuses more than 200 with `UNSUPPORTED_CAPABILITY`, and a device
+presses at its own cadence, which a gesture detector may not read as one multi-tap). A `Count` that is not positive is
+`INVALID_ARGUMENT`, and one above 1 with a `Position` is `INVALID_ARGUMENT` too.
+
 `TapAsync(new TapOptions { Position = new Point(x, y) })` taps that point of the
 node's box (from its top left corner, inside its border), once the node is in view with a box;
 modifiers with a position are `INVALID_ARGUMENT`. `Screen.TapAtAsync(new Point(x, y))`

@@ -334,6 +334,7 @@ public static class Explore
                     .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal),
                 BaseUrl = target.App.Url,
                 Permissions = target.App.Permissions,
+                AllPermissions = target.App.AllPermissions,
                 ProjectRoot = projectRoot,
                 TargetName = target.Name,
                 ResultsDirectory = resultsDirectory,

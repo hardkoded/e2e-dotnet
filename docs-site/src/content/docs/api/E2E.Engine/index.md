@@ -81,6 +81,7 @@ Public types in the `E2E.Engine` namespace.
 | [LocatorAction.Focus](/api/E2E.Engine/LocatorAction.Focus/) |  |
 | [LocatorAction.Hover](/api/E2E.Engine/LocatorAction.Hover/) | Moves the pointer over the node. |
 | [LocatorAction.LongPress](/api/E2E.Engine/LocatorAction.LongPress/) | A press held on the node for Duration, or for the engine's own default hold when it is null. |
+| [LocatorAction.MultiTap](/api/E2E.Engine/LocatorAction.MultiTap/) | Count taps in a row on one point: 3 or more, since 2 is LocatorAction.DoubleTap. A browser reads them as one multi-click (a triple click selects a paragraph); a device presses them at its own cadence, which a gesture detector may not read as one. Not a kind of SPI v1, so an engine lists it explicitly. Modifiers are held for every click, as for LocatorAction.Tap. Upstream's multiTap. |
 | [LocatorAction.Press](/api/E2E.Engine/LocatorAction.Press/) |  |
 | [LocatorAction.ScrollIntoView](/api/E2E.Engine/LocatorAction.ScrollIntoView/) | Scrolls the node's nearest scrollable container until the node is in the viewport. |
 | [LocatorAction.SecondaryTap](/api/E2E.Engine/LocatorAction.SecondaryTap/) | A right click, or the platform's equivalent. Modifiers are held for the click, as for LocatorAction.Tap. |

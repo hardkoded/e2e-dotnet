@@ -139,6 +139,7 @@ Headless Chromium refuses a permission the target doesn't grant, so `navigator.c
 
 - Every page of every attempt holds the grant, on any origin.
 - A web target takes `grant` only. `deny` and `reset` are `INVALID_CONFIG`: leave the permission out instead.
+- `"permissions": "all"` grants every permission the engine's browser grants (the names below), in place of the map. A Chromium older than the list refuses the whole grant over a name it does not know (a CDP attach to an older Chrome); for `"all"` that name is left out and the rest granted, while a named grant keeps the refusal.
 - The names are Playwright's, and each browser grants its own set:
 
 | Browser | Names |
