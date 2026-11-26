@@ -40,6 +40,22 @@ public TimeSpan ActionTimeout { get; init; }
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
+<a id="E2E_Engine_EngineStartOptions_AllPermissions_"></a>
+<a id="E2E_Engine_EngineStartOptions_AllPermissions"></a>
+
+### AllPermissions
+
+
+```csharp
+public bool AllPermissions { get; init; }
+```
+
+
+`app.permissions: 'all'`: grant every permission the engine can grant, in place of [Permissions](#E2E_Engine_EngineStartOptions_Permissions) (upstream's
+`EngineAppInfo.allPermissions`). Only an engine whose [GrantsAllPermissions](/api/E2E.Engine/IEngine/#E2E_Engine_IEngine_GrantsAllPermissions) is true receives it.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_EngineStartOptions_AppLog_"></a>
 <a id="E2E_Engine_EngineStartOptions_AppLog"></a>
 

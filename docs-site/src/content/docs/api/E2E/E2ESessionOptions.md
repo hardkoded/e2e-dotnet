@@ -147,6 +147,21 @@ shape and added to `ai-trace-<process id>.json` next to the results directory (`
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
+<a id="E2E_E2ESessionOptions_AllPermissions_"></a>
+<a id="E2E_E2ESessionOptions_AllPermissions"></a>
+
+### AllPermissions
+
+
+```csharp
+public bool AllPermissions { get; init; }
+```
+
+
+The target's `app.permissions: 'all'`, handed to the engine as [AllPermissions](/api/E2E.Engine/EngineStartOptions/#E2E_Engine_EngineStartOptions_AllPermissions).
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_E2ESessionOptions_AppIdentity_"></a>
 <a id="E2E_E2ESessionOptions_AppIdentity"></a>
 
