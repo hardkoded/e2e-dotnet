@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Net.Sockets;
@@ -135,7 +136,7 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
             if (context.Signal.IsCancellationRequested)
             {
                 // Disposing a process does not stop the child, so a canceled open ends it before it throws.
-                process.Kill(entireProcessTree: true);
+                _ = TryStop(process);
                 context.Signal.ThrowIfCancellationRequested();
             }
         }
@@ -148,6 +149,26 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
         var tail = new StderrTail();
         var stderrClosed = Task.Run(() => tail.ReadAsync(process.StandardError));
         return Task.FromResult<ITransportConnection>(new SpawnConnection(process, tail, stderrClosed, ExitAfterStdout));
+    }
+
+    /// <summary>
+    /// Ends a child's process tree, for a canceled open: whatever stops the kill (a child that exited, or a tree .NET cannot end whole) must not
+    /// replace the cancellation the caller asked for. False when it did not end.
+    /// </summary>
+    private static bool TryStop(Process process)
+    {
+        try
+        {
+            process.Kill(entireProcessTree: true);
+            return true;
+        }
+        catch (Exception cause) when (cause is InvalidOperationException or AggregateException or Win32Exception)
+        {
+            Console.Error.WriteLine(
+                $"the server process could not be stopped after the open was canceled: {cause.Message}"
+            );
+            return false;
+        }
     }
 
     private static string DefaultPath =>
