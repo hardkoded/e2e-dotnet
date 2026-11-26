@@ -110,6 +110,34 @@ internal static partial class TargetApps
     }
 
     /// <summary>
+    /// A <c>file:</c> app URL against the engine that will open it, for a session started with a base URL and no target config: the engine
+    /// must declare <see cref="IEngine.FileApps"/>, and its own <see cref="IEngine.ValidateApp"/> is told <see cref="EngineAppCheckInfo.FileApp"/>.
+    /// Any other URL passes. The same two checks as <see cref="CheckTargetApp"/>.
+    /// </summary>
+    public static void CheckFileAppUrl(string url, IEngine engine, string targetName)
+    {
+        ArgumentNullException.ThrowIfNull(url);
+        ArgumentNullException.ThrowIfNull(engine);
+        if (!Urls.NamesFile(url))
+        {
+            return;
+        }
+
+        if (!engine.FileApps)
+        {
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"target \"{targetName}\" app.url is a file, and engine \"{engine.Name}\" does not declare that it opens one from this machine's disk: use an engine version that does, or serve the app over http(s)"
+            );
+        }
+
+        engine.ValidateApp(
+            new EngineAppDeclaration { Url = url },
+            new EngineAppCheckInfo { TargetName = targetName, FileApp = true }
+        );
+    }
+
+    /// <summary>
     /// Checks <c>app.linkBase</c>: an absolute URL, or a bare custom scheme (<c>shopapp://</c>), with no query or fragment for a path to land after, on
     /// an engine that opens links. The message never echoes the value: it may carry a token. Upstream's <c>checkLinkBase</c>.
     /// </summary>
