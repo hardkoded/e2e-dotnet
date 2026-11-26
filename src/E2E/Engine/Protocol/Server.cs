@@ -65,6 +65,7 @@ public static class ProtocolServer
         private readonly Dictionary<int, Func<string, IReadOnlyList<string>>> _derivations = [];
 
         private readonly TaskCompletionSource _closed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly List<Task> _aborts = [];
         private int _nextDerivation = 1;
         private EngineHandle? _engine;
         private ServedAttempt? _attempt;
@@ -120,7 +121,7 @@ public static class ProtocolServer
                             // A token carries no reason, so the client's reason does not cross: the engine sees a plain cancellation.
                             if (source is not null)
                             {
-                                Abort(source);
+                                _ = Abort(source);
                             }
                         },
                     },
@@ -158,7 +159,8 @@ public static class ProtocolServer
         {
             try
             {
-                var canceled = Task.WhenAll(sources.Select(source => Task.Run(() => Cancel(source))));
+                // The aborts a `$/abort` queued just before the close count too: they removed their sources from the map already.
+                var canceled = Task.WhenAll([.. sources.Select(Abort), .. PendingAborts()]);
                 await Task.WhenAny(canceled, Task.Delay(CloseWait)).ConfigureAwait(false);
             }
             finally
@@ -167,7 +169,25 @@ public static class ProtocolServer
             }
         }
 
-        private static void Abort(CancellationTokenSource source) => _ = Task.Run(() => Cancel(source));
+        private Task Abort(CancellationTokenSource source)
+        {
+            var aborting = Task.Run(() => Cancel(source));
+            lock (_gate)
+            {
+                _aborts.Add(aborting);
+            }
+
+            return aborting;
+        }
+
+        private Task[] PendingAborts()
+        {
+            lock (_gate)
+            {
+                _aborts.RemoveAll(task => task.IsCompleted);
+                return [.. _aborts];
+            }
+        }
 
         private static void Cancel(CancellationTokenSource source)
         {
