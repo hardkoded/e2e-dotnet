@@ -322,7 +322,7 @@ The pointer action kinds [PerformAt](#E2E_Engine_EngineHandle_PerformAt) honors,
 
 
 ```csharp
-public Func<EnginePrepareInfo, Task>? Prepare { get; }
+public Func<EnginePrepareInfo, Task<EnginePrepareResult?>>? Prepare { get; }
 ```
 
 

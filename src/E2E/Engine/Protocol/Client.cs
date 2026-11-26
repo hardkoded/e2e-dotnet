@@ -253,7 +253,7 @@ public static partial class ProtocolClient
                         await OperateAsync("engine/perform", link => new JsonObject
                             {
                                 ["ref"] = WireCodec.Write(reference),
-                                ["action"] = WireCodec.EncodeLocatorAction(action),
+                                ["action"] = WireCodec.EncodeLocatorAction(action, reference),
                                 ["operation"] = EncodeOperation(link, operation),
                             })
                             .ConfigureAwait(false)
@@ -485,7 +485,7 @@ public static partial class ProtocolClient
         private static string? Text(JsonNode? node) =>
             node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
-        private async Task PrepareAsync(EnginePrepareInfo info)
+        private async Task<EnginePrepareResult?> PrepareAsync(EnginePrepareInfo info)
         {
             var pending = OpenAsync(
                 ConnectionRole.Run,
@@ -505,7 +505,7 @@ public static partial class ProtocolClient
             var link = await pending.ConfigureAwait(false);
             if (!manifest.Methods.Contains("lifecycle/prepare"))
             {
-                return;
+                return null;
             }
 
             var parameters = new JsonObject
@@ -518,7 +518,8 @@ public static partial class ProtocolClient
                 ["signal"] = WireCodec.Write(link.Signals.Encode(info.Signal)),
             };
             AddHost(parameters, info.HostId, info.ProjectRoot, info.App);
-            await CallAsync(link, "lifecycle/prepare", parameters).ConfigureAwait(false);
+            var result = await CallAsync(link, "lifecycle/prepare", parameters).ConfigureAwait(false);
+            return result is null ? null : WireCodec.Read<EnginePrepareResult>(result);
         }
 
         private static void AddHost(JsonObject parameters, string? hostId, string? projectRoot, EngineAppInfo? app)
