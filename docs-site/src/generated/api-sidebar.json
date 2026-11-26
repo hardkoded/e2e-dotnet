@@ -28,6 +28,10 @@
     "slug": "api/E2E.Engine"
   },
   {
+    "label": "E2E.Engine.Protocol",
+    "slug": "api/E2E.Engine.Protocol"
+  },
+  {
     "label": "E2E.Internal",
     "slug": "api/E2E.Internal"
   },

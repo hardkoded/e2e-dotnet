@@ -157,6 +157,23 @@ public const string UnsupportedCapability = "UNSUPPORTED_CAPABILITY"
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+## Properties
+
+<a id="E2E_EngineErrorCodes_All_"></a>
+<a id="E2E_EngineErrorCodes_All"></a>
+
+### All
+
+
+```csharp
+public static IReadOnlyList<string> All { get; }
+```
+
+
+Every engine error code, in the contract's order. Upstream's `ENGINE_ERROR_CODES`.
+
+**Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
 ## Methods
 
 <a id="E2E_EngineErrorCodes_IsRetryable_"></a>
