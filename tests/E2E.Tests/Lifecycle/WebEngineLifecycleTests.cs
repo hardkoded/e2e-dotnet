@@ -227,6 +227,7 @@ public sealed class WebEngineLifecycleTests
             | EngineCapabilities.Location
             | EngineCapabilities.Keyboard
             | EngineCapabilities.ComputedStyle
+            | EngineCapabilities.ViewportIntersection
             | EngineCapabilities.State;
         Assert.Equal(Tier, engine.Capabilities & Tier);
         Assert.True(engine.Capabilities.HasFlag(EngineCapabilities.Screenshot | EngineCapabilities.Video));

@@ -108,8 +108,8 @@ public sealed class DefineEngineTests
     [Fact]
     public void Rejects_viewportIntersection_without_locate_it_measures_located_nodes()
     {
-        Func<NodeRef, OperationContext, Task<ViewportIntersection>> viewportIntersection = (_, _) =>
-            Task.FromResult(new ViewportIntersection(true));
+        Func<NodeRef, OperationContext, Task<E2E.Engine.ViewportIntersection>> viewportIntersection = (_, _) =>
+            Task.FromResult(new E2E.Engine.ViewportIntersection(true));
 
         Assert.Contains(
             "viewportIntersection without locate",

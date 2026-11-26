@@ -36,6 +36,13 @@ public sealed class SoftLocatorExpect
     public Task ToBeHiddenAsync(TimeSpan? timeout = null, CancellationToken cancellationToken = default) =>
         KeepAsync(_expect.ToBeHiddenAsync(timeout, cancellationToken));
 
+    /// <inheritdoc cref="LocatorExpect.ToBeInViewportAsync"/>
+    public Task ToBeInViewportAsync(
+        double? ratio = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    ) => KeepAsync(_expect.ToBeInViewportAsync(ratio, timeout, cancellationToken));
+
     public Task ToBeAttachedAsync(
         bool attached = true,
         TimeSpan? timeout = null,

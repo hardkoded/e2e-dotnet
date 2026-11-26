@@ -216,6 +216,33 @@ public Task ToBeHiddenAsync(TimeSpan? timeout = null, CancellationToken cancella
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_SoftLocatorExpect_ToBeInViewportAsync_"></a>
+<a id="E2E_SoftLocatorExpect_ToBeInViewportAsync_System_Nullable_System_Double__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
+
+### ToBeInViewportAsync(double?, TimeSpan?, CancellationToken)
+
+
+```csharp
+public Task ToBeInViewportAsync(double? ratio = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+```
+
+
+Waits for the one match to have a box inside the viewport, once the viewport and every clipping ancestor (a scroll container, a frame)
+cut it: on the web, as Playwright's `toBeInViewport` measures it. No match is outside the viewport, since a device leaves
+offscreen nodes out of its tree. &lt;code class="paramref"&gt;ratio&lt;/code&gt;, from 0 to 1, is the share of the box that must be inside; 0 asks for any
+area, as the default does. An engine that reports only the part of a box that is visible, as a device's does, refuses a
+&lt;code class="paramref"&gt;ratio&lt;/code&gt; above 0 with `UNSUPPORTED_CAPABILITY`, even under [Not](/api/E2E/LocatorExpect/#E2E_LocatorExpect_Not).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `ratio` | [double?](https://learn.microsoft.com/dotnet/api/system.double) |  |
+| `timeout` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_SoftLocatorExpect_ToBeSelectedAsync_"></a>
 <a id="E2E_SoftLocatorExpect_ToBeSelectedAsync_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 

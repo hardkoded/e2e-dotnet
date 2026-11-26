@@ -577,6 +577,24 @@ public sealed class ControlsTests
         });
 
     [Fact]
+    public Task ToBeInViewport_follows_the_scroll_position_and_no_match_is_outside_the_viewport() =>
+        RunAsync(async screen =>
+        {
+            var footnote = screen.GetByText("Footnote", exact: true);
+            await Expect.That(footnote).Not.ToBeInViewportAsync();
+            var error = await Assert.ThrowsAsync<TestException>(() =>
+                Expect.That(footnote).ToBeInViewportAsync(timeout: TimeSpan.FromMilliseconds(500))
+            );
+            Assert.Equal("ASSERTION_FAILED", error.Code);
+            Assert.Contains("observed: outside the viewport", error.Message, StringComparison.Ordinal);
+
+            await footnote.ScrollIntoViewAsync();
+            await Expect.That(screen.GetByLabel("Footnote state")).ToHaveTextAsync("in view");
+            await Expect.That(footnote).ToBeInViewportAsync(ratio: 1);
+            await Expect.That(screen.GetByText("No such footnote")).Not.ToBeInViewportAsync();
+        });
+
+    [Fact]
     public Task A_missing_locator_fails_as_LOCATOR_NOT_FOUND_after_its_timeout() =>
         RunAsync(async screen =>
         {

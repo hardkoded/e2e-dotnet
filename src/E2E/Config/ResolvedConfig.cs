@@ -470,9 +470,9 @@ internal sealed record ResolvedConfig
             .. Enum.GetValues<EngineCapabilities>()
                 .Where(flag => flag != EngineCapabilities.None && capabilities.HasFlag(flag))
                 .Select(flag =>
-                    flag == EngineCapabilities.ComputedStyle
-                        ? "computed-style"
-                        : char.ToLowerInvariant(flag.ToString()[0]) + flag.ToString()[1..]
+                    flag == EngineCapabilities.ComputedStyle ? "computed-style"
+                    : flag == EngineCapabilities.ViewportIntersection ? "viewport-intersection"
+                    : char.ToLowerInvariant(flag.ToString()[0]) + flag.ToString()[1..]
                 ),
         ];
 

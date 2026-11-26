@@ -81,6 +81,12 @@ public enum EngineCapabilities
     /// C# has no optional member to test, so this declares it.
     /// </summary>
     OpenLink = 65536,
+
+    /// <summary>
+    /// <see cref="IEngineSession.ViewportIntersectionAsync(SemanticNode, OperationContext, CancellationToken)"/>: the engine measures how much of a
+    /// node is inside the viewport, which <c>ToBeInViewportAsync</c> needs. Upstream's <c>viewport-intersection</c> capability.
+    /// </summary>
+    ViewportIntersection = 131072,
 }
 
 /// <summary>
@@ -446,6 +452,27 @@ public interface IEngineSession : IAsyncDisposable
     ) =>
         Task.FromException<IReadOnlyDictionary<string, string>>(
             new EngineException("UNSUPPORTED_CAPABILITY", "computed styles is not supported by this engine.")
+        );
+
+    /// <summary>
+    /// Whether this engine implements <see cref="ViewportIntersectionAsync"/>, so <c>ToBeInViewportAsync</c> can refuse before it waits for a
+    /// match. Upstream's <c>measuresViewport</c> (<c>engine/surface.ts</c>).
+    /// </summary>
+    bool MeasuresViewport => false;
+
+    /// <summary>
+    /// Measures how much of a node this engine minted is inside the viewport, for <c>ToBeInViewportAsync</c>, without scrolling or changing app
+    /// state. Throw <c>NODE_STALE</c> if the node no longer binds, and <c>UNSUPPORTED_CAPABILITY</c> for a node whose geometry the platform does
+    /// not report. Engines that declare <see cref="EngineCapabilities.ViewportIntersection"/> implement it; the default refuses with
+    /// <c>UNSUPPORTED_CAPABILITY</c>. Upstream's <c>viewportIntersection(ref, operation)</c>.
+    /// </summary>
+    Task<ViewportIntersection> ViewportIntersectionAsync(
+        SemanticNode node,
+        OperationContext context,
+        CancellationToken cancellationToken
+    ) =>
+        Task.FromException<ViewportIntersection>(
+            new EngineException("UNSUPPORTED_CAPABILITY", "viewport intersection is not supported by this engine.")
         );
 
     /// <summary>Sends a key to whatever holds focus. The harness has already validated the key.</summary>

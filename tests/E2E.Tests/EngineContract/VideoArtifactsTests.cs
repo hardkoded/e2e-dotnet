@@ -308,6 +308,7 @@ public sealed class VideoArtifactsTests : IDisposable
                 case nameof(IAsyncDisposable.DisposeAsync):
                     return default(ValueTask);
                 case "get_" + nameof(IEngineSession.CanLocate):
+                case "get_" + nameof(IEngineSession.MeasuresViewport):
                     return false;
                 default:
                     return null;

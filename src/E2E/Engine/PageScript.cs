@@ -549,6 +549,39 @@ internal static class PageScript
         }
         """;
 
+    // The in-page half of viewportIntersection (upstream's measureViewportIntersection in web/src/surface.ts): one IntersectionObserver
+    // callback, which reports the element's first intersection right after it is observed. The empty animation frame makes Firefox deliver
+    // it. The callback's own entry decides: an element the page replaced before it fired is stale, and its box and ratio come from that one
+    // frame, since a zero-area target that intersects reports a ratio of 1.
+    public const string MeasureViewportIntersection = """
+        (element) => {
+          if (!element.isConnected) return Promise.resolve("detached");
+          if (element.getClientRects().length === 0) return Promise.resolve({ intersects: false, ratio: 0 });
+          const view = element.ownerDocument.defaultView;
+          if (view === null || typeof view.IntersectionObserver !== "function") return Promise.resolve("unsupported");
+          return new Promise((resolve) => {
+            const observer = new view.IntersectionObserver((entries) => {
+              observer.disconnect();
+              if (!element.isConnected) {
+                resolve("detached");
+                return;
+              }
+              const entry = entries.at(-1);
+              const box = entry?.boundingClientRect;
+              if (entry === undefined || box === undefined || box.width <= 0 || box.height <= 0) {
+                resolve({ intersects: false, ratio: 0 });
+                return;
+              }
+              // Clamped: a browser can round a fully visible box a hair past 1.
+              const ratio = Math.min(1, Math.max(0, entry.intersectionRatio));
+              resolve({ intersects: ratio > 0, ratio });
+            });
+            observer.observe(element);
+            view.requestAnimationFrame(() => {});
+          });
+        }
+        """;
+
     // The ref an iframe element carries, so the host can hang that frame's
     // observation under the iframe node.
     public const string RefOf = """

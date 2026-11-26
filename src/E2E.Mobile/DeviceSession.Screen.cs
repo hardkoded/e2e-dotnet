@@ -25,6 +25,7 @@ public enum ActionOrigin
 /// Action data only: a bound node never retains a projected snapshot through parent links. <c>RefsGeneration</c> is the
 /// capture <c>Ref</c> and <c>ControlRef</c> came from, pinned on every action so agent-device refuses them once a newer capture supersedes it.
 /// <c>OriginUnknown</c> is whether the capture <c>Node.Rect</c> came from could not place its window on the screen.
+/// <c>CaptureViewport</c> is the size that capture reported for the screen, which <c>ViewportIntersectionAsync</c> confirms before it measures.
 /// <c>TakesText</c> is whether <c>fill</c> and <c>clear</c> may type into the node, judged with the children <c>Node</c> leaves out.
 /// </summary>
 internal sealed record NodeBinding(
@@ -36,7 +37,8 @@ internal sealed record NodeBinding(
     long? RefsGeneration,
     bool TakesText,
     bool KeyboardVisible,
-    bool OriginUnknown
+    bool OriginUnknown,
+    ViewportSize? CaptureViewport
 );
 
 public sealed partial class DeviceSession
@@ -248,6 +250,51 @@ public sealed partial class DeviceSession
         }
     }
 
+    public bool MeasuresViewport => true;
+
+    /// <summary>
+    /// Whether a positive area of a node is on the screen, read off the capture that located it. agent-device clips each rect to the window
+    /// and to its scrolling ancestors, and leaves out a node with nothing on screen, so a rect is only the visible part of a box: the share
+    /// of the whole is unknown, and the answer carries no <c>Ratio</c>. The screen is the one <c>ViewportForAsync</c> confirms, as
+    /// <c>ObserveAsync</c> does: a capture whose size is not the known screen's asks the device. A rect whose window could not be placed on
+    /// the screen is refused rather than guessed at. Upstream's <c>viewportIntersection</c>.
+    /// </summary>
+    public async Task<ViewportIntersection> ViewportIntersectionAsync(
+        SemanticNode node,
+        OperationContext context,
+        CancellationToken cancellationToken
+    )
+    {
+        var entry = Resolve(node);
+        if (entry.OriginUnknown)
+        {
+            throw new EngineException(
+                EngineErrorCodes.UnsupportedCapability,
+                $"whether node {node.Ref} is in the viewport is unknown: the {DeviceErrors.OriginUnknownBounds}",
+                retryable: false
+            );
+        }
+
+        if (entry.Node.Rect is not { } rect)
+        {
+            throw new EngineException(
+                EngineErrorCodes.UnsupportedCapability,
+                $"node {node.Ref} has no bounds on the screen, so whether it is in the viewport is unknown",
+                retryable: false
+            );
+        }
+
+        var screen = await ViewportForAsync(
+                entry.CaptureViewport,
+                InputBudget("viewport intersection", context.Timeout ?? ActionTimeout, cancellationToken),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        var width = Math.Min(rect.X + rect.Width, screen.Width) - Math.Max(rect.X, 0);
+        var height = Math.Min(rect.Y + rect.Height, screen.Height) - Math.Max(rect.Y, 0);
+        return new ViewportIntersection(width > 0 && height > 0);
+    }
+
     /// <summary>The binding of a located node, or of a node of the newest observation, or <c>NODE_STALE</c>.</summary>
     internal NodeBinding Resolve(SemanticNode node)
     {
@@ -353,7 +400,8 @@ public sealed partial class DeviceSession
             snapshot.RefsGeneration,
             SnapshotProjection.MayTakeText(entry.Node),
             snapshot.KeyboardVisible,
-            snapshot.OriginUnknown
+            snapshot.OriginUnknown,
+            snapshot.Viewport
         );
 
     /// <summary>The same control in the newest capture: the binding itself when it came from that capture, else found there again where it was.</summary>
@@ -837,7 +885,7 @@ public sealed partial class DeviceSession
         {
             var raw = reading.Raw;
             var projected = SnapshotProjection.ProjectSnapshot(raw.Nodes, () => "keyboard", raw.Viewport);
-            var viewport = await ViewportForAsync(projected, input, cancellationToken).ConfigureAwait(false);
+            var viewport = await ViewportForAsync(projected.Viewport, input, cancellationToken).ConfigureAwait(false);
             var top = KeyboardTop(raw, viewport)
                 ?? throw new EngineException(
                     EngineErrorCodes.UnsupportedCapability,
