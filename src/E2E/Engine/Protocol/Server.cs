@@ -405,22 +405,21 @@ public static class ProtocolServer
             switch (member)
             {
                 case "prepare":
-                    Signal(parameters);
-                    await InvokeAsync(hook!, [Prepare(parameters, Log)]).ConfigureAwait(false);
+                    await InvokeAsync(hook!, [Prepare(parameters, Log, Signal(parameters))]).ConfigureAwait(false);
                     return null;
                 case "finish":
-                    Signal(parameters);
-                    await InvokeAsync(hook!, [Finish(parameters, Log)]).ConfigureAwait(false);
+                    await InvokeAsync(hook!, [Finish(parameters, Log, Signal(parameters))]).ConfigureAwait(false);
                     return null;
                 case "doctor":
-                    Signal(parameters);
                     var checks =
                         (IReadOnlyList<EngineDoctorCheck>)
-                            (await InvokeAsync(hook!, [Doctor(parameters, Log)]).ConfigureAwait(false))!;
+                            (
+                                await InvokeAsync(hook!, [Doctor(parameters, Log, Signal(parameters))])
+                                    .ConfigureAwait(false)
+                            )!;
                     return WireCodec.Write(checks);
                 case "init":
-                    Signal(parameters);
-                    await InvokeAsync(hook!, [Init(parameters, Log)]).ConfigureAwait(false);
+                    await InvokeAsync(hook!, [Init(parameters, Log, Signal(parameters))]).ConfigureAwait(false);
                     return null;
                 case "startAttempt":
                     var attemptId = WireText(parameters, "attemptId");
@@ -498,7 +497,7 @@ public static class ProtocolServer
         private static EngineAppInfo? ReadApp(JsonNode? parameters) =>
             parameters?["app"] is { } app ? WireCodec.Read<EngineAppInfo>(app) : null;
 
-        private static EnginePrepareInfo Prepare(JsonNode? parameters, Action<string> log) =>
+        private static EnginePrepareInfo Prepare(JsonNode? parameters, Action<string> log, CancellationToken signal) =>
             new()
             {
                 HostId = HostId(parameters),
@@ -511,9 +510,10 @@ public static class ProtocolServer
                     parameters["projectRoot"] is JsonValue root && root.TryGetValue<string>(out var path) ? path : null,
                 Headed = Headed(parameters),
                 Log = log,
+                Signal = signal,
             };
 
-        private static EngineFinishInfo Finish(JsonNode? parameters, Action<string> log) =>
+        private static EngineFinishInfo Finish(JsonNode? parameters, Action<string> log, CancellationToken signal) =>
             new()
             {
                 HostId = HostId(parameters),
@@ -521,10 +521,11 @@ public static class ProtocolServer
                 TargetName = WireText(parameters, "targetName"),
                 Env = ReadEnv(parameters!["env"]),
                 Log = log,
+                Signal = signal,
                 CleanupTimeout = TimeSpan.FromMilliseconds((double)parameters["timeoutMs"]!),
             };
 
-        private static EngineDoctorInfo Doctor(JsonNode? parameters, Action<string> log) =>
+        private static EngineDoctorInfo Doctor(JsonNode? parameters, Action<string> log, CancellationToken signal) =>
             new()
             {
                 TargetName = WireText(parameters, "targetName"),
@@ -533,9 +534,10 @@ public static class ProtocolServer
                 Env = ReadEnv(parameters["env"]),
                 Headed = Headed(parameters),
                 Log = log,
+                Signal = signal,
             };
 
-        private static EngineInitInfo Init(JsonNode? parameters, Action<string> log) =>
+        private static EngineInitInfo Init(JsonNode? parameters, Action<string> log, CancellationToken signal) =>
             new()
             {
                 HostId = HostId(parameters),
@@ -548,6 +550,7 @@ public static class ProtocolServer
                 Env = ReadEnv(parameters["env"]),
                 Headed = Headed(parameters),
                 Log = log,
+                Signal = signal,
             };
 
         /// <summary>The attempt context an engine's <c>startAttempt</c> receives, its callbacks routed to the client.</summary>

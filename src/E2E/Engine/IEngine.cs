@@ -765,6 +765,12 @@ public sealed record EnginePrepareInfo : IEngineHostIdentity
     /// <c>e2e mcp</c> has no reporter, so it drops the line.
     /// </summary>
     public required Action<string> Log { get; init; }
+
+    /// <summary>
+    /// Upstream's <c>signal</c>: aborts when the host abandons the call. Set when the info crosses the engine protocol; a hook the host calls
+    /// in process takes its own token, and this stays the default, never canceled.
+    /// </summary>
+    public CancellationToken Signal { get; init; }
 }
 
 /// <summary>What prepare learned that the run must honour. Upstream's <c>EnginePrepareResult</c>.</summary>
@@ -805,6 +811,12 @@ public sealed record EngineFinishInfo : IEngineHostIdentity
 
     /// <summary>Reports one line of progress, as <see cref="EnginePrepareInfo.Log"/> does.</summary>
     public required Action<string> Log { get; init; }
+
+    /// <summary>
+    /// Upstream's <c>signal</c>: aborts when the host abandons the call. Set when the info crosses the engine protocol; a hook the host calls
+    /// in process takes its own token, and this stays the default, never canceled.
+    /// </summary>
+    public CancellationToken Signal { get; init; }
 
     /// <summary>
     /// The cleanup budget the host leaves this call: the finish hooks of every prepared target share one <c>cleanupTimeout</c>, so the
@@ -884,6 +896,12 @@ public sealed record EngineDoctorInfo
 
     /// <summary>Reports one line of progress; <c>e2e doctor</c> prints it to stderr.</summary>
     public required Action<string> Log { get; init; }
+
+    /// <summary>
+    /// Upstream's <c>signal</c>: aborts when the host abandons the call. Set when the info crosses the engine protocol; a hook the host calls
+    /// in process takes its own token, and this stays the default, never canceled.
+    /// </summary>
+    public CancellationToken Signal { get; init; }
 }
 
 /// <summary>
@@ -937,6 +955,12 @@ public sealed record EngineInitInfo : IEngineHostIdentity
     public EngineAppInfo? App { get; init; }
 
     public required Action<string> Log { get; init; }
+
+    /// <summary>
+    /// Upstream's <c>signal</c>: aborts when the host abandons the call. Set when the info crosses the engine protocol; a hook the host calls
+    /// in process takes its own token, and this stays the default, never canceled.
+    /// </summary>
+    public CancellationToken Signal { get; init; }
 }
 
 /// <summary>Who holds a target, for the lifecycle hooks: prepare, init, finish. Upstream's <c>EngineHostIdentity</c> (<c>engine/contract.ts</c>).</summary>
