@@ -517,8 +517,12 @@ internal static class WireCodec
     private static IReadOnlyList<KeyModifier>? DecodeModifiers(JsonNode? node) =>
         node is JsonArray array ? [.. array.Select(item => ParseEnum<KeyModifier>(item, "key modifier"))] : null;
 
-    /// <summary>A locator action as upstream's <c>LocatorAction</c>. File payload bytes cross as base64, through <see cref="Protocol.EncodeLocatorAction"/>.</summary>
-    internal static JsonObject EncodeLocatorAction(LocatorAction action)
+    /// <summary>
+    /// A locator action as upstream's <c>LocatorAction</c>. File payload bytes cross as base64, through <see cref="Protocol.EncodeLocatorAction"/>.
+    /// A <see cref="LocatorAction.DragTo"/> target is a node of the observation or resolution <paramref name="source"/> came from, whose
+    /// revision it carries: a <see cref="SemanticNode"/> holds no revision of its own.
+    /// </summary>
+    internal static JsonObject EncodeLocatorAction(LocatorAction action, NodeRef source)
     {
         var wire = new JsonObject { ["kind"] = EngineActionKinds.Of(action) };
         switch (action)
@@ -561,8 +565,7 @@ internal static class WireCodec
                 wire["paths"] = new JsonArray([.. paths.Select(path => JsonValue.Create(path))]);
                 break;
             case LocatorAction.DragTo(var target):
-                // The revision belongs to the observation, which a node of it does not carry: the engine's own adapter holds it.
-                wire["target"] = Write(new NodeRef(target.Ref, ""));
+                wire["target"] = Write(new NodeRef(target.Ref, source.Revision));
                 break;
             case LocatorAction.Swipe(var direction, var momentum):
                 wire["direction"] = Camel(direction.ToString());

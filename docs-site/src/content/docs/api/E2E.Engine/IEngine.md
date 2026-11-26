@@ -55,8 +55,24 @@ bool FileApps { get; }
 
 The engine opens an app whose `url` is a `file:` URL, reading the file from the disk of the machine the harness runs on.
 The harness checks every file navigation against that disk, so an engine whose surface may read another one must not declare this, or
-must refuse such a target in `ValidateApp(EngineAppDeclaration, EngineAppCheckInfo)` (`FileApp`). Without it the harness refuses a
+must refuse such a target in `ValidateApp` ([FileApp](/api/E2E.Engine/EngineAppCheckInfo/#E2E_Engine_EngineAppCheckInfo_FileApp)). Without it the harness refuses a
 file `app.url` at config load. Upstream's `Engine.fileApps`.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+<a id="E2E_Engine_IEngine_GrantsAllPermissions_"></a>
+<a id="E2E_Engine_IEngine_GrantsAllPermissions"></a>
+
+### GrantsAllPermissions
+
+
+```csharp
+bool GrantsAllPermissions { get; }
+```
+
+
+The engine grants `app.permissions: 'all'`, which reaches it as [AllPermissions](/api/E2E.Engine/EngineStartOptions/#E2E_Engine_EngineStartOptions_AllPermissions). Without it the harness
+refuses `'all'` at config load, so an engine that predates the value never receives it. Upstream's `EngineHandle.grantsAllPermissions`.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 

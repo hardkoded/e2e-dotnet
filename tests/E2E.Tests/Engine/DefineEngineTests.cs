@@ -437,7 +437,7 @@ public sealed class DefineEngineTests
             Prepare = _ =>
             {
                 bound.Add("prepare");
-                return Task.CompletedTask;
+                return Task.FromResult<EnginePrepareResult?>(null);
             },
             Finish = _ =>
             {

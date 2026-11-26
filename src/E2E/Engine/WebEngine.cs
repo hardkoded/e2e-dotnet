@@ -381,6 +381,10 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
     internal Func<IBrowserContext, TimeSpan, CancellationToken, Task> RegisterCdpSelectors { get; init; } =
         CdpSelectors.RegisterCdpSelectorsAsync;
 
+    /// <summary>Grants permission names on a context (.NET-only seam); tests replace it to stand in for an older browser that refuses a name as unknown.</summary>
+    internal Func<IBrowserContext, IReadOnlyList<string>, Task> GrantContextPermissions { get; init; } =
+        static (context, names) => context.GrantPermissionsAsync(names);
+
     /// <summary>Attaches to a Playwright-protocol endpoint (.NET-only); tests replace it to stand in for the remote browser.</summary>
     internal Func<IPlaywright, string, TimeSpan, CancellationToken, Task<IBrowser>> ConnectPlaywright { get; init; } =
         BrowserConnection.ConnectPlaywrightAsync;
@@ -1718,7 +1722,9 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
         );
         if (granted.Count > 0)
         {
-            await WebPermissions.GrantPermissionsAsync(context, granted, options.AllPermissions).ConfigureAwait(false);
+            await WebPermissions
+                .GrantPermissionsAsync(context, granted, options.AllPermissions, GrantContextPermissions)
+                .ConfigureAwait(false);
         }
     }
 

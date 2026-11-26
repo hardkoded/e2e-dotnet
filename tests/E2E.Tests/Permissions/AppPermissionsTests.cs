@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
+using Microsoft.Playwright;
 
 namespace E2E.Tests.Permissions;
 
@@ -42,6 +43,72 @@ public sealed class AppPermissionsTests
     [Fact]
     public Task Leaves_the_clipboard_refused_when_the_target_grants_nothing() =>
         WithBrowserAsync(null, async session => Assert.Matches("NotAllowedError", await CopyAsync(session, "denied")));
+
+    [Fact]
+    public async Task Starts_an_attempt_under_all_on_a_browser_that_refuses_one_name_as_unknown_granting_the_rest()
+    {
+        using var site = await TinySite.StartAsync("<!doctype html><title>Permissions</title>");
+        var projectRoot = Directory.CreateTempSubdirectory("e2e-permissions-").FullName;
+        try
+        {
+            // Every context of every attempt from here on answers like an older Chrome over CDP that does not know localNetworkAccess.
+            var spying = false;
+            var calls = new List<bool>();
+            var engine = new WebEngine(new WebEngineOptions { Headless = true })
+            {
+                GrantContextPermissions = (context, names) =>
+                {
+                    if (spying)
+                    {
+                        lock (calls)
+                        {
+                            calls.Add(names.Contains("local-network-access"));
+                        }
+
+                        if (names.Contains("local-network-access"))
+                        {
+                            throw new PlaywrightException(
+                                "browserContext.grantPermissions: Unknown permission type: localNetworkAccess"
+                            );
+                        }
+                    }
+
+                    return context.GrantPermissionsAsync(names);
+                },
+            };
+
+            async Task<E2ESession> StartAsync() =>
+                await E2ESession.StartAsync(
+                    new E2ESessionOptions
+                    {
+                        Engine = engine,
+                        BaseUrl = site.Url,
+                        AllPermissions = true,
+                        TargetName = "web",
+                        ProjectRoot = projectRoot,
+                        TestTitle = "app permissions",
+                        ActionTimeout = TimeSpan.FromSeconds(10),
+                        TestTimeout = TimeSpan.FromSeconds(60),
+                    }
+                );
+
+            var first = await StartAsync();
+            await WebEngineTests.RunAsync(first, () => Task.CompletedTask);
+
+            spying = true;
+            var second = await StartAsync();
+            await WebEngineTests.RunAsync(second, async () =>
+            {
+                // Refused with the whole list, then granted without the unknown name.
+                Assert.Equal([true, false], calls);
+                Assert.Equal("the rest", await CopyAsync(second, "the rest"));
+            });
+        }
+        finally
+        {
+            Directory.Delete(projectRoot, recursive: true);
+        }
+    }
 
     /// <summary>Opens the app and copies <paramref name="text"/> through the async clipboard, reading it back: the text, or the error the page got.</summary>
     private static async Task<string> CopyAsync(E2ESession session, string text)
