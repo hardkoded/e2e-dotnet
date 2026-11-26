@@ -132,6 +132,12 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
         {
             context.Signal.ThrowIfCancellationRequested();
             process.Start();
+            if (context.Signal.IsCancellationRequested)
+            {
+                // Disposing a process does not stop the child, so a canceled open ends it before it throws.
+                process.Kill(entireProcessTree: true);
+                context.Signal.ThrowIfCancellationRequested();
+            }
         }
         catch
         {
@@ -312,6 +318,7 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
 
         public async Task CloseAsync(TimeSpan timeout)
         {
+            var deadline = Stopwatch.StartNew();
             try
             {
                 _ = TryCloseOutput();
@@ -341,7 +348,13 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
                 if (_process.HasExited)
                 {
                     await _exited.ConfigureAwait(false);
-                    await Task.WhenAny(_stderrClosed, Task.Delay(ExitAfterStdout)).ConfigureAwait(false);
+                    // One budget for the shutdown and the stderr drain: past it, the tail already read is what a message gets.
+                    var left = timeout == Timeout.InfiniteTimeSpan ? ExitAfterStdout : timeout - deadline.Elapsed;
+                    var wait = left < ExitAfterStdout ? left : ExitAfterStdout;
+                    if (wait > TimeSpan.Zero)
+                    {
+                        await Task.WhenAny(_stderrClosed, Task.Delay(wait)).ConfigureAwait(false);
+                    }
                 }
 
                 Input.Dispose();

@@ -229,7 +229,13 @@ Run a test class against your engine. Check the lifecycle order, observations, a
 `ProtocolServer.ServeEngineAsync` (upstream's `serveEngine`) answers the engine protocol with an `EngineManifest.DefineEngine` handle, over stdin and stdout by default, until the client sends `exit` or the streams close. Pass a factory to build the engine from the client's `initializationOptions`. Keep the engine's own logging on stderr: stdout carries the protocol.
 
 ```csharp
-var engine = EngineManifest.DefineEngine(new EngineSpec { Name = "kiosk", Version = "1.0.0", SpiVersion = 1 /* ... */ });
+using E2E.Engine;
+using E2E.Engine.Protocol;
+
+// E2E.Engine.Protocol has an EngineManifest record of its own, so the static class is qualified.
+var engine = E2E.Engine.EngineManifest.DefineEngine(
+    new EngineSpec { Name = "kiosk", Version = "1.0.0", SpiVersion = 1 /* ... */ }
+);
 await ProtocolServer.ServeEngineAsync(engine);
 ```
 

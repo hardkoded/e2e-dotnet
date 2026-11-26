@@ -104,6 +104,13 @@ internal static class WireCodec
                 var source = Required(node, "source");
                 foreach (var flag in Required(node, "flags"))
                 {
+                    // A .NET regular expression reads UTF-16 code units, so `u` and `v` (code point semantics) cannot be honored: refuse
+                    // them rather than match something other than what the client asked for.
+                    if (flag is 'u' or 'v')
+                    {
+                        throw new JsonException($"the regular expression flag \"{flag}\" has no .NET equivalent");
+                    }
+
                     // JavaScript's sticky flag matches only at the start index: \G anchors a .NET match there.
                     if (flag == 'y')
                     {

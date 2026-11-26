@@ -171,7 +171,12 @@ public static class ProtocolServer
         /// read loop, so one that waits for a response only that loop can read cannot block it. Called with <c>_gate</c> held. Upstream's
         /// <c>controller.abort()</c>.
         /// </summary>
-        private void Abort(CancellationTokenSource source) => _aborts.Add(ObserveAsync(source.CancelAsync()));
+        private void Abort(CancellationTokenSource source)
+        {
+            // A connection that lives across many attempts must not keep the aborts that have finished.
+            _aborts.RemoveAll(task => task.IsCompleted);
+            _aborts.Add(ObserveAsync(source.CancelAsync()));
+        }
 
         private Task[] PendingAborts()
         {
@@ -490,6 +495,9 @@ public static class ProtocolServer
         private static string? HostId(JsonNode? parameters) =>
             parameters?["hostId"] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
+        private static EngineAppInfo? ReadApp(JsonNode? parameters) =>
+            parameters?["app"] is { } app ? WireCodec.Read<EngineAppInfo>(app) : null;
+
         private static EnginePrepareInfo Prepare(JsonNode? parameters, Action<string> log) =>
             new()
             {
@@ -497,6 +505,7 @@ public static class ProtocolServer
                 RunId = WireText(parameters, "runId"),
                 TargetName = WireText(parameters, "targetName"),
                 Slots = (int)parameters!["slots"]!,
+                App = ReadApp(parameters),
                 Env = ReadEnv(parameters["env"]),
                 ProjectRoot =
                     parameters["projectRoot"] is JsonValue root && root.TryGetValue<string>(out var path) ? path : null,
@@ -533,6 +542,9 @@ public static class ProtocolServer
                 RunId = WireText(parameters, "runId"),
                 TargetName = WireText(parameters, "targetName"),
                 WorkerSlot = (int)parameters!["workerSlot"]!,
+                ProjectRoot =
+                    parameters["projectRoot"] is JsonValue root && root.TryGetValue<string>(out var path) ? path : null,
+                App = ReadApp(parameters),
                 Env = ReadEnv(parameters["env"]),
                 Headed = Headed(parameters),
                 Log = log,
