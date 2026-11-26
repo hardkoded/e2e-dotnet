@@ -382,6 +382,7 @@ public sealed class E2ESession : IAsyncDisposable
                                 BundleId = options.BundleId,
                                 AppPath = options.AppPath,
                                 LaunchArguments = options.LaunchArguments,
+                                LaunchArgumentValues = options.LaunchArgumentValues,
                                 ActionTimeout = options.ActionTimeout,
                                 ProjectRoot = projectRoot,
                                 Env = env,
@@ -2349,6 +2350,9 @@ public sealed class E2ESessionOptions
 
     /// <summary>The target's <c>app.launchArguments</c>, handed to the engine as <see cref="EngineStartOptions.LaunchArguments"/>.</summary>
     public IReadOnlyList<string>? LaunchArguments { get; init; }
+
+    /// <summary>The target's <c>app.launchArguments</c> when declared as an object, handed to the engine as <see cref="EngineStartOptions.LaunchArgumentValues"/>.</summary>
+    public IReadOnlyDictionary<string, LaunchArgumentValue>? LaunchArgumentValues { get; init; }
 
     /// <summary>Anchors the files a test names, such as a route's fulfill <c>Path</c>. Defaults to the working directory.</summary>
     public string? ProjectRoot { get; init; }

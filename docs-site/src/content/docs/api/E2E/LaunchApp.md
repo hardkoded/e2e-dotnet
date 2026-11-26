@@ -74,6 +74,21 @@ The stable identity a saved state is bound to; see [Identity](/api/E2E/AppConfig
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_LaunchApp_LaunchArgumentValues_"></a>
+<a id="E2E_LaunchApp_LaunchArgumentValues"></a>
+
+### LaunchArgumentValues
+
+
+```csharp
+public IReadOnlyDictionary<string, LaunchArgumentValue?>? LaunchArgumentValues { get; init; }
+```
+
+
+Arguments every fresh launch of the app takes, as an object of argument name to value; see [LaunchArgumentValues](/api/E2E/AppConfig/#E2E_AppConfig_LaunchArgumentValues). At most one of this and [LaunchArguments](#E2E_LaunchApp_LaunchArguments) is set.
+
+**Value:** [IReadOnlyDictionary&lt;string, LaunchArgumentValue?&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
+
 <a id="E2E_LaunchApp_LaunchArguments_"></a>
 <a id="E2E_LaunchApp_LaunchArguments"></a>
 
@@ -85,7 +100,7 @@ public IReadOnlyList<string>? LaunchArguments { get; init; }
 ```
 
 
-Arguments every fresh launch of the app takes.
+Arguments every fresh launch of the app takes, as a list.
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 

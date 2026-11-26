@@ -198,6 +198,23 @@ The `launch()` host this worker belongs to; see [HostId](/api/E2E.Engine/IEngine
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_Engine_EngineStartOptions_LaunchArgumentValues_"></a>
+<a id="E2E_Engine_EngineStartOptions_LaunchArgumentValues"></a>
+
+### LaunchArgumentValues
+
+
+```csharp
+public IReadOnlyDictionary<string, LaunchArgumentValue>? LaunchArgumentValues { get; init; }
+```
+
+
+Arguments every fresh launch passes the app, when the target declared them as an object of argument name to value (upstream's
+`EngineAppInfo.launchArgumentValues`); the engine spells them for its launch command. Only an engine that declares
+[LaunchArgumentValues](/api/E2E.Engine/IEngine/#E2E_Engine_IEngine_LaunchArgumentValues) receives one.
+
+**Value:** [IReadOnlyDictionary&lt;string, LaunchArgumentValue&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
+
 <a id="E2E_Engine_EngineStartOptions_LaunchArguments_"></a>
 <a id="E2E_Engine_EngineStartOptions_LaunchArguments"></a>
 
