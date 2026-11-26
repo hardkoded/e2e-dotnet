@@ -14,8 +14,7 @@ namespace E2E.Tests.EngineProtocol;
 
 /// <summary>
 /// Upstream's <c>describe('engine protocol')</c> (<c>packages/e2e/tests/unit/engine-protocol.test.ts</c>), whose <c>it</c> run in this process
-/// over <see cref="OverLoopback.Of"/>. Not ported: <c>advertises multiTap and carries its count and modifiers over JSON-RPC unchanged</c> (the
-/// port has no <c>multiTap</c> locator action), <c>carries the abort reason, so an engine rethrowing it raises what it would in process</c> (a
+/// over <see cref="OverLoopback.Of"/>. Not ported: <c>carries the abort reason, so an engine rethrowing it raises what it would in process</c> (a
 /// <see cref="CancellationToken"/> carries no reason). The <c>Partial_</c> tests check what the port has of an <c>it</c> whose whole needs a feature
 /// it lacks; the nested <c>describe</c> blocks are <see cref="LaunchArgumentsTests"/> and <see cref="PermissionsAllTests"/>.
 /// </summary>
@@ -55,6 +54,28 @@ public sealed class EngineProtocolTests
         var paths = new LocatorAction.SetInputFiles(["a.bin"]);
         Assert.Same(paths, Protocol.EncodeLocatorAction(paths));
         Assert.Same(paths, Protocol.DecodeLocatorAction(paths));
+    }
+
+    [Fact]
+    public async Task Advertises_multiTap_and_carries_its_count_and_modifiers_over_JSON_RPC_unchanged()
+    {
+        var performed = new ConcurrentQueue<LocatorAction>();
+        Func<NodeRef, LocatorAction, OperationContext, Task> perform = (_, action, _) =>
+        {
+            performed.Enqueue(action);
+            return Task.CompletedTask;
+        };
+        var (_, remote) = Of(Toy(toy => toy with { Actions = ["tap", "multiTap"], Perform = perform }));
+        Assert.Contains("multiTap", remote.Actions!);
+        await remote.Init!(InitInfo());
+        var action = new LocatorAction.MultiTap(3, [KeyModifier.Shift]);
+
+        await remote.Perform!(new NodeRef("root", "1"), action, Operation());
+
+        var received = Assert.IsType<LocatorAction.MultiTap>(Assert.Single(performed));
+        Assert.Equal(3, received.Count);
+        Assert.Equal([KeyModifier.Shift], received.Modifiers);
+        await remote.Dispose!(DisposeContext());
     }
 
     [Fact]

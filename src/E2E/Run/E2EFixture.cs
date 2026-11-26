@@ -153,6 +153,9 @@ public abstract class E2EFixture
     /// <summary>The <c>app.permissions</c> of the target: the browser permissions every page of a web attempt holds.</summary>
     protected virtual IReadOnlyDictionary<string, AppPermissionState>? Permissions => DeclaredTarget.App.Permissions;
 
+    /// <summary>The target's <c>app.permissions: 'all'</c>.</summary>
+    protected virtual bool AllPermissions => DeclaredTarget.App.AllPermissions;
+
     /// <summary>Anchors the files a test names, such as a route's fulfill path. Defaults to the config's directory.</summary>
     protected virtual string ProjectRoot => Config.ProjectRoot;
 
@@ -290,6 +293,11 @@ public abstract class E2EFixture
         // The replay cache keys on the declared app: its identity keeps a free port at :0, so entries survive the port changing every run.
         // A fixture that points BaseUrl somewhere else is keyed by that URL, in the declared app's identity and environment.
         var engine = CreateEngine();
+        TargetApps.CheckAllPermissions(
+            AllPermissions && Permissions is null,
+            engine,
+            $"target \"{declared.Name}\" app"
+        );
         _engine = engine;
         var declaredApp = string.Equals(configuredUrl, declared.App.Url, StringComparison.Ordinal)
             ? declared.App
@@ -387,6 +395,8 @@ public abstract class E2EFixture
                     TestAgentContext = TestAgentOptions.AgentContext(GetType(), testMethod),
                     BaseUrl = baseUrl,
                     Permissions = Permissions,
+                    // A fixture that overrides Permissions with a map replaces the target's 'all', as upstream's one value does.
+                    AllPermissions = AllPermissions && Permissions is null,
                     BundleId = DeclaredTarget.App.BundleId,
                     AppPath = DeclaredTarget.App.AppPath,
                     LinkBase = DeclaredTarget.App.LinkBase,

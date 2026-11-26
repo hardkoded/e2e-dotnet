@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using E2E.Engine;
 using E2E.Internal;
@@ -1534,7 +1535,8 @@ public sealed class Locator
         string api,
         Func<IReadOnlyList<KeyModifier>?, LocatorAction> make,
         ClickOptions? options,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        long? times = null
     )
     {
         if (options is TapOptions { Position: not null })
@@ -1547,7 +1549,12 @@ public sealed class Locator
 
         // Validation only: every capability is passed, so the engine's own check waits for the step (RequireClickModifiers below).
         var modifiers = ActionDispatcher.RequireClickModifiers(options, api, EngineCapabilities.TapModifiers);
-        var label = modifiers is null ? null : Query.Describe() + " with " + string.Join('+', modifiers);
+        var label =
+            times is null && modifiers is null
+                ? null
+                : Query.Describe()
+                    + (times is null ? "" : " " + times.Value.ToString(CultureInfo.InvariantCulture) + " times")
+                    + (modifiers is null ? "" : " with " + string.Join('+', modifiers));
         var action = make(modifiers);
         return ActAsync(
             "locator." + api,
@@ -1572,18 +1579,46 @@ public sealed class Locator
     /// </summary>
     private Task TapWithAsync(string api, ClickOptions? options, CancellationToken cancellationToken)
     {
+        // Validation only, as for the other taps: the capability check waits for the step.
+        var held = ActionDispatcher.RequireClickModifiers(options, api, EngineCapabilities.TapModifiers);
+        var count = RequireTapCount((options as TapOptions)?.Count, api);
         if (options is not TapOptions { Position: { } position })
         {
-            return ClickWithAsync(
-                api,
-                static modifiers => new LocatorAction.Tap(modifiers),
-                options,
-                cancellationToken
+            // Two taps are the doubleTap kind, so tap({ Count = 2 }) is DoubleTapAsync() on every engine; three or more are multiTap.
+            return count switch
+            {
+                1 => ClickWithAsync(
+                    api,
+                    static modifiers => new LocatorAction.Tap(modifiers),
+                    options,
+                    cancellationToken
+                ),
+                2 => ClickWithAsync(
+                    api,
+                    static modifiers => new LocatorAction.DoubleTap(modifiers),
+                    options,
+                    cancellationToken,
+                    count
+                ),
+                _ => ClickWithAsync(
+                    api,
+                    modifiers => new LocatorAction.MultiTap(count, modifiers),
+                    options,
+                    cancellationToken,
+                    count
+                ),
+            };
+        }
+
+        if (count != 1)
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                api + "() does not take count with a position yet; drop one of them"
             );
         }
 
-        // Validation only, as for the other taps: the capability check waits for the step.
-        if (ActionDispatcher.RequireClickModifiers(options, api, EngineCapabilities.TapModifiers) is not null)
+        if (held is not null)
         {
             throw new TestException(
                 "INVALID_ARGUMENT",
@@ -1598,6 +1633,27 @@ public sealed class Locator
             Query.Describe() + " at " + Screen.DescribePoint(offset),
             () => PerformWithinAsync(offset, new PointerAction.Tap(), options.Timeout, cancellationToken)
         );
+    }
+
+    /// <summary>A tap <c>count</c>: a positive integer, 1 when unset. Each engine keeps its own upper limit. Upstream's <c>requireTapCount</c>.</summary>
+    private static long RequireTapCount(long? value, string api)
+    {
+        if (value is null)
+        {
+            return 1;
+        }
+
+        if (value < 1)
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                api
+                    + "() count must be a positive safe integer, got "
+                    + value.Value.ToString(CultureInfo.InvariantCulture)
+            );
+        }
+
+        return value.Value;
     }
 
     /// <summary>The hold of a long press: whole milliseconds from 100 through 10000, or null for the engine's default.</summary>
@@ -1713,6 +1769,13 @@ public class TapOptions : ClickOptions
     /// the engine's <c>tap</c> pointer action. Not held with <see cref="ClickOptions.Modifiers"/> yet.
     /// </summary>
     public Point? Position { get; init; }
+
+    /// <summary>
+    /// How many taps in a row, a positive integer, default 1. <c>2</c> is the same as <c>DoubleTapAsync()</c>; 3 or more needs an engine that declares the
+    /// <c>multiTap</c> action, <c>UNSUPPORTED_CAPABILITY</c> otherwise. A count above the engine's own limit (200 on the mobile engine) is also
+    /// <c>UNSUPPORTED_CAPABILITY</c>. A count above 1 is not combined with <see cref="Position"/>.
+    /// </summary>
+    public long? Count { get; init; }
 }
 
 /// <summary>

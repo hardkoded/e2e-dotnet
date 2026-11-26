@@ -32,6 +32,14 @@ public sealed class AppPermissionsTests
         );
 
     [Fact]
+    public Task Grants_every_permission_the_browser_grants_for_all_the_clipboard_among_them() =>
+        WithBrowserAsync(
+            null,
+            async session => Assert.Equal("everything", await CopyAsync(session, "everything")),
+            allPermissions: true
+        );
+
+    [Fact]
     public Task Leaves_the_clipboard_refused_when_the_target_grants_nothing() =>
         WithBrowserAsync(null, async session => Assert.Matches("NotAllowedError", await CopyAsync(session, "denied")));
 
@@ -50,7 +58,8 @@ public sealed class AppPermissionsTests
     /// <summary>Boots one engine into a running attempt for a target granting <paramref name="permissions"/>.</summary>
     private static async Task WithBrowserAsync(
         IReadOnlyDictionary<string, AppPermissionState>? permissions,
-        Func<E2ESession, Task> body
+        Func<E2ESession, Task> body,
+        bool allPermissions = false
     )
     {
         using var site = await TinySite.StartAsync("<!doctype html><title>Permissions</title>");
@@ -63,6 +72,7 @@ public sealed class AppPermissionsTests
                     Engine = new WebEngine(new WebEngineOptions { Headless = true }),
                     BaseUrl = site.Url,
                     Permissions = permissions,
+                    AllPermissions = allPermissions,
                     TargetName = "web",
                     ProjectRoot = projectRoot,
                     TestTitle = "app permissions",

@@ -10,7 +10,7 @@ namespace E2E.NUnit.Tests.Click;
 /// <summary>
 /// <c>test.describe('page click')</c> of upstream's <c>apps/testbed/tests/click.e2e.ts</c> (Playwright's <c>page-click.spec.ts</c>).
 /// <c>TapAsync</c> stands for <c>page.click</c>. Not ported, as upstream: should click button inside frameset; should issue clicks in
-/// parallel in page and popup; should select the text by triple clicking; should not wait with force; should click the button with fixed
+/// parallel in page and popup; should not wait with force; should click the button with fixed
 /// position inside an iframe; should click a very large button with offset; should click a button in scrolling container with offset;
 /// should wait for becoming hit target with trial run; trial run should work with short timeout; trial run should not click; trial run
 /// should not double click; should fail when obscured and not waiting for hit target; should report nice error when element is detached
@@ -20,7 +20,7 @@ namespace E2E.NUnit.Tests.Click;
 /// iframe with force; ensure events are dispatched in the individual tasks; should click with tweened mouse movement; should abort via
 /// signal; should throw an Error when aborted in-flight with a string reason; should abort via already-aborted signal; should throw an
 /// Error when aborted via an already-aborted signal with a string reason (no <c>force</c>, <c>trial</c>, <c>position</c> scrolling,
-/// <c>clickCount</c>, <c>steps</c>, element handles, Frame objects, events, or abort signals; some upstream left undone).
+/// <c>steps</c>, element handles, Frame objects, events, or abort signals; some upstream left undone).
 /// </summary>
 public sealed class PageClickTests : PlaywrightTest
 {
@@ -40,6 +40,21 @@ public sealed class PageClickTests : PlaywrightTest
         await Browser.GotoAsync("/input/button.html");
         await Browser.Locator("button").TapAsync();
         Assert.That(await ResultAsync(), Is.EqualTo("Clicked"));
+    }
+
+    [Test]
+    public async Task Should_select_the_text_by_triple_clicking()
+    {
+        await Browser.GotoAsync("/input/textarea.html");
+        const string text = "This is the text that we are going to try to select. Let's see how it goes.";
+        await Browser.Locator("textarea").FillAsync(text);
+        await Browser.Locator("textarea").TapAsync(new TapOptions { Count = 3 });
+        Assert.That(
+            await Browser.EvaluateAsync<string>(
+                "() => { const textarea = document.querySelector('textarea'); return textarea.value.substring(textarea.selectionStart, textarea.selectionEnd); }"
+            ),
+            Is.EqualTo(text)
+        );
     }
 
     [Test]

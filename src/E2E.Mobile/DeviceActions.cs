@@ -23,6 +23,9 @@ public sealed class DeviceActions : IDeviceActions
     /// </summary>
     public static readonly TimeSpan DefaultLongPress = TimeSpan.FromSeconds(1);
 
+    /// <summary>The most presses agent-device's <c>press</c> sends in one <c>count</c>; it refuses more. Upstream's <c>MAX_TAP_COUNT</c>.</summary>
+    public const int MaxTapCount = 200;
+
     /// <summary>
     /// The action kinds a device honors, declared so the harness offers exactly these: no <c>select</c> verb on a device
     /// (<c>selectOption</c>, <c>setInputFiles</c>, and <c>scrollIntoView</c> have no touch equivalent), and an action
@@ -33,6 +36,7 @@ public sealed class DeviceActions : IDeviceActions
     [
         "tap",
         "doubleTap",
+        "multiTap",
         "longPress",
         "fill",
         "clear",
@@ -99,6 +103,13 @@ public sealed class DeviceActions : IDeviceActions
         if (filling && !entry.TakesText)
         {
             throw RefuseFill(action, entry);
+        }
+
+        if (action is LocatorAction.MultiTap { Count: > MaxTapCount } many)
+        {
+            throw DeviceSupport.Unsupported(
+                $"agent-device presses at most {MaxTapCount} times in a row; got a count of {many.Count}"
+            );
         }
 
         var label = $"perform {KindOf(action)}";
@@ -219,6 +230,14 @@ public sealed class DeviceActions : IDeviceActions
                     .PressAsync(
                         client,
                         Args(settle, DeviceSession.ActionTarget(target), ("count", JsonValue.Create(2)))
+                    )
+                    .ConfigureAwait(false);
+                break;
+            case LocatorAction.MultiTap multi:
+                await input
+                    .PressAsync(
+                        client,
+                        Args(settle, DeviceSession.ActionTarget(target), ("count", JsonValue.Create(multi.Count)))
                     )
                     .ConfigureAwait(false);
                 break;
@@ -846,6 +865,7 @@ public sealed class DeviceActions : IDeviceActions
         {
             LocatorAction.Tap => "tap",
             LocatorAction.DoubleTap => "doubleTap",
+            LocatorAction.MultiTap => "multiTap",
             LocatorAction.Fill => "fill",
             LocatorAction.Press => "press",
             LocatorAction.Select => "selectOption",

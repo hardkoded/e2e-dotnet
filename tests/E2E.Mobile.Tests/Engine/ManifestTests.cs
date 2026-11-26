@@ -25,6 +25,24 @@ public sealed class ManifestTests
                 | EngineCapabilities.OpenLink, // .NET-only: upstream's session.openLink hook, which the port holds as a capability
             engine.Capabilities
         );
+        Assert.Equal(
+            [
+                "tap",
+                "doubleTap",
+                "multiTap",
+                "longPress",
+                "fill",
+                "clear",
+                "press",
+                "check",
+                "uncheck",
+                "focus",
+                "hover",
+                "dragTo",
+                "swipe",
+            ],
+            DeviceActions.NodeActionKinds
+        );
         Assert.Equal("ios", engine.Platform);
         Assert.Equal(
             "android",

@@ -307,12 +307,16 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
                 BundleId = app.BundleId,
                 AppPath = app.AppPath,
                 LaunchArguments = app.LaunchArguments,
+                AllPermissions = app.AllPermissions,
             },
             app.Url,
             info.TargetName,
             Options.Platform
         );
     }
+
+    /// <summary>The device engine grants <c>app.permissions: 'all'</c> as one agent-device <c>all</c> grant.</summary>
+    public bool GrantsAllPermissions => true;
 
     /// <summary>The device-app checks of <see cref="IEngine.ValidateApp"/>, over the target's app and URL.</summary>
     internal static void ValidateApp(MobileApp app, string? url, string targetName, MobilePlatform platform)

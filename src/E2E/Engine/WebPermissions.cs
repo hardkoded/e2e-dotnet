@@ -2,7 +2,9 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.RegularExpressions;
 using E2E.Internal;
+using Microsoft.Playwright;
 
 namespace E2E.Engine;
 
@@ -98,5 +100,92 @@ internal static class WebPermissions
                 );
             }
         }
+    }
+
+    /// <summary>
+    /// The permission names a context on <paramref name="browser"/> is granted: each one the browser grants for <c>'all'</c>
+    /// (<paramref name="allPermissions"/>), else the map's names. Upstream's <c>grantedPermissions</c>.
+    /// </summary>
+    public static IReadOnlyList<string> GrantedPermissions(
+        BrowserName browser,
+        IReadOnlyDictionary<string, AppPermissionState>? permissions,
+        bool allPermissions
+    ) =>
+        allPermissions ? BrowserPermissions(browser)
+        : permissions is null ? []
+        : [.. permissions.Keys];
+
+    /// <summary>
+    /// Grants <paramref name="names"/> on a context. A browser older than the list (a CDP attach to an older Chrome) refuses the whole call over
+    /// one permission type it does not know. For <c>'all'</c> (<paramref name="skipUnknown"/>) that name is left out and the rest granted; a
+    /// named grant keeps the refusal, since the user can drop the name. Playwright keeps a refused name among the context's grants, so the
+    /// context's grants are cleared before each retry. Upstream's <c>grantPermissions</c>.
+    /// </summary>
+    public static async Task GrantPermissionsAsync(
+        IBrowserContext context,
+        IReadOnlyList<string> names,
+        bool skipUnknown
+    )
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(names);
+        var left = names.ToList();
+        while (left.Count > 0)
+        {
+            try
+            {
+                await context.GrantPermissionsAsync(left).ConfigureAwait(false);
+                return;
+            }
+            catch (Exception error) when (error is not OperationCanceledException)
+            {
+                var unknown = skipUnknown ? UnknownPermission(error, left) : null;
+                if (unknown is null)
+                {
+                    throw;
+                }
+
+                left = left.Where(name => name != unknown).ToList();
+                await context.ClearPermissionsAsync().ConfigureAwait(false);
+            }
+        }
+    }
+
+    private static string[] BrowserPermissions(BrowserName browser) =>
+        browser switch
+        {
+            BrowserName.Firefox => Firefox,
+            BrowserName.Webkit => Webkit,
+            _ => Chromium,
+        };
+
+    /// <summary>
+    /// The name among <paramref name="names"/> a browser refused as an unknown permission type, which Playwright sends camel-cased
+    /// (<c>localNetworkAccess</c>). Only names whose protocol type is their camel-cased web name match. Upstream's <c>unknownPermission</c>.
+    /// </summary>
+    private static string? UnknownPermission(Exception error, IReadOnlyList<string> names)
+    {
+        var match = Regex.Match(
+            error.Message,
+            "Unknown permission type: ([A-Za-z]+)",
+            RegexOptions.CultureInvariant,
+            TimeSpan.FromSeconds(1)
+        );
+        if (!match.Success)
+        {
+            return null;
+        }
+
+        var type = match.Groups[1].Value;
+        return names.FirstOrDefault(name => name == type || CamelCased(name) == type);
+    }
+
+    private static string CamelCased(string name)
+    {
+        var parts = name.Split('-');
+        return parts[0]
+            + string.Concat(
+                parts.Skip(1).Select(part => part.Length == 0 ? part : char.ToUpperInvariant(part[0]) + part[1..])
+            );
     }
 }

@@ -27,6 +27,23 @@ Options for `TapAsync` and `ClickAsync`. Upstream's `TapOptions`.
 
 ## Properties
 
+<a id="E2E_TapOptions_Count_"></a>
+<a id="E2E_TapOptions_Count"></a>
+
+### Count
+
+
+```csharp
+public long? Count { get; init; }
+```
+
+
+How many taps in a row, a positive integer, default 1. `2` is the same as `DoubleTapAsync()`; 3 or more needs an engine that declares the
+`multiTap` action, `UNSUPPORTED_CAPABILITY` otherwise. A count above the engine's own limit (200 on the mobile engine) is also
+`UNSUPPORTED_CAPABILITY`. A count above 1 is not combined with [Position](#E2E_TapOptions_Position).
+
+**Value:** [long?](https://learn.microsoft.com/dotnet/api/system.int64)
+
 <a id="E2E_TapOptions_Position_"></a>
 <a id="E2E_TapOptions_Position"></a>
 

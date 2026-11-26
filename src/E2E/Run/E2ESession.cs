@@ -378,6 +378,7 @@ public sealed class E2ESession : IAsyncDisposable
                                 RunId = AttemptReport.RunId,
                                 AttemptId = attemptId,
                                 Permissions = options.Permissions,
+                                AllPermissions = options.AllPermissions,
                                 BundleId = options.BundleId,
                                 AppPath = options.AppPath,
                                 LaunchArguments = options.LaunchArguments,
@@ -2333,6 +2334,9 @@ public sealed class E2ESessionOptions
 
     /// <summary>The target's <c>app.permissions</c>: what the engine grants the app. Upstream's <c>EngineAppInfo.permissions</c>.</summary>
     public IReadOnlyDictionary<string, AppPermissionState>? Permissions { get; init; }
+
+    /// <summary>The target's <c>app.permissions: 'all'</c>, handed to the engine as <see cref="EngineStartOptions.AllPermissions"/>.</summary>
+    public bool AllPermissions { get; init; }
 
     /// <summary>The target's <c>app.bundleId</c>, handed to the engine as <see cref="EngineStartOptions.BundleId"/>.</summary>
     public string? BundleId { get; init; }

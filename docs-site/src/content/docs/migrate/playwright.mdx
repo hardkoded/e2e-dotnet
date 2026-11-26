@@ -150,6 +150,7 @@ Every row works today. For an API that is not here, check [What e2e doesn't have
 | `ClickAsync()` | `TapAsync()`; `ClickAsync()` is an alias |
 | `ClickAsync(new() { Button = MouseButton.Right })` | `SecondaryTapAsync()` |
 | `DblClickAsync()` | `DoubleTapAsync()`; `DblClickAsync()` is an alias |
+| `ClickAsync(new() { ClickCount = 3 })` | `TapAsync(new TapOptions { Count = 3 })`; 2 is `DoubleTapAsync()`, and a `Count` above 1 does not combine with `Position` |
 | `ClickAsync(new() { Position })` | `TapAsync(new TapOptions { Position })`, an offset from the node's top-left corner inside its border |
 | `ClickAsync(new() { Modifiers })`, `DblClickAsync(new() { Modifiers })` | `TapAsync(new ClickOptions { Modifiers = [...] })`, `DoubleTapAsync`, `SecondaryTapAsync`; web only |
 | `ClickAsync(new() { Delay })` | `LongPressAsync(new LongPressOptions { Duration })` |
