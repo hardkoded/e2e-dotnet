@@ -50,6 +50,9 @@ public static class ProtocolServer
 
     private sealed class EngineServer
     {
+        /// <summary>The longest a closing connection waits for the engine's cancellation callbacks.</summary>
+        private static readonly TimeSpan CloseWait = TimeSpan.FromSeconds(5);
+
         private readonly EngineHandle? _source;
         private readonly Func<JsonNode?, Task<EngineHandle>>? _factory;
         private readonly Connection _connection;
@@ -81,25 +84,15 @@ public static class ProtocolServer
                     {
                         // A client that vanished cannot abort what it started; one that shut down cleanly has nothing left running,
                         // and its signals stay as it left them.
-                        try
+                        CancellationTokenSource[] sources;
+                        lock (_gate)
                         {
-                            CancellationTokenSource[] sources;
-                            lock (_gate)
-                            {
-                                sources = _shutdown ? [] : [.. _signals.Values];
-                                _signals.Clear();
-                                _connectionClosed = true;
-                            }
+                            sources = _shutdown ? [] : [.. _signals.Values];
+                            _signals.Clear();
+                            _connectionClosed = true;
+                        }
 
-                            foreach (var source in sources)
-                            {
-                                Abort(source);
-                            }
-                        }
-                        finally
-                        {
-                            _closed.TrySetResult();
-                        }
+                        _ = CloseAsync(sources);
                     },
                     Requests = new Dictionary<string, Func<JsonNode?, Task<JsonNode?>>>
                     {
@@ -156,6 +149,24 @@ public static class ProtocolServer
         /// Cancels a source off the read loop: a callback that waits for a response only that loop can read would otherwise block it.
         /// Upstream's <c>controller.abort()</c>.
         /// </summary>
+        /// <summary>
+        /// Signals every source off the read loop, then completes <see cref="Closed"/> once the callbacks ran or <c>CloseWait</c> passed: a
+        /// server process that exits on it must not do so before the engine's tokens were canceled, and a callback that never returns must not
+        /// keep the server from ending.
+        /// </summary>
+        private async Task CloseAsync(CancellationTokenSource[] sources)
+        {
+            try
+            {
+                var canceled = Task.WhenAll(sources.Select(source => Task.Run(() => Cancel(source))));
+                await Task.WhenAny(canceled, Task.Delay(CloseWait)).ConfigureAwait(false);
+            }
+            finally
+            {
+                _closed.TrySetResult();
+            }
+        }
+
         private static void Abort(CancellationTokenSource source) => _ = Task.Run(() => Cancel(source));
 
         private static void Cancel(CancellationTokenSource source)
