@@ -105,6 +105,22 @@ The directory relative paths in the config resolve against, as [ProjectRoot](/ap
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_Engine_EngineDoctorInfo_Signal_"></a>
+<a id="E2E_Engine_EngineDoctorInfo_Signal"></a>
+
+### Signal
+
+
+```csharp
+public CancellationToken Signal { get; init; }
+```
+
+
+Upstream's `signal`: aborts when the host abandons the call. Set when the info crosses the engine protocol; a hook the host calls
+in process takes its own token, and this stays the default, never canceled.
+
+**Value:** [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken)
+
 <a id="E2E_Engine_EngineDoctorInfo_TargetName_"></a>
 <a id="E2E_Engine_EngineDoctorInfo_TargetName"></a>
 

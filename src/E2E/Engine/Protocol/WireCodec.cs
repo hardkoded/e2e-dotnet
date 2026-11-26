@@ -31,6 +31,23 @@ internal static class WireCodec
 
     internal static JsonNode? Write<T>(T value) => JsonSerializer.SerializeToNode(value, Json);
 
+    /// <summary>A captured state keeps its <c>data</c> member even when it is null: the state contract requires the field.</summary>
+    internal static JsonObject EncodeState(EngineState state)
+    {
+        var wire = new JsonObject
+        {
+            ["format"] = state.Format,
+            ["version"] = state.Version,
+            ["data"] = state.Data?.DeepClone(),
+        };
+        if (state.ExpiresAt is not null)
+        {
+            wire["expiresAt"] = state.ExpiresAt;
+        }
+
+        return wire;
+    }
+
     private static string Camel(string name) => char.ToLowerInvariant(name[0]) + name[1..];
 
     private static T ParseEnum<T>(JsonNode? node, string what)

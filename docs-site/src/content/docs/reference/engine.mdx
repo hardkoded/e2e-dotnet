@@ -687,7 +687,7 @@ A query with `Visible` set must match only nodes whose `States.Hidden` is false.
 | `timeoutMs` on `SwipeAsync`, `BackAsync`, `ResizeAsync` and the session hooks | `OperationContext.Timeout` on the agent's swipe, back and resize (what is left of the step's budget), and on the app's open, back, restart, clear-state and screenshot (the browser's budget, bounded by the test). The web engine bounds `OpenAsync`, `BackAsync`, `RestartAsync`, `ClearStateAsync`, `ResizeAsync`, `PressAsync`, `TypeTextAsync`, `ScreenshotAsync`, `ScreenshotArtifactAsync`, `CaptureStateAsync`, `RestoreStateAsync`, and the video start and stop by it. The other engines carry it. The agent's perform calls carry the step's budget too, and so does a replayed recorded action. ([#1366](https://github.com/hardkoded/e2e-dotnet/issues/1366)) |
 | `artifacts.startTrace`, `stopTrace` | Removed upstream. |
 | `serveEngine`, `spawnTransport`, `socketTransport`, `loopbackTransport` | `ProtocolServer.ServeEngineAsync`, `SpawnTransport`, `SocketTransport`, `LoopbackTransport`. |
-| `connectEngine`, the protocol client | [#2208](https://github.com/hardkoded/e2e-dotnet/issues/2208), [#2209](https://github.com/hardkoded/e2e-dotnet/issues/2209). |
+| `connectEngine`, `protocolEngine` | `ProtocolClient.ConnectEngine` and `ProtocolClient.ProtocolEngine`. The harness takes an `IEngine`, so it does not drive its engines through them yet; `Prepare` returns no `EnginePrepareResult`, and an abort reason does not cross (a `CancellationToken` carries none). |
 | `RETRYABLE_ENGINE_ERROR_CODES` as an exported set, `rejectUnknownKeys` | `EngineErrorCodes.IsRetryable`, and typed options need no key check. |
 | `ObservationPixels` | The port's `Observation.Pixels` is an `EngineScreenshot`. |
 
