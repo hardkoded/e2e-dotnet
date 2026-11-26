@@ -208,28 +208,11 @@ public static class ProtocolServer
             spec.Member switch
             {
                 "observe" => WireCodec.Write(Protocol.EncodeSnapshot((EngineSnapshot)value!)),
-                "state.capture" => EncodeState((EngineState)value!),
+                "state.capture" => WireCodec.EncodeState((EngineState)value!),
                 "artifacts.screenshot" => new JsonObject { ["path"] = (string?)value },
                 "artifacts.stopVideo" => WireCodec.EncodeVideoSegments((IReadOnlyList<VideoSegment>)value!),
                 _ => value is null ? null : WireCodec.Write(value),
             };
-
-        /// <summary>A captured state keeps its <c>data</c> member even when it is null: the state contract requires the field.</summary>
-        private static JsonObject EncodeState(EngineState state)
-        {
-            var wire = new JsonObject
-            {
-                ["format"] = state.Format,
-                ["version"] = state.Version,
-                ["data"] = state.Data?.DeepClone(),
-            };
-            if (state.ExpiresAt is not null)
-            {
-                wire["expiresAt"] = state.ExpiresAt;
-            }
-
-            return wire;
-        }
 
         private static async Task<object?> InvokeAsync(Delegate member, object?[] arguments)
         {

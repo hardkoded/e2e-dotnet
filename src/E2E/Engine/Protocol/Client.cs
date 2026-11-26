@@ -350,7 +350,7 @@ public static partial class ProtocolClient
                         ? (state, operation) =>
                             OperateAsync("state/restore", link => new JsonObject
                             {
-                                ["state"] = WireCodec.Write(state),
+                                ["state"] = WireCodec.EncodeState(state),
                                 ["operation"] = EncodeOperation(link, operation),
                             })
                         : null,
