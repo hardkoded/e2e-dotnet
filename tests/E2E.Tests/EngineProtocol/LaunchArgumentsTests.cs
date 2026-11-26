@@ -5,14 +5,15 @@
 using System.Text.Json.Nodes;
 using E2E.Engine;
 using E2E.Engine.Protocol;
+using static E2E.Tests.EngineProtocol.OverLoopback;
 
 namespace E2E.Tests.EngineProtocol;
 
 /// <summary>
-/// The <c>it</c> of upstream's <c>describe('launch arguments')</c> (<c>packages/e2e/tests/unit/engine-protocol.test.ts</c>) that tester-army/e2e
-/// adds or changes for the object form of <c>app.launchArguments</c>. The port has no engine protocol client (<c>connectEngine</c>,
-/// <c>overLoopback</c>), no <c>defineEngine</c> result with a live <c>prepare</c> to resolve a config against, and no JSON-valued manifest to
-/// refuse, so each is <c>Partial_</c>: it checks what the port has, the engine's declaration, the config-load refusal, and the manifest schema.
+/// Upstream's <c>describe('launch arguments')</c> of <c>describe('engine protocol')</c> (<c>packages/e2e/tests/unit/engine-protocol.test.ts</c>).
+/// The two <c>Partial_</c> tests that resolve a config check the declaration and the refusal: the port's config holds an <see cref="IEngine"/>,
+/// not the <see cref="EngineHandle"/> <c>connectEngine</c> returns, so they cannot run <c>prepare</c> through the client (#2240).
+/// Not ported: <c>refuses a fileApps flag that is not a boolean</c>, whose flag is typed <c>bool?</c> so a string does not compile.
 /// </summary>
 public sealed class LaunchArgumentsTests
 {
@@ -145,5 +146,35 @@ public sealed class LaunchArgumentsTests
                 )!
             )
         );
+    }
+
+    [Fact]
+    public void Carries_fileApps_in_the_manifest_so_a_served_engine_opens_a_file_app_and_one_that_does_not_declare_it_is_refused()
+    {
+        var (local, remote) = Of(Toy(toy => toy with { FileApps = true }));
+        Assert.True(ProtocolManifest.DescribeEngine(local).FileApps);
+        Assert.True(remote.FileApps);
+
+        var plain = Of(Toy());
+
+        Assert.Null(ProtocolManifest.DescribeEngine(plain.Local).FileApps);
+        Assert.NotEqual(true, plain.Remote.FileApps);
+    }
+
+    [Fact]
+    public async Task Refuses_a_server_that_does_not_declare_the_fileApps_its_manifest_promised()
+    {
+        var local = E2E.Engine.EngineManifest.DefineEngine(Toy());
+        var remote = ProtocolClient.ConnectEngine(
+            new ConnectEngineOptions
+            {
+                Manifest = ProtocolManifest.DescribeEngine(local) with { FileApps = true },
+                Transport = new LoopbackTransport(local),
+            }
+        );
+
+        var refused = await Assert.ThrowsAsync<EngineException>(() => remote.Init!(InitInfo()));
+
+        Assert.Contains("fileApps is false, declared true", refused.Message, StringComparison.Ordinal);
     }
 }
