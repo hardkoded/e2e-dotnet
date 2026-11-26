@@ -419,7 +419,7 @@ public sealed class E2ESession : IAsyncDisposable
                                         .ConfigureAwait(false);
                                     Secrecy.RegisterDerivedSecrets(
                                         secret.Name,
-                                        resolve?.Derived?.Invoke(plaintext) ?? [],
+                                        await Secrecy.DeriveAsync(resolve, plaintext).ConfigureAwait(false),
                                         ledger
                                     );
                                     return plaintext;

@@ -43,3 +43,18 @@ public Func<string, IReadOnlyList<string>>? Derived { get; init; }
 The forms of the plaintext the engine hands to the app in its place, which are redacted wherever the value is.
 
 **Value:** [Func&lt;string, IReadOnlyList&lt;string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
+
+<a id="E2E_Engine_ResolveSecretOptions_DerivedAsync_"></a>
+<a id="E2E_Engine_ResolveSecretOptions_DerivedAsync"></a>
+
+### DerivedAsync
+
+
+```csharp
+public Func<string, Task<IReadOnlyList<string>>>? DerivedAsync { get; init; }
+```
+
+
+The asynchronous form of [Derived](/api/E2E.Engine/ResolveSecretOptions/#E2E_Engine_ResolveSecretOptions_Derived), for an engine that derives a credential by waiting on something, such as a device. Upstream's `derived` may return a promise; C# keeps the synchronous callback and adds this one. When both are set, the forms of both are redacted.
+
+**Value:** [Func&lt;string, Task&lt;IReadOnlyList&lt;string&gt;&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)

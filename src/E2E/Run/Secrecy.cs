@@ -259,6 +259,23 @@ internal static class Secrecy
         }
     }
 
+    /// <summary>The forms <paramref name="options"/> derives from <paramref name="plaintext"/>, from its synchronous and asynchronous callbacks alike.</summary>
+    public static async Task<IReadOnlyList<string>> DeriveAsync(ResolveSecretOptions? options, string plaintext)
+    {
+        List<string> forms = [];
+        if (options?.Derived is { } derive)
+        {
+            forms.AddRange(derive(plaintext));
+        }
+
+        if (options?.DerivedAsync is { } deriveAsync)
+        {
+            forms.AddRange(await deriveAsync(plaintext).ConfigureAwait(false));
+        }
+
+        return forms;
+    }
+
     private static void Register(ICollection<(string Name, string Value)> ledger, string name, string value)
     {
         if (!ledger.Contains((name, value)))
