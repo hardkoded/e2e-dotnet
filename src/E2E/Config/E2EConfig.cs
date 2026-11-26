@@ -419,8 +419,9 @@ public sealed class E2EConfig
 
     /// <summary>
     /// <see cref="WithTarget(string, IEngine)"/> for an engine handle (upstream's <c>engine</c> of a target, <c>defineEngine(...)</c> or
-    /// <c>connectEngine(...)</c>). The run serves it through <see cref="E2E.Engine.Protocol.ProtocolClient.ProtocolEngine"/>, so the harness
-    /// holds the client and a connected engine stays as declared. The target's platform is the handle's.
+    /// <c>connectEngine(...)</c>). Config resolution serves it through <see cref="E2E.Engine.Protocol.ProtocolClient.ProtocolEngine"/>, so a
+    /// connected engine stays as declared. The runner, <c>E2EFixture</c>, <c>E2EHost.OpenAsync</c>, explore, and mcp do not run a handle target
+    /// yet: they refuse it with <c>INVALID_CONFIG</c>. The target's platform is the handle's.
     /// </summary>
     public E2EConfig WithTarget(string name, EngineHandle engine)
     {
@@ -2050,8 +2051,9 @@ public sealed class TargetConfig
 
     /// <summary>
     /// The engine handle this target runs (upstream's <c>engine</c> of a target when it is an <c>EngineHandle</c>), the alternative to
-    /// <see cref="Engine"/>; at most one is set. <see cref="E2EConfig.WithTarget(string, EngineHandle)"/> sets it. The config resolves it
-    /// through <see cref="E2E.Engine.Protocol.ProtocolClient.ProtocolEngine"/>. .NET-only name: the port's <see cref="Engine"/> holds the
+    /// <see cref="Engine"/>; at most one is set. <see cref="E2EConfig.WithTarget(string, EngineHandle)"/> sets it. Config resolution serves it
+    /// through <see cref="E2E.Engine.Protocol.ProtocolClient.ProtocolEngine"/>; the runner and the entry points that start a session do not run a
+    /// handle target yet and refuse it with <c>INVALID_CONFIG</c>. .NET-only name: the port's <see cref="Engine"/> holds the
     /// in-process <see cref="IEngine"/> the runner drives.
     /// </summary>
     public EngineHandle? EngineHandle { get; init; }

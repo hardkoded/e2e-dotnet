@@ -69,8 +69,9 @@ public EngineHandle? EngineHandle { get; init; }
 
 
 The engine handle this target runs (upstream's `engine` of a target when it is an `EngineHandle`), the alternative to
-[Engine](#E2E_TargetConfig_Engine); at most one is set. `WithTarget` sets it. The config resolves it
-through [ProtocolEngine(EngineHandle)](/api/E2E.Engine.Protocol/ProtocolClient/#E2E_Engine_Protocol_ProtocolClient_ProtocolEngine_E2E_Engine_EngineHandle_). .NET-only name: the port's [Engine](#E2E_TargetConfig_Engine) holds the
+[Engine](#E2E_TargetConfig_Engine); at most one is set. `WithTarget` sets it. Config resolution serves it
+through [ProtocolEngine(EngineHandle)](/api/E2E.Engine.Protocol/ProtocolClient/#E2E_Engine_Protocol_ProtocolClient_ProtocolEngine_E2E_Engine_EngineHandle_); the runner and the entry points that start a session do not run a
+handle target yet and refuse it with `INVALID_CONFIG`. .NET-only name: the port's [Engine](#E2E_TargetConfig_Engine) holds the
 in-process [IEngine](/api/E2E.Engine/IEngine/) the runner drives.
 
 **Value:** [EngineHandle](/api/E2E.Engine/EngineHandle/)

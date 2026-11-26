@@ -709,8 +709,9 @@ public E2EConfig WithTarget(string name, EngineHandle engine)
 
 
 `WithTarget` for an engine handle (upstream's `engine` of a target, `defineEngine(...)` or
-`connectEngine(...)`). The run serves it through [ProtocolEngine(EngineHandle)](/api/E2E.Engine.Protocol/ProtocolClient/#E2E_Engine_Protocol_ProtocolClient_ProtocolEngine_E2E_Engine_EngineHandle_), so the harness
-holds the client and a connected engine stays as declared. The target's platform is the handle's.
+`connectEngine(...)`). Config resolution serves it through [ProtocolEngine(EngineHandle)](/api/E2E.Engine.Protocol/ProtocolClient/#E2E_Engine_Protocol_ProtocolClient_ProtocolEngine_E2E_Engine_EngineHandle_), so a
+connected engine stays as declared. The runner, `E2EFixture`, `E2EHost.OpenAsync`, explore, and mcp do not run a handle target
+yet: they refuse it with `INVALID_CONFIG`. The target's platform is the handle's.
 
 **Parameters**
 
