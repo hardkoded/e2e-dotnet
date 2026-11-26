@@ -126,10 +126,72 @@ internal static class WireCodec
                     };
                 }
 
-                return (TextMatch.FromRegex(new Regex(source, options, RegexTimeout)), true);
+                return (TextMatch.FromRegex(new Regex(ToAsciiShorthands(source), options, RegexTimeout)), true);
             default:
                 throw new JsonException($"unknown text pattern \"{Required(node, "kind")}\"");
         }
+    }
+
+    /// <summary>
+    /// JavaScript's <c>\d</c>, <c>\w</c> and <c>\b</c> are ASCII only; .NET's match Unicode digits and letters. <c>RegexOptions.ECMAScript</c>
+    /// cannot be combined with <c>s</c>, so the shorthands are rewritten to ASCII classes, inside character classes too.
+    /// </summary>
+    private static string ToAsciiShorthands(string source)
+    {
+        const string Word = "a-zA-Z0-9_";
+        var result = new System.Text.StringBuilder(source.Length);
+        var inClass = false;
+        for (var i = 0; i < source.Length; i++)
+        {
+            var c = source[i];
+            if (c != '\\' || i + 1 >= source.Length)
+            {
+                if (!inClass && c == '[')
+                {
+                    inClass = true;
+                }
+                else if (inClass && c == ']')
+                {
+                    inClass = false;
+                }
+
+                result.Append(c);
+                continue;
+            }
+
+            var next = source[++i];
+            switch (next)
+            {
+                case 'd':
+                    result.Append(inClass ? "0-9" : "[0-9]");
+                    break;
+                case 'w':
+                    result.Append(inClass ? Word : $"[{Word}]");
+                    break;
+                case 'D' or 'W' when inClass:
+                    // A negated shorthand inside a class has no ASCII spelling that .NET accepts in every position: refuse it.
+                    throw new JsonException(
+                        $"the regular expression escape \\{next} inside a character class has no .NET equivalent"
+                    );
+                case 'D':
+                    result.Append("[^0-9]");
+                    break;
+                case 'W':
+                    result.Append($"[^{Word}]");
+                    break;
+                case 'b' when !inClass:
+                    result.Append($"(?:(?<=[{Word}])(?![{Word}])|(?<![{Word}])(?=[{Word}]))");
+                    break;
+                case 'B':
+                    result.Append($"(?:(?<=[{Word}])(?=[{Word}])|(?<![{Word}])(?![{Word}]))");
+                    break;
+                default:
+                    result.Append('\\').Append(next);
+                    break;
+            }
+        }
+
+        return result.ToString();
     }
 
     // --- locator expressions ---------------------------------------------------------------------------------------
