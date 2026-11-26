@@ -94,6 +94,21 @@ public EngineCapabilities Capabilities { get; }
 
 **Value:** [EngineCapabilities](/api/E2E.Engine/EngineCapabilities/)
 
+<a id="E2E_Engine_WebEngine_GrantsAllPermissions_"></a>
+<a id="E2E_Engine_WebEngine_GrantsAllPermissions"></a>
+
+### GrantsAllPermissions
+
+
+```csharp
+public bool GrantsAllPermissions { get; }
+```
+
+
+The web engine grants `app.permissions: 'all'`: each permission its browser takes (`GrantedPermissions`).
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_WebEngine_Platform_"></a>
 <a id="E2E_Engine_WebEngine_Platform"></a>
 

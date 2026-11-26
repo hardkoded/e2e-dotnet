@@ -32,6 +32,22 @@ launches. The URL itself stays with the harness. Upstream's `EngineAppInfo`, wit
 
 ## Properties
 
+<a id="E2E_Engine_EngineAppInfo_AllPermissions_"></a>
+<a id="E2E_Engine_EngineAppInfo_AllPermissions"></a>
+
+### AllPermissions
+
+
+```csharp
+[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+public bool AllPermissions { get; init; }
+```
+
+
+Whether the app holds `app.permissions: 'all'` (upstream's `EngineAppInfo.allPermissions`, present only as `true`).
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_EngineAppInfo_AppPath_"></a>
 <a id="E2E_Engine_EngineAppInfo_AppPath"></a>
 

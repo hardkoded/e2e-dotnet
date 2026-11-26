@@ -42,6 +42,22 @@ EngineCapabilities Capabilities { get; }
 
 **Value:** [EngineCapabilities](/api/E2E.Engine/EngineCapabilities/)
 
+<a id="E2E_Engine_IEngine_GrantsAllPermissions_"></a>
+<a id="E2E_Engine_IEngine_GrantsAllPermissions"></a>
+
+### GrantsAllPermissions
+
+
+```csharp
+bool GrantsAllPermissions { get; }
+```
+
+
+The engine grants `app.permissions: 'all'`, which reaches it as [AllPermissions](/api/E2E.Engine/EngineStartOptions/#E2E_Engine_EngineStartOptions_AllPermissions). Without it the harness
+refuses `'all'` at config load, so an engine that predates the value never receives it. Upstream's `EngineHandle.grantsAllPermissions`.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_IEngine_LaunchArgumentValues_"></a>
 <a id="E2E_Engine_IEngine_LaunchArgumentValues"></a>
 
