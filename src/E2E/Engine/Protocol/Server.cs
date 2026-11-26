@@ -179,10 +179,28 @@ public static class ProtocolServer
             spec.Member switch
             {
                 "observe" => WireCodec.Write(Protocol.EncodeSnapshot((EngineSnapshot)value!)),
+                "state.capture" => EncodeState((EngineState)value!),
                 "artifacts.screenshot" => new JsonObject { ["path"] = (string?)value },
                 "artifacts.stopVideo" => WireCodec.EncodeVideoSegments((IReadOnlyList<VideoSegment>)value!),
                 _ => value is null ? null : WireCodec.Write(value),
             };
+
+        /// <summary>A captured state keeps its <c>data</c> member even when it is null: the state contract requires the field.</summary>
+        private static JsonObject EncodeState(EngineState state)
+        {
+            var wire = new JsonObject
+            {
+                ["format"] = state.Format,
+                ["version"] = state.Version,
+                ["data"] = state.Data?.DeepClone(),
+            };
+            if (state.ExpiresAt is not null)
+            {
+                wire["expiresAt"] = state.ExpiresAt;
+            }
+
+            return wire;
+        }
 
         private static async Task<object?> InvokeAsync(Delegate member, object?[] arguments)
         {
@@ -200,9 +218,10 @@ public static class ProtocolServer
             }
 
             await task.ConfigureAwait(false);
-            var type = task.GetType();
-            return type.IsGenericType && type.GetGenericArguments()[0].Name != "VoidTaskResult"
-                ? type.GetProperty("Result")!.GetValue(task)
+            // The declared result decides: a hook declared to return a bare Task has no result, whatever Task it happened to return.
+            var declared = member.GetType().GetGenericArguments()[^1];
+            return declared.IsGenericType && declared.GetGenericTypeDefinition() == typeof(Task<>)
+                ? task.GetType().GetProperty("Result")!.GetValue(task)
                 : null;
         }
 
@@ -253,7 +272,7 @@ public static class ProtocolServer
             if (_engine is null)
             {
                 var engine = _source
-                    ?? await _factory!(parameters!["initializationOptions"]).ConfigureAwait(false)
+                    ?? await Task.Run(() => _factory!(parameters!["initializationOptions"])).ConfigureAwait(false)
                     ?? throw new InvalidOperationException(
                         "the engine factory must return an EngineManifest.DefineEngine handle"
                     );
@@ -267,7 +286,7 @@ public static class ProtocolServer
             }
         }
 
-        private Task<JsonNode?> DeriveSecretAsync(JsonNode? parameters)
+        private async Task<JsonNode?> DeriveSecretAsync(JsonNode? parameters)
         {
             var asked = WireCodec.Read<DeriveSecretParams>(parameters);
             Func<string, IReadOnlyList<string>>? derive;
@@ -283,7 +302,9 @@ public static class ProtocolServer
                 );
             }
 
-            return Task.FromResult<JsonNode?>(new JsonObject { ["values"] = WireCodec.Write(derive(asked.Plaintext)) });
+            // Off the reader: a derivation that waits on a device must not keep the connection from reading `$/abort` or its end.
+            var values = await Task.Run(() => derive(asked.Plaintext)).ConfigureAwait(false);
+            return new JsonObject { ["values"] = WireCodec.Write(values) };
         }
 
         /// <summary>

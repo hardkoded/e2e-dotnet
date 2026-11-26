@@ -217,10 +217,13 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
 
     private sealed class SpawnConnection : ITransportConnection
     {
+        private const long NotExited = long.MinValue;
+
         private readonly Process _process;
         private readonly StderrTail _stderr;
         private readonly Task _stderrClosed;
         private readonly Task _exited;
+        private long _exit = NotExited;
 
         public SpawnConnection(Process process, StderrTail stderr, Task stderrClosed, TimeSpan exitAfterStdout)
         {
@@ -228,7 +231,11 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
             _stderr = stderr;
             _stderrClosed = stderrClosed;
             // Closing waits for the exit, not for the pipes: a grandchild that inherited them keeps them open after the server is gone.
-            _exited = process.WaitForExitAsync();
+            _exited = Task.Run(async () =>
+            {
+                await process.WaitForExitAsync().ConfigureAwait(false);
+                Interlocked.Exchange(ref _exit, process.ExitCode);
+            });
             Input = new UntilClosedStream(
                 process.StandardOutput.BaseStream,
                 Task.WhenAll(_exited, stderrClosed),
@@ -244,7 +251,8 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
         public string Diagnostics()
         {
             var tail = _stderr.ToString().Trim();
-            var status = _process.HasExited ? $"exited with code {_process.ExitCode}" : "";
+            var exit = Interlocked.Read(ref _exit);
+            var status = exit == NotExited ? "" : $"exited with code {exit}";
             return string.Join(
                 "; ",
                 new[] { status, tail.Length == 0 ? "" : $"stderr:\n{tail}" }.Where(part => part.Length > 0)
@@ -306,6 +314,13 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
             }
             finally
             {
+                // The exit status and the last stderr lines are what a failure message reads: take them before the process is disposed.
+                if (_process.HasExited)
+                {
+                    await _exited.ConfigureAwait(false);
+                    await Task.WhenAny(_stderrClosed, Task.Delay(ExitAfterStdout)).ConfigureAwait(false);
+                }
+
                 Input.Dispose();
                 _process.StandardError.Dispose();
                 _process.Dispose();
@@ -341,7 +356,7 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
         )
         {
             var read = await inner.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
-            if (read == 0 && !_ended)
+            if (read == 0 && buffer.Length > 0 && !_ended)
             {
                 _ended = true;
                 await Task.WhenAny(closed, Task.Delay(wait, cancellationToken)).ConfigureAwait(false);
@@ -439,6 +454,7 @@ public sealed class LoopbackTransport(EngineHandle engine) : IEngineTransport
     public Task<ITransportConnection> OpenAsync(TransportContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
+        context.Signal.ThrowIfCancellationRequested();
         var toServer = new Pipe();
         var toClient = new Pipe();
         _ = ServeAsync(toServer, toClient);

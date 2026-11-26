@@ -237,7 +237,7 @@ A client reaches a server through an `IEngineTransport`: `SpawnTransport` starts
 
 `EngineSpec.StartAttempt` takes an `EngineAttemptContext`: `AttemptId`, `ArtifactsDir`, `Signal`, `ResolveSecret`, `AppLog`, `Navigation`, `Environment`, and `Screen` when the attempt keeps a trace. Over the protocol each callback is a message to the client. `EngineSpec.Dispose` takes an `EngineDisposeContext`: its `ReuseSignal` is upstream's `reuseSignal`, and `Signal` and `CleanupTimeout` are the cleanup context's `signal` and `timeoutMs`.
 
-A wire signal id maps to one `CancellationTokenSource` per connection, so an engine comparing tokens sees the client's identity. `$/abort` cancels the token. A token carries no reason, so the client's abort reason does not cross, and the `prepare`, `finish`, `doctor` and `init` hooks take no token, so a signal that arrives with them only registers.
+A wire signal id maps to one `CancellationTokenSource` per connection, so an engine comparing tokens sees the client's identity for a live signal. A signal that arrives already aborted gets a canceled token with no identity, and the ids first seen during an attempt are retired when it ends. `$/abort` cancels the token. A token carries no reason, so the client's abort reason does not cross, and the `prepare`, `finish`, `doctor` and `init` hooks take no token, so a signal that arrives with them only registers.
 
 ## Next
 
