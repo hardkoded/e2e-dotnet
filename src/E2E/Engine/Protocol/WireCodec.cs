@@ -423,7 +423,9 @@ internal static class WireCodec
                 return new LocatorAction.DoubleTap(DecodeModifiers(node!["modifiers"]));
             case "multiTap":
                 return new LocatorAction.MultiTap(
-                    (long)(node?["count"] ?? throw new JsonException("\"count\" must be a number")),
+                    node?["count"] is JsonValue count && count.TryGetValue<long>(out var times)
+                        ? times
+                        : throw new JsonException("\"count\" must be an integer"),
                     DecodeModifiers(node!["modifiers"])
                 );
             case "secondaryTap":
