@@ -67,13 +67,13 @@ The app's artifact hooks.
 
 
 ```csharp
-public Func<EngineCleanupContext, Task>? Dispose { get; init; }
+public Func<EngineDisposeContext, Task>? Dispose { get; init; }
 ```
 
 
 Disposes the engine's worker.
 
-**Value:** [Func&lt;EngineCleanupContext, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
+**Value:** [Func&lt;EngineDisposeContext, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 
 <a id="E2E_Engine_EngineSpec_Doctor_"></a>
 <a id="E2E_Engine_EngineSpec_Doctor"></a>
@@ -448,13 +448,13 @@ The engine contract version the engine was written against; this runner supports
 
 
 ```csharp
-public Func<OperationContext, Task>? StartAttempt { get; init; }
+public Func<EngineAttemptContext, Task>? StartAttempt { get; init; }
 ```
 
 
 Starts an attempt on the engine.
 
-**Value:** [Func&lt;OperationContext, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
+**Value:** [Func&lt;EngineAttemptContext, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 
 <a id="E2E_Engine_EngineSpec_State_"></a>
 <a id="E2E_Engine_EngineSpec_State"></a>

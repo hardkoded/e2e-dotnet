@@ -30,6 +30,22 @@ process, before any worker exists. Upstream's `EnginePrepareInfo`.
 
 ## Properties
 
+<a id="E2E_Engine_EnginePrepareInfo_App_"></a>
+<a id="E2E_Engine_EnginePrepareInfo_App"></a>
+
+### App
+
+
+```csharp
+public EngineAppInfo? App { get; init; }
+```
+
+
+The app the target declares, as upstream's `EnginePrepareInfo.app`: where an engine reads the build it installs
+([AppPath](/api/E2E.Engine/EngineAppInfo/#E2E_Engine_EngineAppInfo_AppPath), relative to [ProjectRoot](#E2E_Engine_EnginePrepareInfo_ProjectRoot)). Null for a caller that supplies none.
+
+**Value:** [EngineAppInfo](/api/E2E.Engine/EngineAppInfo/)
+
 <a id="E2E_Engine_EnginePrepareInfo_Env_"></a>
 <a id="E2E_Engine_EnginePrepareInfo_Env"></a>
 

@@ -472,6 +472,7 @@ public static class DeviceCloudProvider
 ## Known device limitations
 
 - `Locator.DoubleTapAsync` and `Screen.DoubleTapAtAsync` on iOS are two taps about 285 to 335 ms apart. Give a double-tap detector a window of 350 ms or more.
+- `TapAsync(new TapOptions { Count = n })` for 3 or more is `multiTap`: `n` presses at the same cadence as a double tap, so the same short-window caveat applies. A `Count` above agent-device's 200 is `UNSUPPORTED_CAPABILITY` before any press. At about 285 ms a press on iOS, 200 presses take about a minute, past the default action timeout of 30 s, so pass a longer `Timeout` for a large `Count`.
 
 ## Next
 

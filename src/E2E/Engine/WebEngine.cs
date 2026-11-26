@@ -2641,9 +2641,9 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             await Page.Mouse.UpAsync().ConfigureAwait(false);
         }
 
-        /// <summary>A browser honors the SPI v1 actions plus blur and in-memory uploads. Upstream's <c>actions: [...LOCATOR_ACTION_KINDS, 'blur', 'setInputFilePayloads']</c>.</summary>
+        /// <summary>A browser honors the SPI v1 actions plus blur, in-memory uploads, and multi-taps. Upstream's <c>actions: [...LOCATOR_ACTION_KINDS, 'blur', 'setInputFilePayloads', 'multiTap']</c>.</summary>
         public IReadOnlyCollection<string> ActionKinds { get; } =
-        [.. EngineActionKinds.Locator, "blur", "setInputFilePayloads"];
+        [.. EngineActionKinds.Locator, "blur", "setInputFilePayloads", "multiTap"];
 
         /// <summary>A page takes every pointer action of the contract at a bare point too.</summary>
         public IReadOnlyCollection<string> PointerActionKinds => EngineActionKinds.Pointer;
@@ -4547,6 +4547,28 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                             {
                                 Timeout = budget.PlaywrightTimeout,
                                 Modifiers = Held(doubleTap.Modifiers),
+                            }
+                        )
+                        .ConfigureAwait(false);
+                    break;
+                case LocatorAction.MultiTap multi:
+                    if (multi.Count > int.MaxValue)
+                    {
+                        // .NET-only: Playwright's click count is an int, where upstream's is a number.
+                        throw new EngineException(
+                            EngineErrorCodes.UnsupportedCapability,
+                            $"the browser clicks at most {int.MaxValue} times in a row; got a count of {multi.Count}"
+                        );
+                    }
+
+                    // One click sequence with a rising `detail`, as a person's triple click is.
+                    await element
+                        .ClickAsync(
+                            new ElementHandleClickOptions
+                            {
+                                Timeout = budget.PlaywrightTimeout,
+                                ClickCount = (int)multi.Count,
+                                Modifiers = Held(multi.Modifiers),
                             }
                         )
                         .ConfigureAwait(false);

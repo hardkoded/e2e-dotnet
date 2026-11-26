@@ -369,6 +369,10 @@ internal static class WireCodec
             case LocatorAction.DoubleTap(var modifiers):
                 wire["modifiers"] = EncodeModifiers(modifiers);
                 break;
+            case LocatorAction.MultiTap(var count, var modifiers):
+                wire["count"] = count;
+                wire["modifiers"] = EncodeModifiers(modifiers);
+                break;
             case LocatorAction.SecondaryTap(var modifiers):
                 wire["modifiers"] = EncodeModifiers(modifiers);
                 break;
@@ -417,6 +421,11 @@ internal static class WireCodec
                 return new LocatorAction.Tap(DecodeModifiers(node!["modifiers"]));
             case "doubleTap":
                 return new LocatorAction.DoubleTap(DecodeModifiers(node!["modifiers"]));
+            case "multiTap":
+                return new LocatorAction.MultiTap(
+                    (long)(node?["count"] ?? throw new JsonException("\"count\" must be a number")),
+                    DecodeModifiers(node!["modifiers"])
+                );
             case "secondaryTap":
                 return new LocatorAction.SecondaryTap(DecodeModifiers(node!["modifiers"]));
             case "longPress":

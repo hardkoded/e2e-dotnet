@@ -432,6 +432,7 @@ public static class EngineSessions
                 action
                     is LocatorAction.Tap { Modifiers.Count: > 0 }
                         or LocatorAction.DoubleTap { Modifiers.Count: > 0 }
+                        or LocatorAction.MultiTap { Modifiers.Count: > 0 }
                         or LocatorAction.SecondaryTap { Modifiers.Count: > 0 }
                 && !TapModifiers
             )

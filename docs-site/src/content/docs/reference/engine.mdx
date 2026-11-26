@@ -147,7 +147,7 @@ public enum OperationOrigin { Test, Agent }
 | `Scroll` | `SwipeAsync` | The viewport swipe, `LocatorAction.Swipe`, `LocatorAction.ScrollIntoView`; the agent's `scroll` and `scroll_to`. |
 | `History` | `BackAsync` | `App.BackAsync()`, the agent's `back`. |
 | `Screenshot` | `ScreenshotAsync` | `ToHaveScreenshotAsync`. |
-| `TapModifiers` | `PerformAsync` | `Modifiers` on `Tap`, `DoubleTap`, and `SecondaryTap`. |
+| `TapModifiers` | `PerformAsync` | `Modifiers` on `Tap`, `DoubleTap`, `MultiTap`, and `SecondaryTap`. |
 | `Video` | `StartVideoAsync`, `StopVideoAsync` | Every `video` mode but `off`, and `App.StartRecordingAsync()`. |
 | `PinnedApp` | `RestartAsync` | A target with no app URL: `App.OpenAsync()` calls `RestartAsync`. .NET-only name for upstream's `launchesPinnedApp`. |
 | `Upload` | `PerformAsync` with `SetInputFiles` | The agent's `upload` tool. .NET-only name. |
@@ -391,6 +391,7 @@ When a semantic read fails, an engine may return masked pixels in place of the t
 | --- | --- | --- | --- |
 | `tap` | `Tap(Modifiers?)` | yes | yes |
 | `doubleTap` | `DoubleTap(Modifiers?)` | yes | yes |
+| `multiTap` | `MultiTap(Count, Modifiers?)`; `TapAsync(new TapOptions { Count = 3 })` | yes | - |
 | `secondaryTap` | `SecondaryTap(Modifiers?)` | yes | yes |
 | `longPress` | `LongPress(Duration?)` | yes | yes |
 | `fill` | `Fill(Value, Sensitive)` | yes | - |
