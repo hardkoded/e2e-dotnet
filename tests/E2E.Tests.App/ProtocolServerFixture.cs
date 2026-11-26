@@ -24,9 +24,12 @@ using E2E.Reports;
 /// </summary>
 internal static class ProtocolServerFixture
 {
-    /// <summary>The fixture's <c>late-child</c>: a copy of this program, which writes one line to the stderr it shares and exits.</summary>
     private static Stream? s_stdout;
 
+    // Kept for the process's life: a registration that is collected stops ignoring the signal.
+    private static PosixSignalRegistration? s_sigterm;
+
+    /// <summary>The fixture's <c>late-child</c> command: a copy of this program, which writes one line to the stderr it shares and exits.</summary>
     public const string LateChildCommand = "protocol-server-late-child";
 
     public static async Task RunAsync()
@@ -75,7 +78,9 @@ internal static class ProtocolServerFixture
                         ? async info =>
                         {
                             // The server ignores SIGTERM, so only a kill stops it.
-                            PosixSignalRegistration.Create(PosixSignal.SIGTERM, context => context.Cancel = true);
+                            s_sigterm = PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
+                                context.Cancel = true
+                            );
                             info.Log($"pid:{Environment.ProcessId}");
                             await Task.Delay(Timeout.Infinite);
                             return [];
@@ -107,8 +112,10 @@ internal static class ProtocolServerFixture
         else
         {
             // The runtime keeps more descriptors on the pipe than 1: close each one that names the same pipe, so the client sees the end.
-            var pipe = File.ResolveLinkTarget("/proc/self/fd/1", false)?.FullName;
-            if (pipe is not null && Directory.Exists("/proc/self/fd"))
+            var pipe = Directory.Exists("/proc/self/fd")
+                ? File.ResolveLinkTarget("/proc/self/fd/1", false)?.FullName
+                : null;
+            if (pipe is not null)
             {
                 foreach (var entry in Directory.GetFiles("/proc/self/fd"))
                 {
@@ -139,6 +146,11 @@ internal static class ProtocolServerFixture
     /// <summary>Fails the request the way <paramref name="mode"/> says: the process exits, or, for <c>stays-up</c>, closes its stdout.</summary>
     private static async Task CrashAsync(string? mode)
     {
+        if (mode is not (null or "stdout-first" or "late-child" or "stays-up" or "signal"))
+        {
+            throw new ArgumentException($"Unknown crashMode {mode}.", nameof(mode));
+        }
+
         if (mode is "stdout-first" or "stays-up")
         {
             CloseStdout();
@@ -160,7 +172,7 @@ internal static class ProtocolServerFixture
                 RedirectStandardError = false,
             };
             start.ArgumentList.Add(LateChildCommand);
-            Process.Start(start);
+            Process.Start(start)?.Dispose();
         }
 
         await Console.Error.WriteLineAsync("toy server: crashing on purpose");
