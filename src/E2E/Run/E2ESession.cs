@@ -264,6 +264,25 @@ public sealed class E2ESession : IAsyncDisposable
         var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
             ? null
             : Urls.NormalizeAppUrl(options.BaseUrl, "the base URL").Href;
+        if (baseUrl is not null)
+        {
+            // A file URL reaches the engine only when it declares it opens one, and the engine's own file checks (a browser it cannot read the disk of) run as they do for a configured target.
+            TargetApps.CheckFileAppUrl(
+                new EngineAppDeclaration
+                {
+                    Url = baseUrl,
+                    BundleId = options.BundleId,
+                    AppPath = options.AppPath,
+                    LaunchArguments = options.LaunchArguments,
+                    LaunchArgumentValues = options.LaunchArgumentValues,
+                    Permissions = options.Permissions,
+                    AllPermissions = options.AllPermissions,
+                },
+                options.Engine,
+                string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName
+            );
+        }
+
         var recording = options.VideoRecording is { } given
             ? ExecuteVideo.PlanGiven(options, given)
             : ExecuteVideo.Plan(options);

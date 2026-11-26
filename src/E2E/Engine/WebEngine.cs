@@ -427,6 +427,46 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
         | EngineCapabilities.Upload
         | EngineCapabilities.State;
 
+    /// <summary>The engine opens a <c>file:</c> app.url, in a browser it launches itself; see <see cref="ValidateFileApp"/>. Upstream's <c>fileApps: true</c>.</summary>
+    bool IEngine.FileApps => true;
+
+    /// <summary>
+    /// A file app is read by the browser, off the disk of the machine it runs on, and the harness checks every file navigation against its
+    /// own disk. So the browser has to be one this engine launches here: a provider's runs elsewhere, and <c>Connect</c> attaches to one that
+    /// may. A file has no origin either, and <c>Headers</c> and <c>BasicAuth</c> always go to the app's. Upstream's <c>validateFileApp</c>.
+    /// </summary>
+    private void ValidateFileApp(string targetName)
+    {
+        var where = $"target \"{targetName}\" opens a file app.url";
+        if (_options.Browser is { } provider)
+        {
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"{where}, which browser provider \"{provider.Name}\" cannot read: its browsers run on another machine; serve the app over http(s), or launch the browser locally"
+            );
+        }
+
+        if (_options.Connect is not null)
+        {
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"{where}, and web({{ connect }}) attaches to a browser that may run on another machine, with another disk; serve the app over http(s), or let the engine launch the browser"
+            );
+        }
+
+        var credential =
+            _options.Headers is not null ? "headers"
+            : _options.BasicAuth is not null ? "basicAuth"
+            : null;
+        if (credential is not null)
+        {
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"{where}, and web({{ {credential} }}) always goes to the app's origin, which a file does not have; remove the option, or serve the app over http(s)"
+            );
+        }
+    }
+
     /// <summary>
     /// A web target opens the app at <c>app.url</c>, so the URL is required, and the fields that describe an installed device app
     /// (<c>bundleId</c>, <c>appPath</c>, <c>launchArguments</c>) have nothing to act on. <c>app.permissions</c> must be ones the browser
@@ -462,6 +502,11 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                 "INVALID_CONFIG",
                 $"target \"{targetName}\" needs app.url: a web() target opens the app at a URL, targets: [{{ engine: web(), app: {{ url: 'http://localhost:3000' }} }}]"
             );
+        }
+
+        if (info.FileApp == true)
+        {
+            ValidateFileApp(targetName);
         }
 
         if (app.Permissions is { } permissions)

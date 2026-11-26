@@ -292,6 +292,14 @@ public interface IEngine
     EngineCapabilities Capabilities { get; }
 
     /// <summary>
+    /// The engine opens an app whose <c>url</c> is a <c>file:</c> URL, reading the file from the disk of the machine the harness runs on.
+    /// The harness checks every file navigation against that disk, so an engine whose surface may read another one must not declare this, or
+    /// must refuse such a target in <see cref="ValidateApp"/> (<see cref="EngineAppCheckInfo.FileApp"/>). Without it the harness refuses a
+    /// file <c>app.url</c> at config load. Upstream's <c>Engine.fileApps</c>.
+    /// </summary>
+    bool FileApps => false;
+
+    /// <summary>
     /// Every secret the engine's options hold (a <c>Secrets.Get</c> handle that went into an option such as <c>WebBasicAuth.Password</c>), so the
     /// config can check each against <c>secrets</c>. Upstream's <c>EngineHandle.secrets</c>. The default holds none, so an engine without a secret option keeps compiling.
     /// </summary>
@@ -940,6 +948,13 @@ public sealed record EngineAppCheckInfo
 {
     /// <summary>The target declaring the app, for the message of a refusal.</summary>
     public required string TargetName { get; init; }
+
+    /// <summary>
+    /// The app's <c>url</c> names a file on the runner's disk, as the harness reads the URL. Only an engine that declares
+    /// <c>FileApps</c> is handed one. Refuse here what cannot read that disk, such as a browser on another machine. Upstream's
+    /// <c>EngineAppCheckInfo.fileApp</c>.
+    /// </summary>
+    public bool? FileApp { get; init; }
 }
 
 /// <summary>
