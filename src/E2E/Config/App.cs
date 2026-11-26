@@ -146,11 +146,10 @@ internal static partial class TargetApps
     /// Refuses <c>app.permissions: 'all'</c> on an engine that does not grant it: an engine that predates <c>'all'</c> would read the string as a map
     /// of names. Upstream's check in <c>checkTargetApp</c>.
     /// </summary>
-    public static void CheckAllPermissions(AppConfig app, IEngine engine, string where)
+    public static void CheckAllPermissions(bool allPermissions, IEngine engine, string where)
     {
-        ArgumentNullException.ThrowIfNull(app);
         ArgumentNullException.ThrowIfNull(engine);
-        if (app.AllPermissions && !engine.GrantsAllPermissions)
+        if (allPermissions && !engine.GrantsAllPermissions)
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",

@@ -141,6 +141,7 @@ public sealed class E2EHost : IAsyncDisposable
             var engine = options.EngineFactory?.Invoke(declared)
                 ?? TargetEngines.Create(declared, options.Headed ? false : null, null);
             TargetApps.CheckLinkBase(declared.App.LinkBase, engine, $"target \"{declared.Name}\" app");
+            TargetApps.CheckAllPermissions(declared.App.AllPermissions, engine, $"target \"{declared.Name}\" app");
             Action<string>? notice = options.OnNotice is { } onNotice
                 ? line => OpenSession.Notify(onNotice, declared.Name, line)
                 : null;

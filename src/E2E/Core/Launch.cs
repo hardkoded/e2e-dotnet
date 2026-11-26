@@ -680,6 +680,11 @@ public static class Launch
                         var target = engine.Platform;
                         var app = options.App;
                         TargetApps.CheckLinkBase(app?.LinkBase, engine, "target \"" + target + "\" app");
+                        TargetApps.CheckAllPermissions(
+                            app?.AllPermissions ?? false,
+                            engine,
+                            "target \"" + target + "\" app"
+                        );
                         var resolved = TargetApps.ResolveTargetApp(
                             target,
                             new AppConfig

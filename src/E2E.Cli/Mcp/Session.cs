@@ -444,6 +444,7 @@ internal sealed class SessionHost : IDisposable
                             Config = HostTestFilters.Resolve(config, [], target: target),
                             BaseUrl = target.App.Url,
                             Permissions = target.App.Permissions,
+                            AllPermissions = target.App.AllPermissions,
                             ProjectRoot = config.ProjectRoot,
                             TargetName = target.Name,
                             Cache = null,
