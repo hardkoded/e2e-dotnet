@@ -23,6 +23,18 @@ public sealed class WireRegexAsciiShorthandsTests
     }
 
     [Theory]
+    [InlineData(@"^[\D]$", "\u0661", true)]
+    [InlineData(@"^[\D]$", "5", false)]
+    [InlineData(@"^[^\W]$", "\u00e9", false)]
+    [InlineData(@"^[^\W]$", "a", true)]
+    [InlineData(@"^[\D\s]$", " ", true)]
+    [InlineData(@"^[\w-.]+$", "a-b.c", true)]
+    [InlineData(@"^[\w-.]+$", "a b", false)]
+    [InlineData(@"^[\B]$", "B", true)]
+    [InlineData(@"^[^]$", "x", true)]
+    [InlineData(@"^[]$", "x", false)]
+    [InlineData(@"^[\]\d]+$", "]1", true)]
+    [InlineData(@"^[[]\d$", "[1", true)]
     [InlineData(@"^\d$", "5", true)]
     [InlineData(@"^\d$", "١", false)]
     [InlineData(@"^\w+$", "ab_9", true)]
@@ -39,6 +51,30 @@ public sealed class WireRegexAsciiShorthandsTests
         Assert.Equal(expected, Decode(source).IsMatch(input));
 
     [Fact]
-    public void Refuses_a_negated_shorthand_inside_a_character_class() =>
-        Assert.Throws<JsonException>(() => Decode(@"[\D]"));
+    public void Matches_ASCII_only_with_the_i_flag_and_the_sticky_flag()
+    {
+        var ignoreCase = WireCodec
+            .DecodeTextPattern(
+                new JsonObject
+                {
+                    ["kind"] = "regexp",
+                    ["source"] = @"^\w+$",
+                    ["flags"] = "i",
+                }
+            )
+            .Match.Pattern!;
+        Assert.Matches(ignoreCase, "Ab");
+        var sticky = WireCodec
+            .DecodeTextPattern(
+                new JsonObject
+                {
+                    ["kind"] = "regexp",
+                    ["source"] = @"\d",
+                    ["flags"] = "y",
+                }
+            )
+            .Match.Pattern!;
+        Assert.DoesNotMatch(sticky, "\u0661");
+        Assert.Matches(sticky, "1");
+    }
 }

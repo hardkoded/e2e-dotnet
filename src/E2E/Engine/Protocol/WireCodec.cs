@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -16,6 +17,8 @@ namespace E2E.Engine.Protocol;
 /// </summary>
 internal static class WireCodec
 {
+    private const string AsciiWord = "a-zA-Z0-9_";
+
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(5);
 
     /// <summary>Options for the records that cross as they are: camelCase, absent for null.</summary>
@@ -119,7 +122,7 @@ internal static class WireCodec
 
                     options |= flag switch
                     {
-                        'i' => RegexOptions.IgnoreCase,
+                        'i' => RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
                         'm' => RegexOptions.Multiline,
                         's' => RegexOptions.Singleline,
                         _ => RegexOptions.None,
@@ -138,60 +141,141 @@ internal static class WireCodec
     /// </summary>
     private static string ToAsciiShorthands(string source)
     {
-        const string Word = "a-zA-Z0-9_";
-        var result = new System.Text.StringBuilder(source.Length);
-        var inClass = false;
+        var result = new StringBuilder(source.Length);
         for (var i = 0; i < source.Length; i++)
         {
             var c = source[i];
-            if (c != '\\' || i + 1 >= source.Length)
+            if (c == '[')
             {
-                if (!inClass && c == '[')
-                {
-                    inClass = true;
-                }
-                else if (inClass && c == ']')
-                {
-                    inClass = false;
-                }
-
-                result.Append(c);
-                continue;
+                result.Append(RewriteClass(source, ref i));
             }
-
-            var next = source[++i];
-            switch (next)
+            else if (c == '\\' && i + 1 < source.Length)
             {
-                case 'd':
-                    result.Append(inClass ? "0-9" : "[0-9]");
-                    break;
-                case 'w':
-                    result.Append(inClass ? Word : $"[{Word}]");
-                    break;
-                case 'D' or 'W' when inClass:
-                    // A negated shorthand inside a class has no ASCII spelling that .NET accepts in every position: refuse it.
-                    throw new JsonException(
-                        $"the regular expression escape \\{next} inside a character class has no .NET equivalent"
-                    );
-                case 'D':
-                    result.Append("[^0-9]");
-                    break;
-                case 'W':
-                    result.Append($"[^{Word}]");
-                    break;
-                case 'b' when !inClass:
-                    result.Append($"(?:(?<=[{Word}])(?![{Word}])|(?<![{Word}])(?=[{Word}]))");
-                    break;
-                case 'B':
-                    result.Append($"(?:(?<=[{Word}])(?=[{Word}])|(?<![{Word}])(?![{Word}]))");
-                    break;
-                default:
-                    result.Append('\\').Append(next);
-                    break;
+                var next = source[++i];
+                result.Append(
+                    next switch
+                    {
+                        'd' => "[0-9]",
+                        'w' => $"[{AsciiWord}]",
+                        'D' => "[^0-9]",
+                        'W' => $"[^{AsciiWord}]",
+                        'b' => $"(?:(?<=[{AsciiWord}])(?![{AsciiWord}])|(?<![{AsciiWord}])(?=[{AsciiWord}]))",
+                        'B' => $"(?:(?<=[{AsciiWord}])(?=[{AsciiWord}])|(?<![{AsciiWord}])(?![{AsciiWord}]))",
+                        _ => $"\\{next}",
+                    }
+                );
+            }
+            else
+            {
+                result.Append(c);
             }
         }
 
         return result.ToString();
+    }
+
+    /// <summary>
+    /// Rewrites one JavaScript character class starting at <paramref name="i"/> (the <c>[</c>) and leaves <paramref name="i"/> on its closing
+    /// <c>]</c>. A negated shorthand (<c>\D</c>, <c>\W</c>) cannot sit in a .NET class as ASCII, so the class becomes an alternation.
+    /// </summary>
+    private static string RewriteClass(string source, ref int i)
+    {
+        var negated = i + 1 < source.Length && source[i + 1] == '^';
+        var j = i + (negated ? 2 : 1);
+        var rest = new StringBuilder();
+        var notDigit = false;
+        var notWord = false;
+        var closed = false;
+        for (; j < source.Length; j++)
+        {
+            var c = source[j];
+            if (c == ']')
+            {
+                closed = true;
+                break;
+            }
+
+            if (c == '\\' && j + 1 < source.Length)
+            {
+                var next = source[++j];
+                var literalHyphenFollows = j + 1 < source.Length && source[j + 1] == '-';
+                switch (next)
+                {
+                    case 'd':
+                        rest.Append("0-9");
+                        break;
+                    case 'w':
+                        rest.Append(AsciiWord);
+                        break;
+                    case 'D':
+                        notDigit = true;
+                        break;
+                    case 'W':
+                        notWord = true;
+                        break;
+                    case 'B':
+                        // `\B` has no meaning in a class: a literal B.
+                        rest.Append('B');
+                        break;
+                    default:
+                        rest.Append('\\').Append(next);
+                        literalHyphenFollows = false;
+                        break;
+                }
+
+                // After a class escape a hyphen is a literal in JavaScript; escaped, .NET reads it the same way.
+                if (literalHyphenFollows && next is 'd' or 'w' or 'D' or 'W' or 'B')
+                {
+                    rest.Append("\\-");
+                    j++;
+                }
+
+                continue;
+            }
+
+            // An unescaped `[` is a literal in JavaScript; .NET reads `-[` as class subtraction.
+            rest.Append(c == '[' ? "\\[" : c);
+        }
+
+        if (!closed)
+        {
+            // Let the Regex constructor report the unterminated class.
+            var unterminated = source[i..];
+            i = source.Length - 1;
+            return unterminated;
+        }
+
+        i = j;
+        var set = rest.ToString();
+        var rewritten = (negated, notDigit, notWord) switch
+        {
+            (false, false, false) when set.Length == 0 => "(?!)",
+            (true, false, false) when set.Length == 0 => @"[\s\S]",
+            (false, false, false) => $"[{set}]",
+            (true, false, false) => $"[^{set}]",
+            (false, _, _) => "(?:" + string.Join("|", Alternatives(set, notDigit, notWord)) + ")",
+            (true, _, _) =>
+                $"(?:{(notDigit ? "(?=[0-9])" : "")}{(notWord ? $"(?=[{AsciiWord}])" : "")}{(set.Length == 0 ? @"[\s\S]" : $"[^{set}]")})",
+        };
+        return rewritten;
+    }
+
+    private static IEnumerable<string> Alternatives(string set, bool notDigit, bool notWord)
+    {
+        if (notDigit)
+        {
+            yield return "[^0-9]";
+        }
+
+        if (notWord)
+        {
+            yield return $"[^{AsciiWord}]";
+        }
+
+        if (set.Length > 0)
+        {
+            yield return $"[{set}]";
+        }
     }
 
     // --- locator expressions ---------------------------------------------------------------------------------------
