@@ -30,13 +30,13 @@ An operation context on the wire. Upstream's `WireOperation`.
 ## Constructors
 
 <a id="E2E_Engine_Protocol_WireOperation__ctor_"></a>
-<a id="E2E_Engine_Protocol_WireOperation__ctor_E2E_Engine_Protocol_WireSignal_System_Int32_System_String_System_String_System_String_"></a>
+<a id="E2E_Engine_Protocol_WireOperation__ctor_E2E_Engine_Protocol_WireSignal_System_Double_System_String_System_String_System_String_"></a>
 
-### WireOperation(WireSignal, int, string, string, string)
+### WireOperation(WireSignal, double, string, string, string)
 
 
 ```csharp
-public WireOperation(WireSignal Signal, int TimeoutMs, string RunId, string AttemptId, string Origin)
+public WireOperation(WireSignal Signal, double TimeoutMs, string RunId, string AttemptId, string Origin)
 ```
 
 
@@ -47,7 +47,7 @@ An operation context on the wire. Upstream's `WireOperation`.
 | Name | Type | Description |
 | --- | --- | --- |
 | `Signal` | [WireSignal](/api/E2E.Engine.Protocol/WireSignal/) |  |
-| `TimeoutMs` | [int](https://learn.microsoft.com/dotnet/api/system.int32) |  |
+| `TimeoutMs` | [double](https://learn.microsoft.com/dotnet/api/system.double) |  |
 | `RunId` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `AttemptId` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `Origin` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
@@ -113,8 +113,8 @@ public WireSignal Signal { get; init; }
 
 
 ```csharp
-public int TimeoutMs { get; init; }
+public double TimeoutMs { get; init; }
 ```
 
 
-**Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
+**Value:** [double](https://learn.microsoft.com/dotnet/api/system.double)

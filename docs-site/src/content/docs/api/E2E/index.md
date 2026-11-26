@@ -220,6 +220,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 
 | Type | Summary |
 | --- | --- |
+| [LaunchArgumentValue](/api/E2E/LaunchArgumentValue/) | One value in the object form of app.launchArguments (upstream's LaunchArgumentValue, string \| number \| boolean \| string[]). On iOS a value is spelled as NSUserDefaults reads it: YES or NO for a boolean, a plist array for a list. On Android each value is the am start extra of its type (--ez boolean, --ei or --el integer, --ef float, --es string, --esa list). .NET-only holder: C# has no union type, so the four forms are one struct with an implicit conversion from each. |
 | [ScreenCoordinate](/api/E2E/ScreenCoordinate/) | Upstream's ScreenCoordinate: CSS pixels, or a percentage of the viewport's width (x) or height (y), '0%' through '100%'. A double converts to pixels and a string such as "50%" to a percentage, which is checked when the call runs, as upstream does. |
 | [StepVerdict](/api/E2E/StepVerdict/) | Upstream's StepVerdict: how an executor ended the step. Failed means the app did not behave as the step required. Blocked means the environment, the credentials, or the executor's own budget prevented a verdict about the app, and it always carries a blockable code. |
 | [ToolLoopResult](/api/E2E/ToolLoopResult/) | What a tool call answered: the text the model reads, whether the call failed, which the loop counts toward its failure streak, and the screenshot that goes with the text, when there is one (upstream's tool result with a file part). The loop hands the image to the model in a user turn right after the turn's tool results, since a tool message carries text only on every provider the port sends to. |
@@ -252,6 +253,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ExecutorStepKind](/api/E2E/ExecutorStepKind/) | Upstream's ExecutorStep.kind. |
 | [ExecutorVerb](/api/E2E/ExecutorVerb/) | One verb of IExecutorActions. The port has the verbs its engines can perform. |
 | [GotoWaitUntil](/api/E2E/GotoWaitUntil/) | When GotoAsync counts a navigation as done. |
+| [LaunchArgumentValueKind](/api/E2E/LaunchArgumentValueKind/) | What a LaunchArgumentValue holds. |
 | [RecordingMode](/api/E2E/RecordingMode/) | Which attempts of a test record a trace or a video. Upstream RecordingMode. In e2e.config.json and in E2E_TRACE and E2E_VIDEO a mode is written off, on, retain-on-failure, on-first-retry, or on-all-retries. |
 | [RecordingSource](/api/E2E/RecordingSource/) | Where an effective RecordingMode was set. Upstream RecordingSource. A Run mode (the config root or the environment variable) applies to every engine that can record. A Target or Test mode was asked for by name, so the engine must be able to record it. |
 | [ReplayHandOffReason](/api/E2E/ReplayHandOffReason/) | Upstream's ReplayHandOffReason, why a cached replay stopped before it finished its trace. ActionBudget and InvalidEntry are the port's: its replay draws on the step's action budget, and reads a recording back from a store that can hold any shape. |

@@ -732,7 +732,7 @@ public sealed class DeviceFixtureTests
     }
 
     [Fact]
-    public async Task Launches_any_app_with_its_own_arguments_and_permissions_set_on_that_app_by_name()
+    public async Task Launches_any_app_with_its_own_arguments_a_list_or_an_object_spelled_for_the_platform_and_permissions_set_on_that_app_by_name()
     {
         var h = Harness.Create();
         var session = await OpenAttempt(h);
@@ -747,6 +747,19 @@ public sealed class DeviceFixtureTests
                 Permissions = new Dictionary<DevicePermission, PermissionState>
                 {
                     [DevicePermission.Photos] = PermissionState.Reset,
+                },
+            }
+        );
+
+        await device.OpenAppAsync(
+            "com.other",
+            new OpenAppOptions
+            {
+                Relaunch = true,
+                LaunchArgumentValues = new Dictionary<string, LaunchArgumentValue?>
+                {
+                    ["AppleLocale"] = "fr_FR",
+                    ["resetOnboarding"] = true,
                 },
             }
         );
@@ -779,12 +792,133 @@ public sealed class DeviceFixtureTests
                 """{"platform":"ios","app":"com.other","relaunch":true,"launchArgs":["--reset-onboarding"]}"""
             ),
             (
+                "apps.open",
+                """{"platform":"ios","app":"com.other","relaunch":true,"launchArgs":["-AppleLocale","fr_FR","-resetOnboarding","YES"]}"""
+            ),
+            (
                 "settings.update",
                 """{"setting":"permission","permission":"photos","state":"reset","platform":"ios","app":"com.other"}"""
             ),
             ("apps.open", """{"platform":"ios","app":"com.other"}"""),
             ("apps.open", """{"platform":"ios","app":"com.other"}""")
         );
+    }
+
+    [Fact]
+    public async Task Spells_a_launch_argument_object_for_the_platform_on_every_fresh_launch_of_the_pinned_app_and_sends_nothing_for_an_empty_object()
+    {
+        var ios = Harness.Create(app: app =>
+            app with
+            {
+                BundleId = "com.example.app",
+                LaunchArgumentValues = new Dictionary<string, LaunchArgumentValue?>
+                {
+                    ["AppleLanguages"] = new[] { "fr", "en-GB" },
+                    ["AppleLocale"] = "fr_FR",
+                    ["e2e"] = true,
+                    ["retries"] = 3,
+                },
+            }
+        );
+        var iosSession = await OpenAttempt(ios);
+        await iosSession.RestartAsync(CancellationToken.None);
+        Assert.Equal(
+            JsonNode
+                .Parse(
+                    """{"platform":"ios","app":"com.example.app","relaunch":true,"launchArgs":["-AppleLanguages","(fr, en-GB)","-AppleLocale","fr_FR","-e2e","YES","-retries","3"]}"""
+                )!
+                .ToJsonString(),
+            ios.Fake.LastArgs("apps.open")!.ToJsonString()
+        );
+
+        var android = Harness.Create(
+            options => options with { Platform = MobilePlatform.Android },
+            app: app =>
+                app with
+                {
+                    BundleId = "com.example.app",
+                    LaunchArgumentValues = new Dictionary<string, LaunchArgumentValue?>
+                    {
+                        ["e2e"] = true,
+                        ["locale"] = "fr_FR",
+                        ["retries"] = 3,
+                        ["tags"] = new[] { "a", "b" },
+                    },
+                }
+        );
+        var androidSession = await OpenAttempt(android);
+        await androidSession.RestartAsync(CancellationToken.None);
+        Assert.Equal(
+            JsonNode
+                .Parse(
+                    """{"platform":"android","app":"com.example.app","relaunch":true,"launchArgs":["--ez","e2e","true","--es","locale","fr_FR","--ei","retries","3","--esa","tags","a,b"]}"""
+                )!
+                .ToJsonString(),
+            android.Fake.LastArgs("apps.open")!.ToJsonString()
+        );
+
+        var empty = Harness.Create(app: app =>
+            app with
+            {
+                BundleId = "com.example.app",
+                LaunchArgumentValues = new Dictionary<string, LaunchArgumentValue?>(),
+            }
+        );
+        var emptySession = await OpenAttempt(empty);
+        await emptySession.RestartAsync(CancellationToken.None);
+        Assert.Equal(
+            JsonNode.Parse("""{"platform":"ios","app":"com.example.app","relaunch":true}""")!.ToJsonString(),
+            empty.Fake.LastArgs("apps.open")!.ToJsonString()
+        );
+    }
+
+    /// <summary>Partial: upstream's <c>{ env: null }</c> is a value the port's typed dictionary cannot hold except as the entry left out, so the wrong-shape refusal is checked with a null list item.</summary>
+    [Fact]
+    public async Task Partial_Refuses_openApp_launch_arguments_of_the_wrong_shape_or_ones_Android_cannot_carry_before_any_device_command()
+    {
+        var ios = Harness.Create();
+        var iosSession = await OpenAttempt(ios);
+        var before = ios.Fake.Calls.Count;
+        var wrong = await Assert.ThrowsAsync<TestException>(() =>
+            iosSession.Device.OpenAppAsync(
+                "com.other",
+                new OpenAppOptions { Relaunch = true, LaunchArguments = ["-a", null!] }
+            )
+        );
+        Assert.Equal("INVALID_ARGUMENT", wrong.Code);
+        Assert.Equal(before, ios.Fake.Calls.Count);
+
+        var android = Android("com.example.app");
+        var androidSession = await OpenAttempt(android);
+        var sent = android.Fake.Calls.Count;
+        var apple = await Assert.ThrowsAsync<TestException>(() =>
+            androidSession.Device.OpenAppAsync(
+                "com.other",
+                new OpenAppOptions
+                {
+                    Relaunch = true,
+                    LaunchArgumentValues = new Dictionary<string, LaunchArgumentValue?> { ["AppleLocale"] = "fr_FR" },
+                }
+            )
+        );
+        Assert.Equal("INVALID_ARGUMENT", apple.Code);
+        Assert.Contains(
+            "device.openApp({ launchArguments }).AppleLocale is an iOS launch argument",
+            apple.Message,
+            StringComparison.Ordinal
+        );
+        var comma = await Assert.ThrowsAsync<TestException>(() =>
+            androidSession.Device.OpenAppAsync(
+                "com.other",
+                new OpenAppOptions
+                {
+                    Relaunch = true,
+                    LaunchArgumentValues = new Dictionary<string, LaunchArgumentValue?> { ["tags"] = new[] { "a,b" } },
+                }
+            )
+        );
+        Assert.Equal("INVALID_ARGUMENT", comma.Code);
+        Assert.Equal(sent, android.Fake.Calls.Count);
     }
 
     // Partial: upstream passes the name `notification` as a string key. DevicePermission is a closed enum, so the name is a cast number (`42`) here, which the

@@ -872,6 +872,10 @@ public sealed class E2EConfig
                 null
             );
             var where = "target \"" + name + "\" app";
+            var launchArguments = LaunchArgumentRules.CheckLaunchArguments(
+                where + ".launchArguments",
+                Property(rawApp, "launchArguments")
+            );
             app = new AppConfig
             {
                 Url = OptionalString(rawApp, "url", at + ".app.url") is { } url
@@ -886,7 +890,14 @@ public sealed class E2EConfig
                 ReadyUrl = OptionalString(rawApp, "readyUrl", at + ".app.readyUrl"),
                 Identity = OptionalString(rawApp, "identity", at + ".app.identity"),
                 Environment = ReadEnvironment(Property(rawApp, "environment"), where + ".environment"),
-                LaunchArguments = ReadLaunchArguments(Property(rawApp, "launchArguments"), where + ".launchArguments"),
+                LaunchArguments = launchArguments?.List,
+                LaunchArgumentValues = launchArguments?.Values is { } launchValues
+                    ? launchValues.ToDictionary(
+                        pair => pair.Key,
+                        pair => (LaunchArgumentValue?)pair.Value,
+                        StringComparer.Ordinal
+                    )
+                    : null,
                 Permissions = ReadPermissions(Property(rawApp, "permissions"), where + ".permissions"),
             };
 
@@ -1833,25 +1844,6 @@ public sealed class E2EConfig
             );
     }
 
-    // Checks app.launchArguments: an array of strings.
-    private static ReadOnlyCollection<string>? ReadLaunchArguments(JsonElement? raw, string label)
-    {
-        if (raw is not { } value)
-        {
-            return null;
-        }
-
-        if (
-            value.ValueKind != JsonValueKind.Array
-            || value.EnumerateArray().Any(argument => argument.ValueKind != JsonValueKind.String)
-        )
-        {
-            throw Invalid(label + " must be an array of strings");
-        }
-
-        return value.EnumerateArray().Select(argument => argument.GetString()!).ToList().AsReadOnly();
-    }
-
     // Checks app.permissions: an object of permission name to grant, deny, or reset.
     private static ReadOnlyDictionary<string, AppPermissionState>? ReadPermissions(JsonElement? raw, string label)
     {
@@ -2097,8 +2089,19 @@ public sealed class AppConfig
     /// </summary>
     public string? Environment { get; init; }
 
-    /// <summary>Arguments every fresh launch of the app takes: process arguments on iOS, <c>am start</c> arguments on Android, the command line on Windows.</summary>
+    /// <summary>
+    /// Arguments every fresh launch of the app takes, as a list of strings: process arguments on iOS, <c>am start</c> arguments on Android, the command
+    /// line on Windows. Upstream's <c>app.launchArguments</c> takes this list or an object; the object is <see cref="LaunchArgumentValues"/>, and at most one is set.
+    /// </summary>
     public IReadOnlyList<string>? LaunchArguments { get; init; }
+
+    /// <summary>
+    /// Arguments every fresh launch of the app takes, as an object of argument name (no leading dash, the engine adds it) to a string, number, boolean,
+    /// or list of strings: <c>NSUserDefaults</c> arguments on iOS, <c>am start</c> extras of each value's type on Android. A null value leaves its entry out.
+    /// Only an engine that declares <see cref="EngineSpec.LaunchArgumentValues"/> takes it: for any other engine the object is <c>INVALID_CONFIG</c> at config load.
+    /// The object form of upstream's <c>app.launchArguments</c>; .NET-only property, because C# has no union type.
+    /// </summary>
+    public IReadOnlyDictionary<string, LaunchArgumentValue?>? LaunchArgumentValues { get; init; }
 
     /// <summary>
     /// Permissions the app holds, by permission name (upstream's <c>app.permissions</c>). A device target sets each before every fresh
@@ -2118,6 +2121,7 @@ public sealed class AppConfig
             Identity = Identity,
             Environment = Environment,
             LaunchArguments = LaunchArguments,
+            LaunchArgumentValues = LaunchArgumentValues,
             Permissions = Permissions,
             Command = Command,
             ReadyUrl = ReadyUrl,

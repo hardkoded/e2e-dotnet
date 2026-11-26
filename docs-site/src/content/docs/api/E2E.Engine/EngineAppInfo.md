@@ -62,6 +62,21 @@ The installed app to launch, as the target declared it.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_Engine_EngineAppInfo_LaunchArgumentValues_"></a>
+<a id="E2E_Engine_EngineAppInfo_LaunchArgumentValues"></a>
+
+### LaunchArgumentValues
+
+
+```csharp
+public IReadOnlyDictionary<string, LaunchArgumentValue>? LaunchArgumentValues { get; init; }
+```
+
+
+Arguments every fresh launch passes the app, when the target declared them as an object of argument name to value; see [LaunchArgumentValues](/api/E2E.Engine/EngineStartOptions/#E2E_Engine_EngineStartOptions_LaunchArgumentValues).
+
+**Value:** [IReadOnlyDictionary&lt;string, LaunchArgumentValue&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
+
 <a id="E2E_Engine_EngineAppInfo_LaunchArguments_"></a>
 <a id="E2E_Engine_EngineAppInfo_LaunchArguments"></a>
 
@@ -73,7 +88,7 @@ public IReadOnlyList<string>? LaunchArguments { get; init; }
 ```
 
 
-Arguments every fresh launch passes the app.
+Arguments every fresh launch passes the app, when the target declared them as a list of strings.
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 

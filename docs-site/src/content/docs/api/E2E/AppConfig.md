@@ -106,6 +106,24 @@ declare the identity of the app it is a deployment of, and so share its entries.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_AppConfig_LaunchArgumentValues_"></a>
+<a id="E2E_AppConfig_LaunchArgumentValues"></a>
+
+### LaunchArgumentValues
+
+
+```csharp
+public IReadOnlyDictionary<string, LaunchArgumentValue?>? LaunchArgumentValues { get; init; }
+```
+
+
+Arguments every fresh launch of the app takes, as an object of argument name (no leading dash, the engine adds it) to a string, number, boolean,
+or list of strings: `NSUserDefaults` arguments on iOS, `am start` extras of each value's type on Android. A null value leaves its entry out.
+Only an engine that declares [LaunchArgumentValues](/api/E2E.Engine/EngineSpec/#E2E_Engine_EngineSpec_LaunchArgumentValues) takes it: for any other engine the object is `INVALID_CONFIG` at config load.
+The object form of upstream's `app.launchArguments`; .NET-only property, because C# has no union type.
+
+**Value:** [IReadOnlyDictionary&lt;string, LaunchArgumentValue?&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
+
 <a id="E2E_AppConfig_LaunchArguments_"></a>
 <a id="E2E_AppConfig_LaunchArguments"></a>
 
@@ -117,7 +135,8 @@ public IReadOnlyList<string>? LaunchArguments { get; init; }
 ```
 
 
-Arguments every fresh launch of the app takes: process arguments on iOS, `am start` arguments on Android, the command line on Windows.
+Arguments every fresh launch of the app takes, as a list of strings: process arguments on iOS, `am start` arguments on Android, the command
+line on Windows. Upstream's `app.launchArguments` takes this list or an object; the object is [LaunchArgumentValues](#E2E_AppConfig_LaunchArgumentValues), and at most one is set.
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 

@@ -42,6 +42,23 @@ EngineCapabilities Capabilities { get; }
 
 **Value:** [EngineCapabilities](/api/E2E.Engine/EngineCapabilities/)
 
+<a id="E2E_Engine_IEngine_LaunchArgumentValues_"></a>
+<a id="E2E_Engine_IEngine_LaunchArgumentValues"></a>
+
+### LaunchArgumentValues
+
+
+```csharp
+bool LaunchArgumentValues { get; }
+```
+
+
+Whether the engine reads the object form of `app.launchArguments` from [LaunchArgumentValues](/api/E2E.Engine/EngineAppInfo/#E2E_Engine_EngineAppInfo_LaunchArgumentValues) (upstream's
+`EngineHandle.launchArgumentValues`). Without it the harness refuses an object at config load, and the engine only ever receives a list in
+[LaunchArguments](/api/E2E.Engine/EngineAppInfo/#E2E_Engine_EngineAppInfo_LaunchArguments). The default is false, so an engine that predates the object form keeps compiling.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_IEngine_Name_"></a>
 <a id="E2E_Engine_IEngine_Name"></a>
 

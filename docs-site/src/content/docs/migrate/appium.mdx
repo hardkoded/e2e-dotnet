@@ -39,7 +39,7 @@ Set up a target with the [mobile guide](/get-started/mobile/) and a model with t
 | `appium:deviceName`, `appium:udid` | `MobileOptions.Device`, or `E2E_MOBILE_DEVICE`: a name, a simulator UDID, or an `emulator-5554` serial. A phone goes by its name. `MobileOptions.Devices` is a pool, one worker per device |
 | `appium:app` | `app.appPath` on the target. `MobileAppTest` installs the build once per run with `Device.InstallAppAsync()`, see [Point at your app](/get-started/mobile/#2-point-at-your-app) |
 | `appium:bundleId`, `appium:appPackage` | `app.bundleId` on the target, the app `App.OpenAsync()` launches |
-| `appium:processArguments`, `appium:optionalIntentArguments` | `app.launchArguments` on the target, or `OpenAppOptions.LaunchArguments` for one launch, a list of strings |
+| `appium:processArguments`, `appium:optionalIntentArguments` | `app.launchArguments` on the target, or `OpenAppOptions.LaunchArguments` for one launch, a list of strings, or `LaunchArgumentValues` for an object of argument name to value |
 | `appium:permissions` | `app.permissions` on the target, `{ "camera": "grant" }`, set before every fresh launch. Each `DevicePermission` name takes `grant`, `deny`, or `reset` |
 | `appium:noReset` | `true` is the default, so nothing clears the app's data. For `false`, call `App.ClearStateAsync()` at the start of the test |
 | `appium:fullReset` | `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` |

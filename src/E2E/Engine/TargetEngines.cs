@@ -24,6 +24,7 @@ internal static class TargetEngines
         if (target.Engine is { } held)
         {
             TargetApps.CheckLinkBase(target.App.LinkBase, held, $"target \"{target.Name}\" app");
+            TargetApps.CheckLaunchArgumentsFor(target.App, held, $"target \"{target.Name}\" app");
             return held;
         }
 
@@ -52,8 +53,9 @@ internal static class TargetEngines
 
         // Config load: the link base is checked against the engine that must open its links, then the harness checks the target's app against the engine that will drive it (upstream's validateApp, run once per target).
         TargetApps.CheckLinkBase(target.App.LinkBase, engine, $"target \"{target.Name}\" app");
+        TargetApps.CheckLaunchArgumentsFor(target.App, engine, $"target \"{target.Name}\" app");
         engine.ValidateApp(
-            TargetApps.EngineAppDeclarationOf(target.App),
+            TargetApps.EngineAppDeclarationOf(target.Name, target.App),
             new EngineAppCheckInfo { TargetName = target.Name }
         );
         return engine;

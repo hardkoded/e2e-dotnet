@@ -30,7 +30,48 @@ public sealed class ManifestTests
             "android",
             Harness.Create(options => options with { Platform = MobilePlatform.Android }).Engine.Platform
         );
+        Assert.True(((IEngine)engine).LaunchArgumentValues);
         Assert.NotEqual("unknown", engine.Version);
+    }
+
+    [Fact]
+    public void Refuses_an_iOS_launch_argument_in_an_object_on_an_Android_target_and_passes_a_list_through()
+    {
+        var info = new EngineAppCheckInfo { TargetName = "pixel" };
+        var android = (IEngine)Harness.Create(options => options with { Platform = MobilePlatform.Android }).Engine;
+        var ios = (IEngine)Harness.Create().Engine;
+        static EngineAppDeclaration App(params (string Name, LaunchArgumentValue Value)[] values) =>
+            new()
+            {
+                BundleId = "com.example.app",
+                LaunchArgumentValues = values.ToDictionary(pair => pair.Name, pair => pair.Value),
+            };
+
+        var apple = Assert.Throws<ConfigurationException>(() =>
+            android.ValidateApp(App(("AppleLocale", "fr_FR")), info)
+        );
+        Assert.Equal("INVALID_CONFIG", apple.Code);
+        Assert.Equal(
+            "target \"pixel\" app.launchArguments.AppleLocale is an iOS launch argument, and Android reads none of Apple's; set the device's language before the run, or language and locale on a hosted device provider",
+            apple.Message
+        );
+        Assert.Equal(
+            "INVALID_CONFIG",
+            Assert
+                .Throws<ConfigurationException>(() =>
+                    android.ValidateApp(App(("AppleLanguages", new[] { "fr" })), info)
+                )
+                .Code
+        );
+        android.ValidateApp(App(("e2e", true), ("locale", "fr_FR")), info);
+        android.ValidateApp(
+            new EngineAppDeclaration { BundleId = "com.example.app", LaunchArguments = ["-AppleLocale", "fr_FR"] },
+            info
+        );
+        ios.ValidateApp(
+            App(("AppleLocale", "fr_FR"), ("AppleLanguages", new[] { "fr" })),
+            new EngineAppCheckInfo { TargetName = "ios" }
+        );
     }
 
     [Fact]

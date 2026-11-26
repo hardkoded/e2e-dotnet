@@ -1018,7 +1018,7 @@ public sealed class ResolveConfigTests
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "app.launchArguments must be an array of strings",
+            "app.launchArguments must be an array of strings or an object of argument name to string, number, boolean, or array of strings; item 1 is a number",
             Assert
                 .Throws<ConfigurationException>(() =>
                     AppOn("ios", """{ "bundleId": "dev.shop.app", "launchArguments": ["-a", 1] }""")
@@ -1044,10 +1044,130 @@ public sealed class ResolveConfigTests
             """{ "bundleId": "dev.shop.app", "launchArguments": ["-e2e"], "permissions": { "camera": "grant" } }"""
         );
         Assert.Equal("dev.shop.app", app.BundleId);
-        Assert.Equal(["-e2e"], app.LaunchArguments);
+        Assert.Equal(["-e2e"], app.LaunchArguments!.List);
         Assert.Equal(
             new Dictionary<string, AppPermissionState> { ["camera"] = AppPermissionState.Grant },
             app.Permissions
+        );
+    }
+
+    /// <summary>
+    /// Partial: the port reads <c>e2e.config.json</c>, so a value is JSON: the field is named <c>target "ios" app.launchArguments</c> (the target's
+    /// platform names it), and a <c>Map</c>, a <c>Date</c>, a sparse array, an undefined value, and <c>NaN</c> cannot be written. The entry left out
+    /// (a null) and a number the JSON cannot spell are checked on the typed declaration.
+    /// </summary>
+    [Fact]
+    public void Partial_Takes_launch_arguments_as_an_object_of_name_to_string_number_boolean_or_list_of_strings_and_leaves_out_an_undefined_value()
+    {
+        var resolved = ResolvedOn(
+            "ios",
+            """{ "bundleId": "dev.shop.app", "launchArguments": { "AppleLanguages": ["fr"], "AppleLocale": "fr_FR", "e2e": true, "retries": 3 } }"""
+        ).LaunchArguments!.Values!;
+        Assert.Equal(["AppleLanguages", "AppleLocale", "e2e", "retries"], resolved.Keys);
+        Assert.Equal(["fr"], resolved["AppleLanguages"].Items);
+        Assert.Equal("fr_FR", resolved["AppleLocale"].Text);
+        Assert.True(resolved["e2e"].Flag);
+        Assert.Equal(3, resolved["retries"].Number);
+        Assert.Empty(
+            ResolvedOn("ios", """{ "bundleId": "dev.shop.app", "launchArguments": {} }""").LaunchArguments!.Values!
+        );
+        var typed = TargetApps.ResolveTargetApp(
+            "web",
+            new AppConfig
+            {
+                BundleId = "dev.shop.app",
+                LaunchArgumentValues = new Dictionary<string, LaunchArgumentValue?>
+                {
+                    ["e2e"] = true,
+                    ["skipOnboarding"] = null,
+                },
+            },
+            Root
+        );
+        Assert.Equal(["e2e"], typed.LaunchArguments!.Values!.Keys);
+
+        const string shape =
+            "target \"ios\" app.launchArguments must be an array of strings or an object of argument name to string, number, boolean, or array of strings";
+        static string Failure(string launchArguments) =>
+            Assert
+                .Throws<ConfigurationException>(() =>
+                    AppOn("ios", $$"""{ "bundleId": "dev.shop.app", "launchArguments": {{launchArguments}} }""")
+                )
+                .Message;
+        Assert.Equal($"{shape}, got a string", Failure("\"fr_FR\""));
+        Assert.Equal($"{shape}, got null", Failure("null"));
+        Assert.Equal("target \"ios\" app.launchArguments has an empty argument name", Failure("""{ "": "x" }"""));
+        Assert.Equal(
+            "target \"ios\" app.launchArguments argument name \"Apple Locale\" must have no whitespace or control characters",
+            Failure("""{ "Apple Locale": "fr_FR" }""")
+        );
+        Assert.Equal(
+            "target \"ios\" app.launchArguments argument name \"-AppleLocale\" starts with a dash; remove the dash, the engine adds it",
+            Failure("""{ "-AppleLocale": "fr_FR" }""")
+        );
+        Assert.Contains(
+            "argument name \"a\\u0000b\" must have no whitespace or control characters",
+            Failure("""{ "a\u0000b": "x" }"""),
+            StringComparison.Ordinal
+        );
+        Assert.Equal(
+            "target \"ios\" app.launchArguments.env holds a NUL character",
+            Failure("""{ "env": "a\u0000" }""")
+        );
+        Assert.Equal(
+            "target \"ios\" app.launchArguments.tags holds a NUL character",
+            Failure("""{ "tags": ["a", "b\u0000"] }""")
+        );
+        Assert.Equal(
+            "target \"ios\" app.launchArguments item 1 holds a NUL character",
+            Failure("""["-a", "b\u0000"]""")
+        );
+
+        const string value =
+            "target \"ios\" app.launchArguments.{0} must be a string, number, boolean, or array of strings, got";
+        Assert.Equal(
+            string.Format(System.Globalization.CultureInfo.InvariantCulture, value, "locale") + " an object",
+            Failure("""{ "locale": { "language": "fr" } }""")
+        );
+        Assert.Equal(
+            "target \"ios\" app.launchArguments.languages must be a string, number, boolean, or array of strings; item 1 is a number",
+            Failure("""{ "languages": ["fr", 1] }""")
+        );
+        Assert.Equal(
+            string.Format(System.Globalization.CultureInfo.InvariantCulture, value, "retries")
+                + " a number beyond 2^53 - 1",
+            Failure("""{ "retries": 9007199254740992 }""")
+        );
+        Assert.Equal(
+            string.Format(System.Globalization.CultureInfo.InvariantCulture, value, "ratio")
+                + " a number beyond 2^53 - 1",
+            Failure("""{ "ratio": -1e300 }""")
+        );
+        Assert.Equal(
+            string.Format(System.Globalization.CultureInfo.InvariantCulture, value, "retries") + " null",
+            Failure("""{ "retries": null }""")
+        );
+        var edge = ResolvedOn(
+            "ios",
+            """{ "bundleId": "dev.shop.app", "launchArguments": { "retries": 9007199254740991, "ratio": -1.5 } }"""
+        ).LaunchArguments!.Values!;
+        Assert.Equal(9007199254740991d, edge["retries"].Number);
+        Assert.Equal(-1.5, edge["ratio"].Number);
+
+        var nan = Assert.Throws<ConfigurationException>(() =>
+            TargetApps.ResolveTargetApp(
+                "web",
+                new AppConfig
+                {
+                    LaunchArgumentValues = new Dictionary<string, LaunchArgumentValue?> { ["retries"] = double.NaN },
+                },
+                Root
+            )
+        );
+        Assert.Equal(
+            string.Format(System.Globalization.CultureInfo.InvariantCulture, value, "retries")
+                .Replace("\"ios\"", "\"web\"", StringComparison.Ordinal) + " NaN",
+            nan.Message
         );
     }
 

@@ -1,0 +1,149 @@
+// Copyright 2026 TesterArmy.
+// Modified by Dario Kondratiuk.
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Text.Json.Nodes;
+using E2E.Engine;
+using E2E.Engine.Protocol;
+
+namespace E2E.Tests.EngineProtocol;
+
+/// <summary>
+/// The <c>it</c> of upstream's <c>describe('launch arguments')</c> (<c>packages/e2e/tests/unit/engine-protocol.test.ts</c>) that tester-army/e2e
+/// adds or changes for the object form of <c>app.launchArguments</c>. The port has no engine protocol client (<c>connectEngine</c>,
+/// <c>overLoopback</c>), no <c>defineEngine</c> result with a live <c>prepare</c> to resolve a config against, and no JSON-valued manifest to
+/// refuse, so each is <c>Partial_</c>: it checks what the port has, the engine's declaration, the config-load refusal, and the manifest schema.
+/// </summary>
+public sealed class LaunchArgumentsTests
+{
+    private static readonly JsonSchemaCheck Validate = JsonSchemaCheck.FromFile("engine-manifest-v1.schema.json");
+
+    private static TargetConfig Phone(AppConfig app) =>
+        new()
+        {
+            Name = "phone",
+            Platform = "ios",
+            App = app,
+        };
+
+    private static IEngine Create(TargetConfig target, IEngine engine) =>
+        TargetEngines.Create(target, headless: true, mobile: _ => engine);
+
+    private sealed class ToyEngine(bool launchArgumentValues, List<EngineAppDeclaration> seen) : IEngine
+    {
+        public string Name => "toy";
+
+        public string Platform => "ios";
+
+        public string Version => "1.0.0";
+
+        public EngineCapabilities Capabilities => EngineCapabilities.PinnedApp;
+
+        public bool LaunchArgumentValues => launchArgumentValues;
+
+        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        void IEngine.ValidateApp(EngineAppDeclaration app, EngineAppCheckInfo info) => seen.Add(app);
+    }
+
+    /// <summary>Partial: upstream also checks what the engine's <c>prepare</c> receives, through <c>resolveConfig</c> and <c>engineAppInfo</c>; the port checks <c>validateApp</c>'s declaration and the refusal.</summary>
+    [Fact]
+    public void Partial_Hands_an_engine_that_predates_the_object_form_a_list_it_can_spread_and_refuses_an_object_at_config_load()
+    {
+        var seen = new List<EngineAppDeclaration>();
+        var legacy = new ToyEngine(false, seen);
+        Create(Phone(new AppConfig { BundleId = "dev.shop.app", LaunchArguments = ["-AppleLocale", "fr_FR"] }), legacy);
+        Assert.Equal(["-AppleLocale", "fr_FR"], [.. seen.Single().LaunchArguments ?? []]);
+
+        var refused = Assert.Throws<ConfigurationException>(() =>
+            Create(
+                Phone(
+                    new AppConfig
+                    {
+                        BundleId = "dev.shop.app",
+                        LaunchArgumentValues = new Dictionary<string, LaunchArgumentValue?>
+                        {
+                            ["AppleLocale"] = "fr_FR",
+                            ["AppleLanguages"] = new[] { "fr" },
+                        },
+                    }
+                ),
+                legacy
+            )
+        );
+        Assert.Equal("INVALID_CONFIG", refused.Code);
+        Assert.Equal(
+            "target \"phone\" app.launchArguments is an object, and engine \"toy\" takes only a list of strings: write the arguments as a list, or use an engine version that supports the object syntax",
+            refused.Message
+        );
+        Assert.Single(seen);
+    }
+
+    /// <summary>Partial: upstream carries the declaration through <c>connectEngine</c> over a loopback transport to a remote handle; the port has no client, so it checks the manifest flag and the declaration the engine reads.</summary>
+    [Fact]
+    public void Partial_Carries_the_object_form_to_an_engine_that_declares_launchArgumentValues()
+    {
+        var handle = E2E.Engine.EngineManifest.DefineEngine(
+            new EngineSpec
+            {
+                Name = "toy",
+                Version = "1.0.0",
+                SpiVersion = 1,
+                LaunchArgumentValues = true,
+                Observe = (_, _) => Task.FromResult<EngineSnapshot>(null!),
+            }
+        );
+        Assert.True(ProtocolManifest.DescribeEngine(handle).LaunchArgumentValues);
+
+        var seen = new List<EngineAppDeclaration>();
+        var engine = new ToyEngine(true, seen);
+        Create(
+            Phone(
+                new AppConfig
+                {
+                    BundleId = "dev.shop.app",
+                    LaunchArgumentValues = new Dictionary<string, LaunchArgumentValue?>
+                    {
+                        ["AppleLocale"] = "fr_FR",
+                        ["AppleLanguages"] = new[] { "fr" },
+                        ["e2e"] = true,
+                        ["retries"] = 3,
+                        ["token"] = null,
+                    },
+                }
+            ),
+            engine
+        );
+        var declaration = seen.Single();
+        Assert.Null(declaration.LaunchArguments);
+        Assert.Equal(["AppleLocale", "AppleLanguages", "e2e", "retries"], declaration.LaunchArgumentValues!.Keys);
+        Assert.Equal(["fr"], declaration.LaunchArgumentValues["AppleLanguages"].Items);
+        Assert.Equal(3, declaration.LaunchArgumentValues["retries"].Number);
+
+        seen.Clear();
+        Create(Phone(new AppConfig { BundleId = "dev.shop.app", LaunchArguments = ["-e2e", "YES"] }), engine);
+        Assert.Equal(["-e2e", "YES"], seen.Single().LaunchArguments);
+        Assert.Null(seen.Single().LaunchArgumentValues);
+    }
+
+    /// <summary>Partial: the flag is a <c>bool?</c> in C#, so <c>'yes'</c> cannot be declared; a manifest that spells it so is refused by the published schema.</summary>
+    [Fact]
+    public void Partial_Refuses_a_launchArgumentValues_flag_that_is_not_a_boolean()
+    {
+        Assert.False(
+            Validate.IsValid(
+                JsonNode.Parse(
+                    """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe"], "launchArgumentValues": "yes" }"""
+                )!
+            )
+        );
+        Assert.True(
+            Validate.IsValid(
+                JsonNode.Parse(
+                    """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe"], "launchArgumentValues": true }"""
+                )!
+            )
+        );
+    }
+}

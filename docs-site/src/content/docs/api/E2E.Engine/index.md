@@ -42,6 +42,7 @@ Public types in the `E2E.Engine` namespace.
 | [EngineAppDeclaration](/api/E2E.Engine/EngineAppDeclaration/) | The app a target declares, as its engine reads it at config load (upstream's EngineAppDeclaration): the target's app, with the URL the target opens. The harness has checked the shape of every field before ValidateApp sees it. |
 | [EngineAppInfo](/api/E2E.Engine/EngineAppInfo/) | The app the harness resolved from the target's declaration, as an engine's doctor hook reads it: the origin and site policy, and what a device launches. The URL itself stays with the harness. Upstream's EngineAppInfo, with the members the port's config declares. |
 | [EngineArtifactsSpec](/api/E2E.Engine/EngineArtifactsSpec/) | Upstream's artifacts hooks of an engine: the screenshot, and video started and stopped together. |
+| [EngineAttemptContext](/api/E2E.Engine/EngineAttemptContext/) | Upstream's EngineAttemptContext (engine/index.ts): what an engine's StartAttempt is given once per attempt, with the callbacks that carry what the engine learns back to the harness. Over the engine protocol each callback is a message to the client. |
 | [EngineCleanupContext](/api/E2E.Engine/EngineCleanupContext/) | Upstream's EngineCleanupContext: the signal and the cleanup budget the harness hands an engine's cleanup hooks. |
 | [EngineDisposeContext](/api/E2E.Engine/EngineDisposeContext/) | What DisposeAsync is given: the cleanup budget of one engine's dispose, and whether it may keep what it holds for a replacement worker. Upstream's EngineDisposeContext (engine/index.ts). |
 | [EngineDoctorCheck](/api/E2E.Engine/EngineDoctorCheck/) | One finding of DoctorAsync. Upstream's EngineDoctorCheck. |
@@ -114,6 +115,7 @@ Public types in the `E2E.Engine` namespace.
 | [ProviderRecordingStopContext](/api/E2E.Engine/ProviderRecordingStopContext/) | Handed to StopAsync, once per recording. |
 | [ProviderRecordingTarget](/api/E2E.Engine/ProviderRecordingTarget/) | Where the attempt's recording lands and who made it, for StopProviderRecordingAsync. |
 | [ResolveExpressionOptions](/api/E2E.Engine/ResolveExpressionOptions/) | Options for ResolveExpression: upstream's ResolveExpressionOptions (engine/resolve.ts). |
+| [ResolveSecretOptions](/api/E2E.Engine/ResolveSecretOptions/) | What an engine asks of ResolveSecret beside the value. Upstream's ResolveSecretOptions. |
 | [RouteContinueOverrides](/api/E2E.Engine/RouteContinueOverrides/) | What ContinueAsync(RouteContinueOverrides) changes about the request before it goes to the network. |
 | [RouteFulfillResponse](/api/E2E.Engine/RouteFulfillResponse/) | How FulfillAsync(RouteFulfillResponse) answers a request. Give at most one of Json, Body, or Path; none is an empty body. |
 | [ScreenRoute](/api/E2E.Engine/ScreenRoute/) | Upstream's ScreenRoute (engine/session.ts): where the screens of an attempt go for its trace. Without a sink they are dropped, and nothing waits for them. |

@@ -93,7 +93,7 @@ public sealed class WebAndTheTargetAppTests
 
     private static void ValidateWeb(WebEngine engine, AppConfig app, string targetName) =>
         ((IEngine)engine).ValidateApp(
-            TargetApps.EngineAppDeclarationOf(app),
+            TargetApps.EngineAppDeclarationOf("web", app),
             new EngineAppCheckInfo { TargetName = targetName }
         );
 }

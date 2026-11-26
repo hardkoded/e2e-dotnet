@@ -29,6 +29,21 @@ What a worker's init is given, once per worker, before its first attempt. Upstre
 
 ## Properties
 
+<a id="E2E_Engine_EngineInitInfo_App_"></a>
+<a id="E2E_Engine_EngineInitInfo_App"></a>
+
+### App
+
+
+```csharp
+public EngineAppInfo? App { get; init; }
+```
+
+
+The app the target declares, as [App](/api/E2E.Engine/EnginePrepareInfo/#E2E_Engine_EnginePrepareInfo_App). Upstream's `app`.
+
+**Value:** [EngineAppInfo](/api/E2E.Engine/EngineAppInfo/)
+
 <a id="E2E_Engine_EngineInitInfo_Env_"></a>
 <a id="E2E_Engine_EngineInitInfo_Env"></a>
 
@@ -87,6 +102,21 @@ public required Action<string> Log { get; init; }
 
 
 **Value:** [Action&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
+
+<a id="E2E_Engine_EngineInitInfo_ProjectRoot_"></a>
+<a id="E2E_Engine_EngineInitInfo_ProjectRoot"></a>
+
+### ProjectRoot
+
+
+```csharp
+public string? ProjectRoot { get; init; }
+```
+
+
+The directory relative paths in the config resolve against, as [ProjectRoot](/api/E2E.Engine/EnginePrepareInfo/#E2E_Engine_EnginePrepareInfo_ProjectRoot). Upstream's `projectRoot`.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
 <a id="E2E_Engine_EngineInitInfo_RunId_"></a>
 <a id="E2E_Engine_EngineInitInfo_RunId"></a>

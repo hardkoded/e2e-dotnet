@@ -50,6 +50,7 @@ public static class MobileTargetEngine
             BundleId = target.App.BundleId,
             AppPath = target.App.AppPath,
             LaunchArguments = target.App.LaunchArguments,
+            LaunchArgumentValues = target.App.LaunchArgumentValues,
             Permissions = DevicePermissionsOf(target.Name, target.App.Permissions),
         };
         MobileEngine.ValidateApp(app, target.App.Url, target.Name, platform);

@@ -29,8 +29,11 @@ public sealed record LaunchApp
     /// <summary>The stable identity a saved state is bound to; see <see cref="AppConfig.Identity"/>.</summary>
     public string? Identity { get; init; }
 
-    /// <summary>Arguments every fresh launch of the app takes.</summary>
+    /// <summary>Arguments every fresh launch of the app takes, as a list.</summary>
     public IReadOnlyList<string>? LaunchArguments { get; init; }
+
+    /// <summary>Arguments every fresh launch of the app takes, as an object of argument name to value; see <see cref="AppConfig.LaunchArgumentValues"/>. At most one of this and <see cref="LaunchArguments"/> is set.</summary>
+    public IReadOnlyDictionary<string, LaunchArgumentValue?>? LaunchArgumentValues { get; init; }
 
     /// <summary>Permissions the app holds, by name.</summary>
     public IReadOnlyDictionary<string, AppPermissionState>? Permissions { get; init; }
@@ -499,6 +502,7 @@ public sealed class Host : IAsyncDisposable
             AppPath = _app?.AppPath,
             LinkBase = _app?.LinkBase,
             LaunchArguments = _app?.LaunchArguments,
+            LaunchArgumentValues = LaunchArgumentRules.WithoutNulls(_app?.LaunchArgumentValues),
             Permissions = _app?.Permissions,
             TestTitle = "core",
             Trace = new ResolvedRecording(RecordingMode.Off, RecordingSource.Default),
@@ -676,6 +680,15 @@ public static class Launch
                         var target = engine.Platform;
                         var app = options.App;
                         TargetApps.CheckLinkBase(app?.LinkBase, engine, "target \"" + target + "\" app");
+                        TargetApps.CheckLaunchArgumentsFor(
+                            new AppConfig
+                            {
+                                LaunchArguments = app?.LaunchArguments,
+                                LaunchArgumentValues = app?.LaunchArgumentValues,
+                            },
+                            engine,
+                            "target \"" + target + "\" app"
+                        );
                         var resolved = TargetApps.ResolveTargetApp(
                             target,
                             new AppConfig
@@ -686,6 +699,7 @@ public static class Launch
                                 LinkBase = app?.LinkBase,
                                 Identity = app?.Identity,
                                 LaunchArguments = app?.LaunchArguments,
+                                LaunchArgumentValues = app?.LaunchArgumentValues,
                                 Permissions = app?.Permissions,
                             },
                             projectRoot

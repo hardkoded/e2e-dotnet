@@ -342,7 +342,7 @@ Upstream's `EngineDisposeContext` is in the port with `ReuseSignal` in place of 
 
 ### ValidateApp
 
-`ValidateApp` checks the app a target declares against what the engine can drive, at config load: it throws `INVALID_CONFIG` naming `EngineAppCheckInfo.TargetName` for a field the platform needs and the target left out (a URL, a bundle id), or one it cannot drive. Upstream's `validateApp(app, { targetName })`. The default checks nothing. The harness calls it once per target, before any session starts (`TargetEngines.Create`), and the app it passes is the `EngineAppDeclaration` the target declared: `Url`, `Site`, `BundleId`, `AppPath`, `LaunchArguments`, and `Permissions`.
+`ValidateApp` checks the app a target declares against what the engine can drive, at config load: it throws `INVALID_CONFIG` naming `EngineAppCheckInfo.TargetName` for a field the platform needs and the target left out (a URL, a bundle id), or one it cannot drive. Upstream's `validateApp(app, { targetName })`. The default checks nothing. The harness calls it once per target, before any session starts (`TargetEngines.Create`), and the app it passes is the `EngineAppDeclaration` the target declared: `Url`, `Site`, `BundleId`, `AppPath`, `LaunchArguments`, `LaunchArgumentValues`, and `Permissions`.
 
 ```csharp
 void IEngine.ValidateApp(EngineAppDeclaration app, EngineAppCheckInfo info)
@@ -448,7 +448,9 @@ The app under test is declared on the target (`targets[].app`); an engine only d
 | `bundleId`, `appPath`, `launchArguments` | The port's `MobileEngine` and `WinAppEngine` take them from their own options; a custom engine's options carry them. They are not on `EngineStartOptions`. |
 | `command`, `readyUrl` | Never. The host starts the app. |
 
-`EngineAppInfo` (`Site`, `BundleId`, `AppPath`, `LaunchArguments`, `Permissions`) is what `EngineDoctorInfo.App` carries; `Site` is the registrable domain of the app URL. `AppPermissionState` is `Grant`, `Deny`, or `Reset`: held, refused, or not asked for yet, so the OS asks again.
+A target declares `app.launchArguments` as a list of strings (`AppConfig.LaunchArguments`) or as an object of argument name to value (`AppConfig.LaunchArgumentValues`), never both. A list arrives in `LaunchArguments`. An object arrives in `LaunchArgumentValues`, and only on an engine whose `IEngine.LaunchArgumentValues` is true (`EngineSpec.LaunchArgumentValues` on a handle); for any other engine it fails at config load with `INVALID_CONFIG`. The harness sets one of the two fields, never both, so an engine that takes both forms reads whichever is present. An iOS or macOS engine spells an object with `LaunchArgumentRules.AppleUserDefaults(ResolvedLaunchArguments)`. `LaunchArgumentRules.CheckLaunchArguments(label, list, values, code)` is the shape check the runner runs on a target's launch arguments, for a launch a test asks for by hand: `code` is `INVALID_CONFIG` (the default) or `INVALID_ARGUMENT`. A `LaunchArgumentValue` is a string, a finite number below 2^53 in magnitude, a boolean, or a list of strings.
+
+`EngineAppInfo` (`Site`, `BundleId`, `AppPath`, `LaunchArguments`, `LaunchArgumentValues`, `Permissions`) is what `EngineDoctorInfo.App` carries; `Site` is the registrable domain of the app URL. `AppPermissionState` is `Grant`, `Deny`, or `Reset`: held, refused, or not asked for yet, so the OS asks again.
 
 Upstream's `validateApp` hook and `EngineAppDeclaration` are not members of `IEngine`. `WebEngine.ValidateApp`, `MobileEngine.ValidateApp`, and `WinAppEngine.ValidateApp` check their app at configuration time from their target engines; throw `ConfigurationException` `INVALID_CONFIG` naming the target.
 
