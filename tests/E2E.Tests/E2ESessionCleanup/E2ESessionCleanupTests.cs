@@ -62,7 +62,11 @@ public sealed class E2ESessionCleanupTests
                 return default(ValueTask);
             }
 
-            if (targetMethod?.Name == "get_" + nameof(IEngineSession.CanLocate))
+            if (
+                targetMethod?.Name
+                is "get_" + nameof(IEngineSession.CanLocate)
+                    or "get_" + nameof(IEngineSession.MeasuresViewport)
+            )
             {
                 return false;
             }

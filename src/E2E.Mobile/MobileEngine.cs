@@ -291,7 +291,8 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
         | EngineCapabilities.Screenshot
         | EngineCapabilities.Video
         | EngineCapabilities.PinnedApp
-        | EngineCapabilities.OpenLink;
+        | EngineCapabilities.OpenLink
+        | EngineCapabilities.ViewportIntersection;
 
     /// <summary>The device engine reads the object form of <c>app.launchArguments</c>, spelling it for the platform.</summary>
     bool IEngine.LaunchArgumentValues => true;

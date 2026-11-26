@@ -280,3 +280,18 @@ Video = 256
 [StartVideoAsync(CancellationToken)](/api/E2E.Engine/IEngineSession/#E2E_Engine_IEngineSession_StartVideoAsync_System_Threading_CancellationToken_) and [StopVideoAsync(CancellationToken)](/api/E2E.Engine/IEngineSession/#E2E_Engine_IEngineSession_StopVideoAsync_System_Threading_CancellationToken_): the engine can record the attempt as video.
 
 **Value:** [EngineCapabilities](./)
+
+<a id="E2E_Engine_EngineCapabilities_ViewportIntersection"></a>
+
+### ViewportIntersection
+
+
+```csharp
+ViewportIntersection = 131072
+```
+
+
+`ViewportIntersectionAsync`: the engine measures how much of a
+node is inside the viewport, which `ToBeInViewportAsync` needs. Upstream's `viewport-intersection` capability.
+
+**Value:** [EngineCapabilities](./)

@@ -34,7 +34,7 @@ internal sealed class FailingCloseEngine(Exception failure) : IEngine
             targetMethod?.Name switch
             {
                 nameof(IAsyncDisposable.DisposeAsync) => ThrowFailure(),
-                "get_" + nameof(IEngineSession.CanLocate) => false,
+                "get_" + nameof(IEngineSession.CanLocate) or "get_" + nameof(IEngineSession.MeasuresViewport) => false,
                 _ => null,
             };
 

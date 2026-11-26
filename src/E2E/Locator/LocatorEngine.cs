@@ -42,6 +42,17 @@ internal sealed class LocatorEngineOptions
         Task<IReadOnlyList<SemanticNode>>
     >? Locate { get; init; }
 
+    /// <summary>
+    /// How much of a node is inside the viewport (upstream's <c>session.viewportIntersection</c>); null when the engine cannot measure
+    /// (upstream's <c>session.measuresViewport</c> false).
+    /// </summary>
+    public Func<
+        SemanticNode,
+        OperationContext,
+        CancellationToken,
+        Task<ViewportIntersection>
+    >? ViewportIntersection { get; init; }
+
     /// <summary>One action on a node (upstream's <c>session.perform</c>), with the context that says who acts.</summary>
     public required Func<SemanticNode, LocatorAction, OperationContext, CancellationToken, Task> Perform { get; init; }
 
@@ -489,6 +500,70 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         CancellationToken token,
         ReadWindow? reads = null
     ) => ResolveNowAsync(expression, token, reads);
+
+    /// <summary>One sample of <see cref="ReadViewportAsync"/>: the one match, how many there were, and what was measured of it.</summary>
+    internal sealed record ViewportRead(SemanticNode? Node, int Count, bool Stale, ViewportIntersection? Intersection);
+
+    /// <summary>The context of an engine read on <paramref name="budget"/>, marked with the test origin (upstream's <c>readOperation</c>).</summary>
+    internal static OperationContext ReadOperation(TimeSpan budget) =>
+        OperationContext.Test with
+        {
+            Timeout = Time.Between(budget, TimeSpan.FromMilliseconds(1), Time.Unbounded),
+        };
+
+    /// <summary>
+    /// Reads the one current match and measures how much of it is inside the viewport, for <c>ToBeInViewportAsync</c>: one resolve and one
+    /// measure of the node it answered, all inside <paramref name="reads"/>, never a second observation. Zero matches or a missing frame read
+    /// as no node. A node that went stale before it was measured is <see cref="ViewportRead.Stale"/>, so the poll samples again instead of
+    /// reading the node as gone. An engine that cannot measure is refused before the resolve, so a missing match never hides it. Upstream's
+    /// <c>readViewport</c>.
+    /// </summary>
+    internal async Task<ViewportRead> ReadViewportAsync(
+        LocatorExpression expression,
+        CancellationToken token,
+        ReadWindow reads
+    )
+    {
+        if (options.ViewportIntersection is not { } measure)
+        {
+            throw new ConfigurationException(
+                EngineErrorCodes.UnsupportedCapability,
+                "toBeInViewport is not available on this target: its engine does not implement viewportIntersection"
+            );
+        }
+
+        var node = await TryReadAsync(expression, token, reads, MissingFrame.Empty).ConfigureAwait(false);
+        if (node is null)
+        {
+            return new ViewportRead(null, 0, false, null);
+        }
+
+        try
+        {
+            var intersection = await reads
+                .ReadAsync(budget =>
+                    AppNotOpen.GuardAsync(() =>
+                        measure(node, ReadOperation(budget), token == default ? options.Cancellation() : token)
+                    )
+                )
+                .ConfigureAwait(false);
+            return new ViewportRead(node, 1, false, intersection);
+        }
+        catch (EngineException ex) when (ex.Code == EngineErrorCodes.NodeStale)
+        {
+            return new ViewportRead(node, 1, true, null);
+        }
+        catch (EngineException ex) when (!token.IsCancellationRequested)
+        {
+            var translated = TranslateLocatorError(ex, expression);
+            if (ReferenceEquals(translated, ex))
+            {
+                throw;
+            }
+
+            throw translated;
+        }
+    }
 
     /// <summary>
     /// Reads the one current match at once, for <c>isVisible</c> and <c>isHidden</c>: null for zero matches or a missing frame; two matches

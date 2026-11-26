@@ -21,19 +21,21 @@ internal sealed class EngineSession : IEngineSession, IEngineFixtureHost
     private readonly IEngineSession _engine;
     private readonly string _runId;
     private readonly string _attemptId;
+    private readonly string _engineName;
 
-    private EngineSession(IEngineSession engine, string runId, string attemptId)
+    private EngineSession(IEngineSession engine, string runId, string attemptId, string engineName)
     {
         _engine = engine;
         _runId = runId;
         _attemptId = attemptId;
+        _engineName = engineName;
     }
 
     /// <summary>Wraps <paramref name="engine"/> in the adapter; a session that is wrapped already is returned as it is.</summary>
-    internal static IEngineSession Create(IEngineSession engine, string runId, string attemptId)
+    internal static IEngineSession Create(IEngineSession engine, string runId, string attemptId, string engineName = "")
     {
         ArgumentNullException.ThrowIfNull(engine);
-        return engine as EngineSession ?? new EngineSession(engine, runId, attemptId);
+        return engine as EngineSession ?? new EngineSession(engine, runId, attemptId, engineName);
     }
 
     /// <summary>
@@ -212,6 +214,43 @@ internal sealed class EngineSession : IEngineSession, IEngineFixtureHost
         Guard("computed styles", cancellationToken, () =>
             _engine.ReadStyleAsync(node, properties, Stamp(context), cancellationToken)
         );
+
+    public bool MeasuresViewport => _engine.MeasuresViewport;
+
+    /// <summary>
+    /// The engine's measure, held to the contract (upstream's <c>checkIntersection</c>): a matcher must never pass on a ratio outside 0 to 1, a
+    /// missing verdict, or a ratio that contradicts the verdict (<c>{ intersects: false, ratio: 1 }</c>).
+    /// </summary>
+    public async Task<ViewportIntersection> ViewportIntersectionAsync(
+        SemanticNode node,
+        OperationContext context,
+        CancellationToken cancellationToken
+    ) =>
+        CheckIntersection(
+            await Guard("viewport geometry (toBeInViewport)", cancellationToken, () =>
+                    _engine.ViewportIntersectionAsync(node, Stamp(context), cancellationToken)
+                )
+                .ConfigureAwait(false),
+            _engineName
+        );
+
+    /// <summary>Upstream's <c>checkIntersection</c> (<c>engine/session.ts</c>).</summary>
+    private static ViewportIntersection CheckIntersection(ViewportIntersection? value, string engineName)
+    {
+        var valid =
+            value is not null
+            && (
+                value.Ratio is not { } ratio
+                || (ratio >= 0 && ratio <= 1 && !double.IsNaN(ratio) && (ratio > 0) == value.Intersects)
+            );
+        return valid
+            ? value!
+            : throw new EngineException(
+                EngineErrorCodes.EngineFailure,
+                $"engine {engineName} returned an invalid viewport intersection: intersects must be a boolean, and ratio a number from 0 to 1 that is above 0 exactly when intersects is true",
+                retryable: false
+            );
+    }
 
     public Task PressAsync(string key, CancellationToken cancellationToken) =>
         Guard("keyboard input", cancellationToken, () =>
