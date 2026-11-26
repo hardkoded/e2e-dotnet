@@ -631,7 +631,7 @@ public static partial class ProtocolClient
             {
                 if (info.Signal.IsCancellationRequested)
                 {
-                    await WithinCleanupBudgetAsync(call, DoctorAbortGrace).ConfigureAwait(false);
+                    _ = await WithinCleanupBudgetAsync(call, DoctorAbortGrace).ConfigureAwait(false);
                 }
 
                 throw;
@@ -1128,6 +1128,7 @@ public static partial class ProtocolClient
         {
             timeout = timeout < TimeSpan.Zero ? TimeSpan.Zero : timeout;
             var deadline = DateTimeOffset.UtcNow + timeout;
+            var reason = "the client closed the connection";
             try
             {
                 if (link.Connection.Closed is null)
@@ -1136,13 +1137,14 @@ public static partial class ProtocolClient
                     link.Connection.Notify("exit");
                 }
             }
-            catch (Exception)
+            catch (Exception cause)
             {
                 // A server that cannot shut down cleanly is stopped by its transport.
+                reason = $"the client closed the connection; the server did not shut down cleanly: {cause.Message}";
             }
             finally
             {
-                link.Connection.Close("the client closed the connection");
+                link.Connection.Close(reason);
                 await link.Transport.CloseAsync(Remaining(deadline)).ConfigureAwait(false);
             }
         }
@@ -1190,16 +1192,18 @@ public static partial class ProtocolClient
         }
     }
 
-    /// <summary>Waits for <paramref name="task"/> to settle, however it does, for at most <paramref name="budget"/>. Upstream's <c>withinCleanupBudget</c>.</summary>
-    private static async Task WithinCleanupBudgetAsync(Task task, TimeSpan budget)
+    /// <summary>Waits for <paramref name="task"/> to settle, however it does, for at most <paramref name="budget"/>; true when it succeeded. Upstream's <c>withinCleanupBudget</c>.</summary>
+    private static async Task<bool> WithinCleanupBudgetAsync(Task task, TimeSpan budget)
     {
         try
         {
             await task.WaitAsync(budget < TimeSpan.Zero ? TimeSpan.Zero : budget).ConfigureAwait(false);
+            return true;
         }
         catch (Exception)
         {
             // The call's own failure, or the end of the budget: either way the wait is over.
+            return false;
         }
     }
 
