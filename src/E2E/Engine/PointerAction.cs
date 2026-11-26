@@ -75,7 +75,7 @@ public static class EngineActionKinds
     /// Every action kind this version understands: <see cref="Locator"/>, the kinds of SPI v1, and the newer ones listed after it. What a
     /// manifest's <c>actions</c> is checked against. Upstream's <c>KNOWN_LOCATOR_ACTION_KINDS</c>.
     /// </summary>
-    public static IReadOnlyList<string> KnownLocator { get; } = [.. Locator, "blur", "setInputFilePayloads"];
+    public static IReadOnlyList<string> KnownLocator { get; } = [.. Locator, "blur", "setInputFilePayloads", "multiTap"];
 
     /// <summary>Every kind of <see cref="PointerAction"/>.</summary>
     public static IReadOnlyList<string> Pointer { get; } =
