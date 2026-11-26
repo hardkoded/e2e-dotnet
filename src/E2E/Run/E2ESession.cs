@@ -429,7 +429,8 @@ public sealed class E2ESession : IAsyncDisposable
                         ))
                     .ConfigureAwait(false),
                 AttemptReport.RunId,
-                attemptId
+                attemptId,
+                options.Engine.Name
             );
         }
         catch (Exception ex)
@@ -708,6 +709,7 @@ public sealed class E2ESession : IAsyncDisposable
                         ? (expression, timeout, token) =>
                             engine.LocateAsync(expression, timeout, OperationContext.Test, token)
                         : null,
+                    ViewportIntersection = engine.MeasuresViewport ? engine.ViewportIntersectionAsync : null,
                     Perform = engine.PerformAsync,
                     PerformAt = engine.PerformAtAsync,
                     TypeText = engine.TypeTextAsync,

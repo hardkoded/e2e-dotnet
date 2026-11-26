@@ -503,7 +503,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         var raw = await SnapshotOrEmptyAsync(Options.Snapshot == SnapshotMode.Interactive, budget, cancellationToken)
             .ConfigureAwait(false);
         var projected = Project(raw);
-        return await ViewportForAsync(projected, budget, cancellationToken).ConfigureAwait(false);
+        return await ViewportForAsync(projected.Viewport, budget, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -521,7 +521,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
             .ConfigureAwait(false);
         var projected = Project(raw);
         _generation = projected.Index.ToDictionary(entry => entry.Id, entry => Bind(entry, projected));
-        var viewport = await ViewportForAsync(projected, budget, cancellationToken).ConfigureAwait(false);
+        var viewport = await ViewportForAsync(projected.Viewport, budget, cancellationToken).ConfigureAwait(false);
         Route = DeviceSupport.ScreenLocation(
             raw.AppBundleId ?? raw.AppName ?? _appIdentity,
             SnapshotProjection.ScreenTitle(projected)
@@ -957,14 +957,14 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// observation: the harness measures every rect and point against the viewport, so an invented one would misplace every tap.
     /// </summary>
     private async Task<ViewportSize> ViewportForAsync(
-        ProjectedSnapshot projected,
+        ViewportSize? captureViewport,
         InputBudget budget,
         CancellationToken cancellationToken
     )
     {
         if (_knownViewport is { } known)
         {
-            if (projected.Viewport is not { } read)
+            if (captureViewport is not { } read)
             {
                 return known;
             }

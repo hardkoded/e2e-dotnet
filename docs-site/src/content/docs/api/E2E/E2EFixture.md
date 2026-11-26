@@ -141,6 +141,21 @@ in the AI SDK devtools shape. The process writes them to `ai-trace-<process id>.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
+<a id="E2E_E2EFixture_AllPermissions_"></a>
+<a id="E2E_E2EFixture_AllPermissions"></a>
+
+### AllPermissions
+
+
+```csharp
+protected virtual bool AllPermissions { get; }
+```
+
+
+The target's `app.permissions: 'all'`.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_E2EFixture_App_"></a>
 <a id="E2E_E2EFixture_App"></a>
 

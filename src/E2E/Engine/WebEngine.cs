@@ -6,6 +6,7 @@ using System.Collections.Frozen;
 using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using E2E.Internal;
@@ -422,6 +423,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
         | EngineCapabilities.SwitchTab
         | EngineCapabilities.CloseTab
         | EngineCapabilities.ComputedStyle
+        | EngineCapabilities.ViewportIntersection
         | EngineCapabilities.Upload
         | EngineCapabilities.State;
 
@@ -2477,6 +2479,117 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                     }
                 }
             });
+        }
+
+        public bool MeasuresViewport => true;
+
+        /// <summary>
+        /// Measures how much of a located or observed element is inside the viewport with the page's <c>IntersectionObserver</c>, the check
+        /// Playwright's <c>toBeInViewport</c> makes, so scrolling, overflow ancestors and frames clip it. An element with no box, or an empty
+        /// one, is outside. It runs in the page's own world, as <see cref="ReadStyleAsync"/> does, so an app that replaces
+        /// <c>IntersectionObserver</c> changes what it reads. Upstream's <c>viewportIntersection</c>.
+        /// </summary>
+        public Task<ViewportIntersection> ViewportIntersectionAsync(
+            SemanticNode node,
+            OperationContext context,
+            CancellationToken cancellationToken
+        )
+        {
+            ArgumentNullException.ThrowIfNull(node);
+            ArgumentNullException.ThrowIfNull(context);
+            return GuardAsync("measure viewport intersection", cancellationToken, () => ReadingTabAsync(
+                    async () =>
+                    {
+                        var budget = Budget("viewportintersection", cancellationToken, context.Timeout);
+                        var lookup = _refs.LookupPinnedAsync(node.Ref);
+                        ActionTarget target;
+                        IDisposable pin;
+                        try
+                        {
+                            (target, pin) = await budget.WithinAsync(lookup).ConfigureAwait(false);
+                        }
+                        catch
+                        {
+                            // A lookup the deadline or a cancel abandoned still pins its list when it settles.
+                            WebSupport.DisposePinWhenSettled(lookup);
+                            throw;
+                        }
+
+                        using (pin)
+                        {
+                            IElementHandle? element = null;
+                            var owned = false;
+                            try
+                            {
+                                if (target is ElementTarget held)
+                                {
+                                    element = held.Element;
+                                }
+                                else
+                                {
+                                    // A strict locator that matches anything but one element no longer names the node it located.
+                                    var handles = await budget
+                                        .WithinAsync(((LocatorTarget)target).Locator.ElementHandlesAsync())
+                                        .ConfigureAwait(false);
+                                    if (handles.Count != 1)
+                                    {
+                                        foreach (var handle in handles)
+                                        {
+                                            WebSupport.DisposeQuietly(handle);
+                                        }
+
+                                        throw new EngineException(
+                                            EngineErrorCodes.NodeStale,
+                                            $"node reference {node.Ref} no longer matches one element",
+                                            retryable: true
+                                        );
+                                    }
+
+                                    element = handles[0];
+                                    owned = true;
+                                }
+
+                                cancellationToken.ThrowIfCancellationRequested();
+                                var measured = await budget
+                                    .WithinAsync(
+                                        element.EvaluateAsync<JsonElement>(PageScript.MeasureViewportIntersection)
+                                    )
+                                    .ConfigureAwait(false);
+                                if (measured.ValueKind == JsonValueKind.String)
+                                {
+                                    throw measured.GetString() == "detached"
+                                        ? new EngineException(
+                                            EngineErrorCodes.NodeStale,
+                                            "node is detached; locate it again",
+                                            retryable: true
+                                        )
+                                        : new EngineException(
+                                            EngineErrorCodes.UnsupportedCapability,
+                                            "the browser has no IntersectionObserver to measure the viewport with",
+                                            retryable: false
+                                        );
+                                }
+
+                                return new ViewportIntersection(
+                                    measured.GetProperty("intersects").GetBoolean(),
+                                    measured.GetProperty("ratio").GetDouble()
+                                );
+                            }
+                            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+                            {
+                                throw WebErrors.NavigationStaleOr(ex, "measure viewport intersection");
+                            }
+                            finally
+                            {
+                                if (owned && element is not null)
+                                {
+                                    WebSupport.DisposeQuietly(element);
+                                }
+                            }
+                        }
+                    },
+                    cancellationToken
+                ));
         }
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>

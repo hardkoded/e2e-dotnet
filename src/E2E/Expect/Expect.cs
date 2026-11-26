@@ -264,6 +264,80 @@ public sealed class LocatorExpect
         return VisibilityAsync("toBeHidden", visible: false, timeout, cancellationToken);
     }
 
+    /// <summary>
+    /// Waits for the one match to have a box inside the viewport, once the viewport and every clipping ancestor (a scroll container, a frame)
+    /// cut it: on the web, as Playwright's <c>toBeInViewport</c> measures it. No match is outside the viewport, since a device leaves
+    /// offscreen nodes out of its tree. <paramref name="ratio"/>, from 0 to 1, is the share of the box that must be inside; 0 asks for any
+    /// area, as the default does. An engine that reports only the part of a box that is visible, as a device's does, refuses a
+    /// <paramref name="ratio"/> above 0 with <c>UNSUPPORTED_CAPABILITY</c>, even under <see cref="Not"/>.
+    /// </summary>
+    public Task ToBeInViewportAsync(
+        double? ratio = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var api = "expect." + (_negated ? "not." : "") + "toBeInViewport";
+        if (ratio is { } given && !(given >= 0 && given <= 1))
+        {
+            throw new TestException("INVALID_ARGUMENT", api + " option ratio must be a number from 0 to 1");
+        }
+
+        // 0 asks for any area inside, as the default does.
+        var minimum = ratio == 0 ? null : ratio;
+        LocatorEngine.ViewportRead? read = null;
+        return PollAsync(
+            "toBeInViewport",
+            minimum is { } least
+                ? "at least " + least.ToString(CultureInfo.InvariantCulture) + " of its box inside the viewport"
+                : "inside the viewport",
+            timeout,
+            includeHidden: false,
+            _ =>
+            {
+                if (read is null || read.Stale)
+                {
+                    return new Verdict(null, "a node that went stale before it was measured");
+                }
+
+                if (read.Node is null || read.Intersection is not { } intersection)
+                {
+                    return new Verdict(false, "no node");
+                }
+
+                if (!intersection.Intersects)
+                {
+                    return new Verdict(false, "outside the viewport");
+                }
+
+                if (intersection.Ratio is not { } share)
+                {
+                    return minimum is null
+                        ? new Verdict(true, "inside the viewport")
+                        : throw new ConfigurationException(
+                            EngineErrorCodes.UnsupportedCapability,
+                            api
+                                + " option ratio needs the share of the box inside the viewport, and this target's engine reports only the part of a box that is visible; drop ratio to check that any of it is"
+                        );
+                }
+
+                return new Verdict(
+                    minimum is null || share > minimum - RatioTolerance,
+                    DescribeRatio(share, minimum) + " of its box inside the viewport"
+                );
+            },
+            cancellationToken,
+            MissingFrame.Empty,
+            async (reads, token) =>
+            {
+                read = await _locator
+                    .Screen.Engine.ReadViewportAsync(_locator.Query, token, reads)
+                    .ConfigureAwait(false);
+                return read.Node is null ? [] : [read.Node];
+            }
+        );
+    }
+
     /// <summary>Waits for one match to exist, visible or not. <paramref name="attached"/> false waits for none.</summary>
     public Task ToBeAttachedAsync(
         bool attached = true,
@@ -702,7 +776,8 @@ public sealed class LocatorExpect
         bool includeHidden,
         Func<IReadOnlyList<SemanticNode>, Verdict> evaluate,
         CancellationToken cancellationToken,
-        MissingFrame missingFrame = MissingFrame.Wait
+        MissingFrame missingFrame = MissingFrame.Wait,
+        Func<ReadWindow, CancellationToken, Task<IReadOnlyList<SemanticNode>>>? sample = null
     ) =>
         _locator.Screen.RunStepAsync(
             StepKind.Assertion,
@@ -716,7 +791,8 @@ public sealed class LocatorExpect
                     includeHidden,
                     evaluate,
                     missingFrame,
-                    cancellationToken
+                    cancellationToken,
+                    sample
                 ),
             verifies: true
         );
@@ -728,7 +804,8 @@ public sealed class LocatorExpect
         bool includeHidden,
         Func<IReadOnlyList<SemanticNode>, Verdict> evaluate,
         MissingFrame missingFrame,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        Func<ReadWindow, CancellationToken, Task<IReadOnlyList<SemanticNode>>>? sample = null
     )
     {
         var token = _locator.Screen.Token(cancellationToken);
@@ -754,9 +831,11 @@ public sealed class LocatorExpect
                             Interval = _locator.Screen.PollInterval,
                             Evaluate = async reads =>
                             {
-                                var matches = await _locator
-                                    .ResolveAsync(token, includeHidden, reads, missingFrame)
-                                    .ConfigureAwait(false);
+                                var matches = sample is null
+                                    ? await _locator
+                                        .ResolveAsync(token, includeHidden, reads, missingFrame)
+                                        .ConfigureAwait(false)
+                                    : await sample(reads, token).ConfigureAwait(false);
                                 last = evaluate(matches);
                                 lastMatches = matches;
                                 samples.Add(
@@ -811,6 +890,27 @@ public sealed class LocatorExpect
             Matches = matches.Count,
         };
         return ErrorRedaction.Failure(code, message, cause, _locator.Screen.Redact, details);
+    }
+
+    /// <summary>Slack on a measured share, so <c>ratio: 0.5</c> passes on a box measured at 0.4999999999 (upstream's <c>RATIO_TOLERANCE</c>).</summary>
+    private const double RatioTolerance = 1e-9;
+
+    /// <summary>
+    /// A measured share as the failure prints it: rounded to three places, unless rounding would show a share that falls short of
+    /// <paramref name="minimum"/> as met, which prints in full. Upstream's <c>describeRatio</c>.
+    /// </summary>
+    private static string DescribeRatio(double ratio, double? minimum)
+    {
+        var rounded = Math.Round(ratio, 3, MidpointRounding.AwayFromZero);
+        if (minimum is not { } least)
+        {
+            return rounded.ToString(CultureInfo.InvariantCulture);
+        }
+
+        var met = ratio > least - RatioTolerance;
+        return (rounded >= least) == met
+            ? rounded.ToString(CultureInfo.InvariantCulture)
+            : ratio.ToString(CultureInfo.InvariantCulture);
     }
 
     private static bool MatchesPositionally(

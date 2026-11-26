@@ -35,6 +35,9 @@ internal sealed class FallbackEngine : IEngine
     /// <summary>Resolves a locator to the nodes it names, without a look (upstream's <c>locate</c>). Unset, the session resolves it in core.</summary>
     public Func<LocatorExpression, IReadOnlyList<SemanticNode>>? Locate { get; init; }
 
+    /// <summary>How much of a node is inside the viewport (upstream's <c>viewportIntersection</c>). Unset, the engine cannot measure; a throw is the measure's failure.</summary>
+    public Func<SemanticNode, E2E.Engine.ViewportIntersection>? ViewportIntersection { get; init; }
+
     /// <summary>The locator action kinds the engine declares (upstream's <c>actions</c>).</summary>
     public IReadOnlyCollection<string> LocatorKinds { get; init; } = EngineActionKinds.Locator;
 
@@ -95,6 +98,17 @@ internal sealed class FallbackEngine : IEngine
         }
 
         public bool CanLocate => engine.Locate is not null;
+
+        public bool MeasuresViewport => engine.ViewportIntersection is not null;
+
+        public Task<E2E.Engine.ViewportIntersection> ViewportIntersectionAsync(
+            SemanticNode node,
+            OperationContext context,
+            CancellationToken cancellationToken
+        ) =>
+            engine.ViewportIntersection is { } measure
+                ? Task.FromResult(measure(node))
+                : Task.FromException<E2E.Engine.ViewportIntersection>(new InvalidOperationException("cannot measure"));
 
         public Task<IReadOnlyList<SemanticNode>> LocateAsync(
             LocatorExpression expression,

@@ -77,6 +77,22 @@ engines do.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
+<a id="E2E_Engine_IEngineSession_MeasuresViewport_"></a>
+<a id="E2E_Engine_IEngineSession_MeasuresViewport"></a>
+
+### MeasuresViewport
+
+
+```csharp
+bool MeasuresViewport { get; }
+```
+
+
+Whether this engine implements `ViewportIntersectionAsync`, so `ToBeInViewportAsync` can refuse before it waits for a
+match. Upstream's `measuresViewport` (`engine/surface.ts`).
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_IEngineSession_PointerActionKinds_"></a>
 <a id="E2E_Engine_IEngineSession_PointerActionKinds"></a>
 
@@ -1302,3 +1318,29 @@ with `PressAsync` its `keyboard.press`.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+<a id="E2E_Engine_IEngineSession_ViewportIntersectionAsync_"></a>
+<a id="E2E_Engine_IEngineSession_ViewportIntersectionAsync_E2E_Engine_SemanticNode_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### ViewportIntersectionAsync(SemanticNode, OperationContext, CancellationToken)
+
+
+```csharp
+Task<ViewportIntersection> ViewportIntersectionAsync(SemanticNode node, OperationContext context, CancellationToken cancellationToken)
+```
+
+
+Measures how much of a node this engine minted is inside the viewport, for `ToBeInViewportAsync`, without scrolling or changing app
+state. Throw `NODE_STALE` if the node no longer binds, and `UNSUPPORTED_CAPABILITY` for a node whose geometry the platform does
+not report. Engines that declare [ViewportIntersection](/api/E2E.Engine/EngineCapabilities/#E2E_Engine_EngineCapabilities_ViewportIntersection) implement it; the default refuses with
+`UNSUPPORTED_CAPABILITY`. Upstream's `viewportIntersection(ref, operation)`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `node` | [SemanticNode](/api/E2E.Engine/SemanticNode/) |  |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;ViewportIntersection&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)

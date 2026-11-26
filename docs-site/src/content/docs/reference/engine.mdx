@@ -85,6 +85,7 @@ One attempt's session with the app, disposed at the end of the attempt after `af
 | `PerformAsync(node, action, ct)`, `PerformAsync(node, action, context, ct)` | `Actions` | `perform` |
 | `ActionKinds` | `Actions`. Defaults to every kind | `actions` |
 | `ReadStyleAsync(node, properties, context, ct)` | `ComputedStyle`. Defaults to `UNSUPPORTED_CAPABILITY` | `readStyle` |
+| `MeasuresViewport`, `ViewportIntersectionAsync(node, context, ct)` | `ViewportIntersection`. Default to false and `UNSUPPORTED_CAPABILITY` | `viewportIntersection` |
 | `PerformAtAsync(point, action, ct)`, `PerformAtAsync(point, action, context, ct)` | pointer kinds | `performAt` |
 | `PointerActionKinds` | defaults to none | `pointerActions` |
 | `PressAsync(key, ct)` | always | `keyboard.press` |
@@ -141,6 +142,7 @@ public enum OperationOrigin { Test, Agent }
 | --- | --- | --- |
 | `Observation` | `ObserveAsync` | The judgment tier, prompt snapshots, trace replay. |
 | `ComputedStyle` | `ReadStyleAsync` | Allow-listed rendered properties of an observed node for read-only project tools (`AgentToolContext.ReadAsync`). Named `computed-style` in `requires`. |
+| `ViewportIntersection` | `MeasuresViewport`, `ViewportIntersectionAsync` | `Expect.That(locator).ToBeInViewportAsync()`. Named `viewport-intersection` in `requires`. |
 | `Actions` | `PerformAsync`, `ActionKinds` | Node actions of the declared kinds. |
 | `Location` | `CanLocate`, `LocateAsync` | Locator resolution by the engine. Without `CanLocate` the harness resolves queries in core over `ObserveAsync`. |
 | `Keyboard` | `TypeTextAsync`; `PressAsync` | Input to whatever holds focus; the agent's `type` and `press` without a target. |
@@ -159,7 +161,7 @@ public enum OperationOrigin { Test, Agent }
 
 #### Rendered node properties
 
-`EngineSpec.ViewportIntersection` (upstream's `viewportIntersection`) measures how much of a node `Locate` returned is inside the viewport, as a `ViewportIntersection(Intersects, Ratio)`, after clipping by the viewport and by every ancestor that clips its content. `Ratio` is null where the platform reports only the visible part of a box. It needs `Locate` (`viewportIntersection without locate` is `INVALID_CONFIG`) and adds `viewport-intersection` to `Capabilities`. Throw `NODE_STALE` if the node no longer binds, and `UNSUPPORTED_CAPABILITY` for a node whose geometry the platform does not report. Nothing in the port calls it yet: `toBeInViewport` is not ported.
+`EngineSpec.ViewportIntersection` (upstream's `viewportIntersection`) measures how much of a node `Locate` returned is inside the viewport, as a `ViewportIntersection(Intersects, Ratio)`, after clipping by the viewport and by every ancestor that clips its content. `Ratio` is null where the platform reports only the visible part of a box. It needs `Locate` (`viewportIntersection without locate` is `INVALID_CONFIG`) and adds `viewport-intersection` to `Capabilities`. Throw `NODE_STALE` if the node no longer binds, and `UNSUPPORTED_CAPABILITY` for a node whose geometry the platform does not report. `ToBeInViewportAsync` calls it (through `IEngineSession.ViewportIntersectionAsync` on an `IEngine`). Omit `Ratio` (leave it null) when the platform reports only the visible part of a box, as a device does: `ToBeInViewportAsync(ratio: > 0)` then fails with `UNSUPPORTED_CAPABILITY` instead of reading that part as the whole box. A `Ratio` is above 0 exactly when `Intersects` is true; the harness fails the step with `ENGINE_FAILURE` on an answer outside that shape.
 
 `EngineSpec` also declares `SelectsDevice` (needs `Prepare`; `selectsDevice without prepare` is `INVALID_CONFIG`), `GrantsAllPermissions`, `LaunchArgumentValues`, `FileApps`, and `Isolation` (`EngineIsolation.Attempt`, the default, or `EngineIsolation.Worker`; anything else is `INVALID_CONFIG`). The engine manifest carries them. The port reads `GrantsAllPermissions` (see `IEngine.GrantsAllPermissions`); it does not read the rest yet: it has no `--device` flag, no object form of `launchArguments`, no file apps, and no worker isolation.
 
