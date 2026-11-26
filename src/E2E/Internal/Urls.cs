@@ -173,7 +173,7 @@ public static partial class Urls
             );
         }
 
-        if (!NamesOneFile(url))
+        if (!FileScope(url))
         {
             throw Invalid(
                 "a file app URL names one file this machine can reach, not a directory, such as file:///path/to/index.html: "
@@ -189,7 +189,7 @@ public static partial class Urls
     /// <c>inside</c>. Paths are compared decoded and with symbolic links resolved. A path this machine cannot resolve (a NUL, a name too
     /// long, a directory it may not search) is not a file: the rule fails closed.
     /// </summary>
-    private static bool NamesOneFile(Uri url)
+    private static bool FileScope(Uri url)
     {
         var path = LocalFile(url);
         if (path is null)
@@ -255,7 +255,14 @@ public static partial class Urls
             existing = parent;
         }
 
-        var resolved = ResolveLinks(existing);
+        // An entry that exists but cannot be searched is not a missing one: the rule fails closed.
+        if (Directory.Exists(existing))
+        {
+            using var entries = Directory.EnumerateFileSystemEntries(existing).GetEnumerator();
+            entries.MoveNext();
+        }
+
+        var resolved = ResolveLinks(existing, 0);
         while (rest.Count > 0)
         {
             resolved = Path.Combine(resolved, rest.Pop());
@@ -264,9 +271,16 @@ public static partial class Urls
         return resolved;
     }
 
+    private const int MaxLinkDepth = 40;
+
     /// <summary>Resolves each component of an existing path, so a link in a directory on the way is followed.</summary>
-    private static string ResolveLinks(string existing)
+    private static string ResolveLinks(string existing, int depth)
     {
+        if (depth > MaxLinkDepth)
+        {
+            throw new IOException("too many symbolic links: " + existing);
+        }
+
         var root = Path.GetPathRoot(existing)!;
         var current = root;
         foreach (
@@ -278,7 +292,8 @@ public static partial class Urls
             FileSystemInfo info = Directory.Exists(current) ? new DirectoryInfo(current) : new FileInfo(current);
             if (info.LinkTarget is not null && info.ResolveLinkTarget(true) is { } target)
             {
-                current = target.FullName;
+                // The target's own ancestors may be links too.
+                current = ResolveLinks(target.FullName, depth + 1);
             }
         }
 
