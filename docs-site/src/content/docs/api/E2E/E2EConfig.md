@@ -698,6 +698,29 @@ must be a string of at least six code points when it is asked for: a shorter one
 **Returns:** [E2EConfig](./)
 
 <a id="E2E_E2EConfig_WithTarget_"></a>
+<a id="E2E_E2EConfig_WithTarget_System_String_E2E_Engine_EngineHandle_"></a>
+
+### WithTarget(string, EngineHandle)
+
+
+```csharp
+public E2EConfig WithTarget(string name, EngineHandle engine)
+```
+
+
+`WithTarget` for an engine handle (upstream's `engine` of a target, `defineEngine(...)` or
+`connectEngine(...)`). The run serves it through [ProtocolEngine(EngineHandle)](/api/E2E.Engine.Protocol/ProtocolClient/#E2E_Engine_Protocol_ProtocolClient_ProtocolEngine_E2E_Engine_EngineHandle_), so the harness
+holds the client and a connected engine stays as declared. The target's platform is the handle's.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `name` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `engine` | [EngineHandle](/api/E2E.Engine/EngineHandle/) |  |
+
+**Returns:** [E2EConfig](./)
+
 <a id="E2E_E2EConfig_WithTarget_System_String_E2E_Engine_IEngine_"></a>
 
 ### WithTarget(string, IEngine)

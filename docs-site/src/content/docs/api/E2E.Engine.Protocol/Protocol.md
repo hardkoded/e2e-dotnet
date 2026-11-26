@@ -46,6 +46,21 @@ The protocol version this runner speaks; `initialize` refuses any other. Upstrea
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
+<a id="E2E_Engine_Protocol_Protocol_ErrnoKey"></a>
+
+### ErrnoKey
+
+
+```csharp
+public const string ErrnoKey = "e2e.errno"
+```
+
+
+The [Data](https://learn.microsoft.com/dotnet/api/system.exception.data) key a plain error keeps its own error code under, such as `ECONNREFUSED`, on both sides of the
+protocol. Upstream carries a Node error's `code` as `errno`. .NET-only: a .NET exception has no such property.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_Engine_Protocol_Protocol_RemoteStackKey"></a>
 
 ### RemoteStackKey

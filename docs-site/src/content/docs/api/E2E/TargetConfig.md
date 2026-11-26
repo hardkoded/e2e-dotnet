@@ -57,6 +57,24 @@ hold are checked against `secrets`, and its name, version, platform, and capabil
 
 **Value:** [IEngine](/api/E2E.Engine/IEngine/)
 
+<a id="E2E_TargetConfig_EngineHandle_"></a>
+<a id="E2E_TargetConfig_EngineHandle"></a>
+
+### EngineHandle
+
+
+```csharp
+public EngineHandle? EngineHandle { get; init; }
+```
+
+
+The engine handle this target runs (upstream's `engine` of a target when it is an `EngineHandle`), the alternative to
+[Engine](#E2E_TargetConfig_Engine); at most one is set. `WithTarget` sets it. The config resolves it
+through [ProtocolEngine(EngineHandle)](/api/E2E.Engine.Protocol/ProtocolClient/#E2E_Engine_Protocol_ProtocolClient_ProtocolEngine_E2E_Engine_EngineHandle_). .NET-only name: the port's [Engine](#E2E_TargetConfig_Engine) holds the
+in-process [IEngine](/api/E2E.Engine/IEngine/) the runner drives.
+
+**Value:** [EngineHandle](/api/E2E.Engine/EngineHandle/)
+
 <a id="E2E_TargetConfig_Name_"></a>
 <a id="E2E_TargetConfig_Name"></a>
 
