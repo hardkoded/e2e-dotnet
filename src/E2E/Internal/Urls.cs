@@ -243,23 +243,26 @@ public static partial class Urls
     {
         var existing = Path.GetFullPath(file);
         var rest = new Stack<string>();
-        while (!Directory.Exists(existing) && !File.Exists(existing))
+        // GetAttributes tells a missing entry (not found) from one that exists but cannot be reached (access denied, a directory without
+        // the search bit), which throws and so fails the rule closed. The Exists methods report both as false.
+        while (true)
         {
-            var parent = Path.GetDirectoryName(existing);
-            if (parent is null)
+            try
             {
+                _ = File.GetAttributes(existing);
                 break;
             }
+            catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+            {
+                var parent = Path.GetDirectoryName(existing);
+                if (parent is null)
+                {
+                    break;
+                }
 
-            rest.Push(Path.GetFileName(existing));
-            existing = parent;
-        }
-
-        // An entry that exists but cannot be searched is not a missing one: the rule fails closed.
-        if (Directory.Exists(existing))
-        {
-            using var entries = Directory.EnumerateFileSystemEntries(existing).GetEnumerator();
-            entries.MoveNext();
+                rest.Push(Path.GetFileName(existing));
+                existing = parent;
+            }
         }
 
         var resolved = ResolveLinks(existing, 0);
