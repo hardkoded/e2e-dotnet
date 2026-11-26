@@ -144,6 +144,23 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
         return Task.FromResult<ITransportConnection>(new SpawnConnection(process, tail, stderrClosed, ExitAfterStdout));
     }
 
+    private static string DefaultPath => OperatingSystem.IsWindows() ? "" : "/usr/bin:/bin";
+
+    /// <summary>A file the system could start: on Unix one with an execute bit, so a search goes on past one it could not.</summary>
+    private static bool IsExecutable(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return false;
+        }
+
+        return OperatingSystem.IsWindows()
+            || (
+                File.GetUnixFileMode(path)
+                & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)
+            ) != 0;
+    }
+
     /// <summary>
     /// The executable to start. .NET looks a command up against the parent's directory and <c>PATH</c>, where upstream's <c>spawn</c> applies the
     /// child's <c>cwd</c> and <c>env.PATH</c>: a relative path resolves against <paramref name="cwd"/>, and a bare name against the child's
@@ -161,21 +178,17 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
             return Path.GetFullPath(command, Path.GetFullPath(cwd));
         }
 
-        // Without a PATH of its own the child inherits the parent's, which is the lookup .NET already does.
-        if (!environment.TryGetValue("PATH", out var path) || path is null)
-        {
-            return command;
-        }
-
+        // A child with no PATH searches the system's default, as Node's spawn does.
+        var path = environment.TryGetValue("PATH", out var value) && value is not null ? value : DefaultPath;
         string[] extensions = OperatingSystem.IsWindows() ? ["", ".exe", ".cmd", ".bat"] : [""];
-        foreach (var entry in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        // An empty entry is the working directory, and a relative one is relative to it, as in upstream's `spawn`.
+        foreach (var entry in path.Split(Path.PathSeparator))
         {
-            // A relative entry is relative to the directory the child starts in, as it is to upstream's `spawn`.
             var directory = Path.GetFullPath(entry, Path.GetFullPath(cwd));
             foreach (var extension in extensions)
             {
                 var candidate = Path.Combine(directory, command + extension);
-                if (File.Exists(candidate))
+                if (IsExecutable(candidate))
                 {
                     return candidate;
                 }
