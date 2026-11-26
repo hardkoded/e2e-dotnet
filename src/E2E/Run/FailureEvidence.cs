@@ -35,7 +35,7 @@ internal sealed record FailureEvidenceOptions
     public string? AppOrigin { get; init; }
 
     /// <summary>The app's base URL: a file app that left the directory of its file keeps its location and nothing of the screen. Upstream's <c>appBase</c>.</summary>
-    public string? AppBaseUrl { get; init; }
+    public string? AppBase { get; init; }
 
     /// <summary>The attempt's artifact directory, where the screen and the screenshot go.</summary>
     public required string AttemptDir { get; init; }
@@ -117,7 +117,7 @@ internal sealed partial record FailureEvidence
         { }
 
         // The screen withheld from a model is not written beside the report either: only where it was.
-        if (observation is not null && Urls.LeftFileApp(observation.Location, options.AppBaseUrl) is not null)
+        if (observation is not null && Urls.LeftFileApp(observation.Location, options.AppBase) is not null)
         {
             return new FailureEvidence
             {
@@ -160,7 +160,7 @@ internal sealed partial record FailureEvidence
 
         // A screenshot taken with no look at the screen cannot be checked against its secure nodes.
         // The screenshot is a second capture nothing places, so a file app gets none: its page can leave the directory in between.
-        if (observation is not null && !token.IsCancellationRequested && !Urls.IsFileAppUrl(options.AppBaseUrl))
+        if (observation is not null && !token.IsCancellationRequested && !Urls.IsFileAppUrl(options.AppBase))
         {
             evidence = await WithScreenshotAsync(evidence, observation, options, token).ConfigureAwait(false);
         }

@@ -1780,7 +1780,7 @@ public sealed class E2ESession : IAsyncDisposable
                             StepRecords.LastOrDefault(step => step.Status != StepStatus.Passed) is not { } failed
                             || OwnSteps.IsOwnStep(failed),
                         AppOrigin = _scope.AppOrigin,
-                        AppBaseUrl = _scope.BaseUrl,
+                        AppBase = _scope.BaseUrl,
                         MaxObservationBytes = ResolvedAgent.RunLimits(_scope.Agents.Values).MaxObservationBytes,
                         AttemptDir = trace.AttemptDir,
                     }

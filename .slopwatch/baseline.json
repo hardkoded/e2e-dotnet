@@ -797,7 +797,7 @@
       "baselinedAt": "2026-11-18T15:41:48.2141259+00:00"
     },
     {
-      "hash": "1facae534d11c7a0",
+      "hash": "d87dfdd93cc74e85",
       "ruleId": "SW003",
       "filePath": "src/E2E/Run/FailureEvidence.cs",
       "lineNumber": 147,
