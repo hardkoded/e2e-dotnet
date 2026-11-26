@@ -731,6 +731,54 @@ public sealed class DeviceFixtureTests
         );
     }
 
+    [Theory]
+    [InlineData(MobilePlatform.Ios, "ios")]
+    [InlineData(MobilePlatform.Android, "android")]
+    public async Task Grants_every_permission_before_each_fresh_launch_with_all_in_one_agent_device_all_on_either_platform_and_for_one_openApp(
+        MobilePlatform platform,
+        string wire
+    )
+    {
+        var h = Harness.Create(
+            configure: options => options with { Platform = platform },
+            app: app => app with { BundleId = "com.example.app", AllPermissions = true }
+        );
+        h.Fake.Respond(DeviceMethods.AppsOpen, _ => new JsonObject
+        {
+            ["session"] = "s",
+            ["appName"] = "Example",
+            ["appBundleId"] = "com.example.app",
+        });
+        var session = await h.Boot();
+        var device = session.Device;
+        var before = h.Fake.Calls.Count;
+        await session.RestartAsync(CancellationToken.None);
+        await session.ClearStateAsync(CancellationToken.None);
+        await device.OpenAppAsync("com.other", new OpenAppOptions { Relaunch = true, AllPermissions = true });
+
+        // agent-device expands `all` itself: the app's declared permissions on Android, each privacy service on iOS.
+        (string Method, string Args) All(string app) =>
+            (
+                "settings.update",
+                $$"""{"setting":"permission","permission":"all","state":"grant","platform":"{{wire}}","app":"{{app}}"}"""
+            );
+        var fresh = ("apps.open", $$"""{"platform":"{{wire}}","app":"com.example.app","relaunch":true}""");
+        JsonAssert.Calls(
+            h.Fake.Calls,
+            before,
+            All("com.example.app"),
+            fresh,
+            (
+                "settings.update",
+                $$"""{"platform":"{{wire}}","setting":"clear-app-state","state":"clear","app":"com.example.app"}"""
+            ),
+            All("com.example.app"),
+            fresh,
+            All("com.other"),
+            ("apps.open", $$"""{"platform":"{{wire}}","app":"com.other","relaunch":true}""")
+        );
+    }
+
     [Fact]
     public async Task Launches_any_app_with_its_own_arguments_and_permissions_set_on_that_app_by_name()
     {

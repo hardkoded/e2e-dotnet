@@ -153,6 +153,9 @@ public abstract class E2EFixture
     /// <summary>The <c>app.permissions</c> of the target: the browser permissions every page of a web attempt holds.</summary>
     protected virtual IReadOnlyDictionary<string, AppPermissionState>? Permissions => DeclaredTarget.App.Permissions;
 
+    /// <summary>The target's <c>app.permissions: 'all'</c>.</summary>
+    protected virtual bool AllPermissions => DeclaredTarget.App.AllPermissions;
+
     /// <summary>Anchors the files a test names, such as a route's fulfill path. Defaults to the config's directory.</summary>
     protected virtual string ProjectRoot => Config.ProjectRoot;
 
@@ -387,6 +390,7 @@ public abstract class E2EFixture
                     TestAgentContext = TestAgentOptions.AgentContext(GetType(), testMethod),
                     BaseUrl = baseUrl,
                     Permissions = Permissions,
+                    AllPermissions = AllPermissions,
                     BundleId = DeclaredTarget.App.BundleId,
                     AppPath = DeclaredTarget.App.AppPath,
                     LinkBase = DeclaredTarget.App.LinkBase,

@@ -161,7 +161,7 @@ public enum OperationOrigin { Test, Agent }
 
 `EngineSpec.ViewportIntersection` (upstream's `viewportIntersection`) measures how much of a node `Locate` returned is inside the viewport, as a `ViewportIntersection(Intersects, Ratio)`, after clipping by the viewport and by every ancestor that clips its content. `Ratio` is null where the platform reports only the visible part of a box. It needs `Locate` (`viewportIntersection without locate` is `INVALID_CONFIG`) and adds `viewport-intersection` to `Capabilities`. Throw `NODE_STALE` if the node no longer binds, and `UNSUPPORTED_CAPABILITY` for a node whose geometry the platform does not report. Nothing in the port calls it yet: `toBeInViewport` is not ported.
 
-`EngineSpec` also declares `SelectsDevice` (needs `Prepare`; `selectsDevice without prepare` is `INVALID_CONFIG`), `GrantsAllPermissions`, `LaunchArgumentValues`, `FileApps`, and `Isolation` (`EngineIsolation.Attempt`, the default, or `EngineIsolation.Worker`; anything else is `INVALID_CONFIG`). The engine manifest carries them, but the port does not read them yet: it has no `--device` flag, no `app.permissions: 'all'`, no object form of `launchArguments`, no file apps, and no worker isolation.
+`EngineSpec` also declares `SelectsDevice` (needs `Prepare`; `selectsDevice without prepare` is `INVALID_CONFIG`), `GrantsAllPermissions`, `LaunchArgumentValues`, `FileApps`, and `Isolation` (`EngineIsolation.Attempt`, the default, or `EngineIsolation.Worker`; anything else is `INVALID_CONFIG`). The engine manifest carries them. The port reads `GrantsAllPermissions` (see `IEngine.GrantsAllPermissions`); it does not read the rest yet: it has no `--device` flag, no object form of `launchArguments`, no file apps, and no worker isolation.
 
 `ReadStyleAsync(node, properties, context, ct)` returns computed CSS strings for the requested properties without changing app state. Its `ComputedStyle` capability requires `ObserveAsync`, and `node` comes from the newest observation. Return a string for every requested property. Throw retryable `NODE_STALE` if the node no longer binds. The harness redacts values before returning them to tools. A property name is a plain string, in kebab case, where upstream's `ComputedStyleProperty` is a union of literals, and `ComputedStyleValues` is an `IReadOnlyDictionary<string, string>`.
 
@@ -309,6 +309,7 @@ public async Task<IEngineSession> StartAsync(EngineStartOptions options, Cancell
 | `BaseUrl` | the app URL, given to `session.open` | The target's base URL, normalized. Null when the target declares none. |
 | `TargetName` | `targetName` | For the errors an engine raises about its app. |
 | `Permissions` | `app.permissions` | By name: `Grant`, `Deny`, `Reset`. What each means is the engine's. |
+| `AllPermissions` | `app.permissions: 'all'` | Grant every permission the engine can grant, in place of `Permissions`. Only an engine whose `IEngine.GrantsAllPermissions` is true receives it: for any other, config load refuses `'all'` with `INVALID_CONFIG`. |
 | `ActionTimeout` | the action timeout | The configured action timeout. |
 | `ProjectRoot` | `projectRoot` | Anchors files an engine option names. Defaults to the working directory. |
 | `Env` | `info.env` | The run's environment with what prepare left in it. Defaults to the process environment. |
@@ -445,10 +446,11 @@ The app under test is declared on the target (`targets[].app`); an engine only d
 | --- | --- |
 | `url` | `EngineStartOptions.BaseUrl`, and each `OpenAsync(url)` the harness resolved. |
 | `permissions` | `EngineStartOptions.Permissions`. |
+| `allPermissions` | `EngineStartOptions.AllPermissions`. |
 | `bundleId`, `appPath`, `launchArguments` | The port's `MobileEngine` and `WinAppEngine` take them from their own options; a custom engine's options carry them. They are not on `EngineStartOptions`. |
 | `command`, `readyUrl` | Never. The host starts the app. |
 
-`EngineAppInfo` (`Site`, `BundleId`, `AppPath`, `LaunchArguments`, `Permissions`) is what `EngineDoctorInfo.App` carries; `Site` is the registrable domain of the app URL. `AppPermissionState` is `Grant`, `Deny`, or `Reset`: held, refused, or not asked for yet, so the OS asks again.
+`EngineAppInfo` (`Site`, `BundleId`, `AppPath`, `LaunchArguments`, `Permissions`, `AllPermissions`) is what `EngineDoctorInfo.App` carries; `Site` is the registrable domain of the app URL. `AppPermissionState` is `Grant`, `Deny`, or `Reset`: held, refused, or not asked for yet, so the OS asks again.
 
 Upstream's `validateApp` hook and `EngineAppDeclaration` are not members of `IEngine`. `WebEngine.ValidateApp`, `MobileEngine.ValidateApp`, and `WinAppEngine.ValidateApp` check their app at configuration time from their target engines; throw `ConfigurationException` `INVALID_CONFIG` naming the target.
 

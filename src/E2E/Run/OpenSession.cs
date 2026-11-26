@@ -302,6 +302,7 @@ public sealed class E2EHost : IAsyncDisposable
             Agent = options.Agent,
             BaseUrl = _target.App.Url,
             Permissions = _target.App.Permissions,
+            AllPermissions = _target.App.AllPermissions,
             BundleId = _target.App.BundleId,
             AppPath = _target.App.AppPath,
             LinkBase = _target.App.LinkBase,
