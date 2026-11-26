@@ -10,11 +10,59 @@ namespace E2E.Tests.EngineProtocol;
 
 /// <summary>
 /// Upstream's <c>describe("permissions 'all'")</c> of <c>describe('engine protocol')</c> (<c>packages/e2e/tests/unit/engine-protocol.test.ts</c>).
-/// Not ported: <c>carries allPermissions into prepare on an engine that declares grantsAllPermissions</c> (the port's app has no
-/// <c>permissions: 'all'</c> and <c>EngineAppInfo.AllPermissions</c>, and its config holds no <see cref="EngineHandle"/> target to resolve).
 /// </summary>
 public sealed class PermissionsAllTests
 {
+    [Fact]
+    public async Task Carries_allPermissions_into_prepare_on_an_engine_that_declares_grantsAllPermissions()
+    {
+        var seen = new List<EngineAppDeclaration?>();
+        var (_, remote) = Of(
+            Toy(spec =>
+                spec with
+                {
+                    GrantsAllPermissions = true,
+                    Prepare = info =>
+                    {
+                        seen.Add(
+                            new EngineAppDeclaration
+                            {
+                                BundleId = info.App!.BundleId,
+                                AllPermissions = info.App.AllPermissions,
+                            }
+                        );
+                        return Task.CompletedTask;
+                    },
+                }
+            ),
+            options => options with { ValidateApp = (app, _) => seen.Add(app) }
+        );
+        var declared = new TargetConfig
+        {
+            Name = "phone",
+            Platform = "toy",
+            App = new AppConfig { BundleId = "dev.shop.app", AllPermissions = true },
+            EngineHandle = remote,
+        };
+
+        var target = ResolvedConfig.ResolveTarget(declared);
+        await target.EngineHandle!.Prepare!(
+            PrepareInfo("phone") with
+            {
+                App = TargetApps.EngineAppInfoOf(
+                    TargetApps.ResolveTargetApp("phone", declared.App, Directory.GetCurrentDirectory())
+                ),
+            }
+        );
+
+        Assert.Equal(2, seen.Count);
+        Assert.All(seen, app =>
+        {
+            Assert.Equal("dev.shop.app", app!.BundleId);
+            Assert.True(app.AllPermissions);
+        });
+    }
+
     [Fact]
     public async Task Refuses_a_server_that_does_not_declare_the_grantsAllPermissions_its_manifest_promised()
     {

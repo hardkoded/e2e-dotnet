@@ -5,6 +5,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using E2E.Engine;
+using E2E.Engine.Protocol;
 using E2E.Internal;
 
 namespace E2E;
@@ -25,8 +26,17 @@ internal sealed record ResolvedEngine(
     IReadOnlyList<Secret>? Secrets = null
 );
 
-/// <summary>A target as selection reads it (upstream's <c>ResolvedTarget</c>, <c>config/resolve.ts</c>); null <see cref="Engine"/> grades no capability.</summary>
-internal sealed record ResolvedTarget(string Name, string Platform, AppConfig App, ResolvedEngine? Engine = null);
+/// <summary>
+/// A target as selection reads it (upstream's <c>ResolvedTarget</c>, <c>config/resolve.ts</c>); null <see cref="Engine"/> grades no capability.
+/// <see cref="EngineHandle"/> is the engine the harness drives when the target declared a handle: always a protocol client, as upstream's <c>engine</c>.
+/// </summary>
+internal sealed record ResolvedTarget(
+    string Name,
+    string Platform,
+    AppConfig App,
+    ResolvedEngine? Engine = null,
+    EngineHandle? EngineHandle = null
+);
 
 /// <summary>
 /// The resolved config as selection and the test filters read it (upstream's <c>ResolvedConfig</c>, <c>config/resolve.ts</c>). The port has
@@ -226,7 +236,28 @@ internal sealed record ResolvedConfig
                     ["platform"] = target.Platform,
                     ["app"] = TargetApps.DigestTargetApp(target.App),
                 };
-                if (target.Engine is { } engine)
+                if (target.EngineHandle is { } handle)
+                {
+                    var declaration = new JsonObject { ["name"] = handle.Name };
+                    if (!string.IsNullOrEmpty(handle.Version))
+                    {
+                        declaration["version"] = handle.Version;
+                    }
+
+                    declaration["spiVersion"] = handle.SpiVersion;
+                    if (!string.IsNullOrEmpty(handle.Platform))
+                    {
+                        declaration["platform"] = handle.Platform;
+                    }
+
+                    declaration["capabilities"] = new JsonArray([
+                        .. handle
+                            .Capabilities.Order(StringComparer.Ordinal)
+                            .Select(name => (JsonNode?)JsonValue.Create(name)),
+                    ]);
+                    digest["engine"] = declaration;
+                }
+                else if (target.Engine is { } engine)
                 {
                     // Upstream leaves out a version or platform the engine does not declare.
                     var declaration = new JsonObject { ["name"] = engine.Name };
@@ -399,8 +430,32 @@ internal sealed record ResolvedConfig
     }
 
     /// <summary>The resolved form of one target: its engine, when it holds one, reduced to what selection and the secret check read.</summary>
-    internal static ResolvedTarget ResolveTarget(TargetConfig target) =>
-        new(
+    internal static ResolvedTarget ResolveTarget(TargetConfig target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        if (target.EngineHandle is { } declared)
+        {
+            if (target.Engine is not null)
+            {
+                throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    $"target \"{target.Name}\" sets both an engine and an engine handle; set one"
+                );
+            }
+
+            // Every in-process engine is served over the protocol, so each call crosses the wire format a remote engine would receive.
+            var served = ProtocolClient.ProtocolEngine(declared);
+            TargetApps.CheckTargetApp(target, served);
+            return new ResolvedTarget(
+                target.Name,
+                target.Platform,
+                target.App,
+                new ResolvedEngine(served.Name, served.Capabilities, served.Secrets),
+                served
+            );
+        }
+
+        return new ResolvedTarget(
             target.Name,
             target.Platform,
             target.App,
@@ -408,6 +463,7 @@ internal sealed record ResolvedConfig
                 ? new ResolvedEngine(held.Name, CapabilityNames(held.Capabilities), held.Secrets)
                 : null
         );
+    }
 
     private static HashSet<string> CapabilityNames(EngineCapabilities capabilities) =>
         [

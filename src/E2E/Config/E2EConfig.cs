@@ -417,6 +417,29 @@ public sealed class E2EConfig
         );
     }
 
+    /// <summary>
+    /// <see cref="WithTarget(string, IEngine)"/> for an engine handle (upstream's <c>engine</c> of a target, <c>defineEngine(...)</c> or
+    /// <c>connectEngine(...)</c>). The run serves it through <see cref="E2E.Engine.Protocol.ProtocolClient.ProtocolEngine"/>, so the harness
+    /// holds the client and a connected engine stays as declared. The target's platform is the handle's.
+    /// </summary>
+    public E2EConfig WithTarget(string name, EngineHandle engine)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentNullException.ThrowIfNull(engine);
+        var existing = Targets.FirstOrDefault(target => string.Equals(target.Name, name, StringComparison.Ordinal));
+        return WithTarget(
+            new TargetConfig
+            {
+                Name = name,
+                Platform = engine.Platform ?? existing?.Platform ?? name,
+                App = existing?.App ?? new AppConfig(),
+                Trace = existing?.Trace ?? new(RecordingMode.RetainOnFailure, RecordingSource.Default),
+                Video = existing?.Video ?? new(RecordingMode.Off, RecordingSource.Default),
+                EngineHandle = engine,
+            }
+        );
+    }
+
     /// <summary>A copy of the config with <paramref name="target"/> in place of the target of the same name, or after the others when none has it.</summary>
     internal E2EConfig WithTarget(TargetConfig target)
     {
@@ -2015,6 +2038,7 @@ public sealed class TargetConfig
             Trace = Trace,
             Video = Video,
             Engine = Engine,
+            EngineHandle = EngineHandle,
         };
 
     /// <summary>
@@ -2023,6 +2047,14 @@ public sealed class TargetConfig
     /// hold are checked against <c>secrets</c>, and its name, version, platform, and capabilities enter the config digest.
     /// </summary>
     public IEngine? Engine { get; init; }
+
+    /// <summary>
+    /// The engine handle this target runs (upstream's <c>engine</c> of a target when it is an <c>EngineHandle</c>), the alternative to
+    /// <see cref="Engine"/>; at most one is set. <see cref="E2EConfig.WithTarget(string, EngineHandle)"/> sets it. The config resolves it
+    /// through <see cref="E2E.Engine.Protocol.ProtocolClient.ProtocolEngine"/>. .NET-only name: the port's <see cref="Engine"/> holds the
+    /// in-process <see cref="IEngine"/> the runner drives.
+    /// </summary>
+    public EngineHandle? EngineHandle { get; init; }
 
     /// <summary>Which attempts write <c>trace.md</c>: <c>E2E_TRACE</c>, else this target's <c>trace</c>, else the config's, else <c>retain-on-failure</c>.</summary>
     public ResolvedRecording Trace { get; init; } = new(RecordingMode.RetainOnFailure, RecordingSource.Default);

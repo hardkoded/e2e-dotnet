@@ -11,8 +11,7 @@ namespace E2E.Tests.EngineProtocol;
 
 /// <summary>
 /// Upstream's <c>describe('launch arguments')</c> of <c>describe('engine protocol')</c> (<c>packages/e2e/tests/unit/engine-protocol.test.ts</c>).
-/// The two <c>Partial_</c> tests that resolve a config check the declaration and the refusal: the port's config holds an <see cref="IEngine"/>,
-/// not the <see cref="EngineHandle"/> <c>connectEngine</c> returns, so they cannot run <c>prepare</c> through the client (#2240).
+/// The <c>Partial_</c> test that carries the object form checks the declaration an <see cref="IEngine"/> reads, not one a client carries to a remote handle.
 /// Not ported: <c>refuses a fileApps flag that is not a boolean</c>, whose flag is typed <c>bool?</c> so a string does not compile.
 /// </summary>
 public sealed class LaunchArgumentsTests
@@ -48,18 +47,52 @@ public sealed class LaunchArgumentsTests
         void IEngine.ValidateApp(EngineAppDeclaration app, EngineAppCheckInfo info) => seen.Add(app);
     }
 
-    /// <summary>Partial: upstream also checks what the engine's <c>prepare</c> receives, through <c>resolveConfig</c> and <c>engineAppInfo</c>; the port checks <c>validateApp</c>'s declaration and the refusal.</summary>
+    private static TargetConfig Declared(EngineHandle engine, AppConfig app) =>
+        new()
+        {
+            Name = "phone",
+            Platform = "toy",
+            App = app,
+            EngineHandle = engine,
+        };
+
     [Fact]
-    public void Partial_Hands_an_engine_that_predates_the_object_form_a_list_it_can_spread_and_refuses_an_object_at_config_load()
+    public async Task Hands_an_engine_that_predates_the_object_form_a_list_it_can_spread_and_refuses_an_object_at_config_load()
     {
-        var seen = new List<EngineAppDeclaration>();
-        var legacy = new ToyEngine(false, seen);
-        Create(Phone(new AppConfig { BundleId = "dev.shop.app", LaunchArguments = ["-AppleLocale", "fr_FR"] }), legacy);
-        Assert.Equal(["-AppleLocale", "fr_FR"], [.. seen.Single().LaunchArguments ?? []]);
+        var spread = new List<string[]>();
+        var legacy = E2E.Engine.EngineManifest.DefineEngine(
+            Toy(spec =>
+                spec with
+                {
+                    ValidateApp = (app, _) => spread.Add([.. app.LaunchArguments ?? []]),
+                    Prepare = info =>
+                    {
+                        spread.Add([.. info.App!.LaunchArguments ?? []]);
+                        return Task.CompletedTask;
+                    },
+                }
+            )
+        );
+        var declared = Declared(
+            legacy,
+            new AppConfig { BundleId = "dev.shop.app", LaunchArguments = ["-AppleLocale", "fr_FR"] }
+        );
+        var target = ResolvedConfig.ResolveTarget(declared);
+        await target.EngineHandle!.Prepare!(
+            PrepareInfo("phone") with
+            {
+                App = TargetApps.EngineAppInfoOf(
+                    TargetApps.ResolveTargetApp("phone", declared.App, Directory.GetCurrentDirectory())
+                ),
+            }
+        );
+        Assert.Equal(2, spread.Count);
+        Assert.All(spread, arguments => Assert.Equal(["-AppleLocale", "fr_FR"], arguments));
 
         var refused = Assert.Throws<ConfigurationException>(() =>
-            Create(
-                Phone(
+            ResolvedConfig.ResolveTarget(
+                Declared(
+                    legacy,
                     new AppConfig
                     {
                         BundleId = "dev.shop.app",
@@ -69,8 +102,7 @@ public sealed class LaunchArgumentsTests
                             ["AppleLanguages"] = new[] { "fr" },
                         },
                     }
-                ),
-                legacy
+                )
             )
         );
         Assert.Equal("INVALID_CONFIG", refused.Code);
@@ -78,7 +110,7 @@ public sealed class LaunchArgumentsTests
             "target \"phone\" app.launchArguments is an object, and engine \"toy\" takes only a list of strings: write the arguments as a list, or use an engine version that supports the object syntax",
             refused.Message
         );
-        Assert.Single(seen);
+        Assert.Equal(2, spread.Count);
     }
 
     /// <summary>Partial: upstream carries the declaration through <c>connectEngine</c> over a loopback transport to a remote handle; the port has no client, so it checks the manifest flag and the declaration the engine reads.</summary>
