@@ -48,7 +48,9 @@ public static partial class Urls
         if (!Uri.TryCreate(WithScheme(text), UriKind.Absolute, out var url))
         {
             throw Invalid(
-                explicitScheme && !IsHttp(text) ? "app URL must be http(s): " + raw : "invalid app URL: " + raw
+                explicitScheme && !IsHttp(text)
+                    ? "app URL must be http(s), or a file: URL of a file on this machine: " + raw
+                    : "invalid app URL: " + raw
             );
         }
 
@@ -67,9 +69,14 @@ public static partial class Urls
             throw Invalid("app URL must not contain a fragment");
         }
 
+        if (url.Scheme == "file")
+        {
+            return FileBase(url, raw);
+        }
+
         if (url.Scheme is not ("http" or "https"))
         {
-            throw Invalid("app URL must be http(s): " + raw);
+            throw Invalid("app URL must be http(s), or a file: URL of a file on this machine: " + raw);
         }
 
         if (url.Scheme == "http" && !IsLoopbackHost(url.Host))
@@ -123,8 +130,160 @@ public static partial class Urls
     /// <summary>True when the URL was declared with port 0: the run picks a free port on its address and substitutes it.</summary>
     internal static bool RequestsFreePort(NormalizedBaseUrl url) => new Uri(url.Href).Port == 0;
 
-    /// <summary>The port the base URL is served on: the explicit one, else the scheme's default.</summary>
-    internal static int PortOf(NormalizedBaseUrl url) => new Uri(url.Href).Port;
+    /// <summary>The port the base URL is served on: the explicit one, else the scheme's default; none for a file. Upstream's <c>portOf</c>.</summary>
+    internal static int? PortOf(NormalizedBaseUrl url) => IsFileBase(url) ? null : new Uri(url.Href).Port;
+
+    /// <summary>
+    /// The origin a file app is given. A file's own origin is opaque, and every <c>data:</c> and <c>blob:</c> URL shares it; the bare scheme
+    /// equals no URL's origin, so nothing is ever mistaken for being on the app's. Upstream's <c>FILE_ORIGIN</c>.
+    /// </summary>
+    private const string FileOrigin = "file://";
+
+    /// <summary>
+    /// Whether an app URL, as declared, names a file: the one reading of the scheme, shared with <see cref="NormalizeBaseUrl"/>, so
+    /// <c>file:8443/report</c> stays the host <c>file</c> on port 8443. An unparseable URL names none; <see cref="NormalizeBaseUrl"/> says why.
+    /// Upstream's <c>namesFile</c>.
+    /// </summary>
+    internal static bool NamesFile(string raw)
+    {
+        ArgumentNullException.ThrowIfNull(raw);
+        return Uri.TryCreate(WithScheme(raw.Trim()), UriKind.Absolute, out var url) && url.Scheme == "file";
+    }
+
+    /// <summary>True when the app is a file the browser opens from disk: it has no origin, port, or host. Upstream's <c>isFileBase</c>.</summary>
+    internal static bool IsFileBase(NormalizedBaseUrl url) => url.Origin == FileOrigin;
+
+    /// <summary>
+    /// A <c>file:</c> app URL: one file on this machine, which the browser opens itself. A host is refused, since a share is another
+    /// machine's file, and so is a directory: a browser lists it with a link to its parent, and from there to every file the user can
+    /// read. The file may not exist when the config loads. Upstream's <c>fileBase</c>.
+    /// </summary>
+    private static NormalizedBaseUrl FileBase(Uri url, string raw)
+    {
+        // WHATWG reads localhost in a file URL as this machine and drops it from the serialization.
+        if (string.Equals(url.Host, "localhost", StringComparison.OrdinalIgnoreCase))
+        {
+            url = new Uri("file://" + url.AbsolutePath);
+        }
+
+        if (url.Host.Length > 0)
+        {
+            throw Invalid(
+                "a file app URL names a file on this machine, with no host, such as file:///path/to/index.html: " + raw
+            );
+        }
+
+        if (!NamesOneFile(url))
+        {
+            throw Invalid(
+                "a file app URL names one file this machine can reach, not a directory, such as file:///path/to/index.html: "
+                    + raw
+            );
+        }
+
+        return new NormalizedBaseUrl(url.AbsoluteUri, FileOrigin, url.AbsolutePath);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="url"/> is a file in the directory of the app's file, which is itself: upstream's <c>fileScope</c> reads
+    /// <c>inside</c>. Paths are compared decoded and with symbolic links resolved. A path this machine cannot resolve (a NUL, a name too
+    /// long, a directory it may not search) is not a file: the rule fails closed.
+    /// </summary>
+    private static bool NamesOneFile(Uri url)
+    {
+        var path = LocalFile(url);
+        if (path is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            var target = RealPath(path);
+            var relative = Path.GetRelativePath(RealPath(Path.GetDirectoryName(path)!), target);
+            if (
+                relative == ".."
+                || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+                || Path.IsPathRooted(relative)
+            )
+            {
+                return false;
+            }
+
+            var directory = relative == "." || url.AbsolutePath.EndsWith('/') || Directory.Exists(target);
+            return !directory;
+        }
+        catch (Exception ex)
+            when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The path a <c>file:</c> URL names on this machine, or null when it names none: a form with an encoded path separator, which a
+    /// browser decodes into a path the URL's own segments do not show. Upstream's <c>localFile</c>.
+    /// </summary>
+    private static string? LocalFile(Uri url)
+    {
+        var path = url.AbsolutePath;
+        return
+            path.Contains("%2f", StringComparison.OrdinalIgnoreCase)
+            || path.Contains("%5c", StringComparison.OrdinalIgnoreCase)
+            || path.Contains("%00", StringComparison.Ordinal)
+            ? null
+            : url.LocalPath;
+    }
+
+    /// <summary>
+    /// <paramref name="file"/> with every symbolic link on the way resolved. A path that does not exist yet resolves as far as it does
+    /// exist, so a new file under a linked directory is still placed where it would be created. Upstream's <c>realPath</c>.
+    /// </summary>
+    private static string RealPath(string file)
+    {
+        var existing = Path.GetFullPath(file);
+        var rest = new Stack<string>();
+        while (!Directory.Exists(existing) && !File.Exists(existing))
+        {
+            var parent = Path.GetDirectoryName(existing);
+            if (parent is null)
+            {
+                break;
+            }
+
+            rest.Push(Path.GetFileName(existing));
+            existing = parent;
+        }
+
+        var resolved = ResolveLinks(existing);
+        while (rest.Count > 0)
+        {
+            resolved = Path.Combine(resolved, rest.Pop());
+        }
+
+        return resolved;
+    }
+
+    /// <summary>Resolves each component of an existing path, so a link in a directory on the way is followed.</summary>
+    private static string ResolveLinks(string existing)
+    {
+        var root = Path.GetPathRoot(existing)!;
+        var current = root;
+        foreach (
+            var part in existing[root.Length..]
+                .Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries)
+        )
+        {
+            current = Path.Combine(current, part);
+            FileSystemInfo info = Directory.Exists(current) ? new DirectoryInfo(current) : new FileInfo(current);
+            if (info.LinkTarget is not null && info.ResolveLinkTarget(true) is { } target)
+            {
+                current = target.FullName;
+            }
+        }
+
+        return current;
+    }
 
     /// <summary>The base URL re-serialized on another port; everything else is kept.</summary>
     internal static NormalizedBaseUrl WithPort(NormalizedBaseUrl url, int port) =>
@@ -262,7 +421,7 @@ public static partial class Urls
         if (HasExplicitScheme(raw))
         {
             // A special scheme reads any run of slashes as the two it needs, so http:/localhost:3000 is a host.
-            return HttpSlashes().Replace(raw, "$1://");
+            return FileSlashes().Replace(HttpSlashes().Replace(raw, "$1://"), "file:///");
         }
 
         if (!Uri.TryCreate("https://" + raw, UriKind.Absolute, out var probe))
@@ -280,6 +439,10 @@ public static partial class Urls
 
     [GeneratedRegex(@"^(https?):[/\\]*(?=[^/\\])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex HttpSlashes();
+
+    // WHATWG reads file: with none, one, or three slashes as an empty host; only exactly two followed by a name is a host.
+    [GeneratedRegex(@"^file:(?:[/\\]{3,}|[/\\]?)(?=[^/\\])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex FileSlashes();
 
     [GeneratedRegex(@"^127(\.\d{1,3}){3}$", RegexOptions.CultureInvariant)]
     private static partial Regex LoopbackV4();

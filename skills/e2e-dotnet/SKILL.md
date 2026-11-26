@@ -495,8 +495,13 @@ lines you changed:
   a located node is inside the viewport as a `ViewportIntersection`. `EngineSpec` also
   declares `SelectsDevice` (needs `Prepare`), `GrantsAllPermissions`,
   `LaunchArgumentValues`, `FileApps`, and `Isolation` (`EngineIsolation.Attempt`, the
-  default, or `EngineIsolation.Worker`). The manifest carries them; the port does not
-  read them yet.
+  default, or `EngineIsolation.Worker`). The manifest carries them; the port reads
+  `FileApps` and not the others yet. `IEngine.FileApps` lets a target's `app.url` be a
+  `file:` URL (one file on this machine, no host, never a directory): an engine without
+  it gets `INVALID_CONFIG`, and `EngineAppCheckInfo.FileApp` tells `ValidateApp`.
+  `WebEngine` declares it and refuses a file app with `Browser`, `Connect`, `Headers`,
+  or `BasicAuth`. A file has no origin, site, or port, so `{port}` in `app.command` is
+  `INVALID_CONFIG` and a command beside it needs `app.readyUrl` (`APP_URL_REQUIRED`).
 - Tests: one test class per feature, one behavior per test method,
   arrange, act, assert with every assertion last (topic `writing-tests`).
   Bad: one test that adds a todo, checks it, marks it done, and checks

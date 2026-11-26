@@ -65,13 +65,11 @@ public sealed class NormalizeBaseUrlTests
     }
 
     [Fact]
-    public void Rejects_non_http_s_schemes()
+    public void Rejects_every_scheme_but_http_s_and_file()
     {
-        Rejects("file:///tmp/app", "");
         Rejects("javascript:alert(1)", @"must be http\(s\)");
 
         // A single-slash scheme is still a scheme, never a host named after it.
-        Rejects("file:/tmp/app", @"must be http\(s\)");
         Rejects("ftp:/server/path", @"must be http\(s\)");
         Rejects("data:text/html,hi", @"must be http\(s\)");
     }

@@ -23,7 +23,7 @@ internal static class TargetEngines
         ArgumentNullException.ThrowIfNull(target);
         if (target.Engine is { } held)
         {
-            TargetApps.CheckLinkBase(target.App.LinkBase, held, $"target \"{target.Name}\" app");
+            TargetApps.CheckTargetApp(target, held);
             return held;
         }
 
@@ -50,12 +50,7 @@ internal static class TargetEngines
             ),
         };
 
-        // Config load: the link base is checked against the engine that must open its links, then the harness checks the target's app against the engine that will drive it (upstream's validateApp, run once per target).
-        TargetApps.CheckLinkBase(target.App.LinkBase, engine, $"target \"{target.Name}\" app");
-        engine.ValidateApp(
-            TargetApps.EngineAppDeclarationOf(target.App),
-            new EngineAppCheckInfo { TargetName = target.Name }
-        );
+        TargetApps.CheckTargetApp(target, engine);
         return engine;
     }
 
