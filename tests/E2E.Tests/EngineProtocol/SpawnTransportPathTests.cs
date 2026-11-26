@@ -28,9 +28,15 @@ public sealed class SpawnTransportPathTests
             var second = Directory.CreateDirectory(Path.Combine(root, "second")).FullName;
             // Only the other-execute bit: the owner is the current user, and the kernel refuses it.
             File.WriteAllText(Path.Combine(first, "tool"), "#!/bin/sh\n");
-            File.SetUnixFileMode(Path.Combine(first, "tool"), UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.OtherExecute);
+            File.SetUnixFileMode(
+                Path.Combine(first, "tool"),
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.OtherExecute
+            );
             File.WriteAllText(Path.Combine(second, "tool"), "#!/bin/sh\n");
-            File.SetUnixFileMode(Path.Combine(second, "tool"), UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            File.SetUnixFileMode(
+                Path.Combine(second, "tool"),
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+            );
 
             var resolved = SpawnTransport.ResolveCommand(
                 "tool",
