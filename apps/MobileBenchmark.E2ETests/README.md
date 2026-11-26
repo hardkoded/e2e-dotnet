@@ -6,7 +6,7 @@ The tests that drive [`apps/MobileBenchmark`](../MobileBenchmark) with `MobileEn
 | --- | --- | --- |
 | `Controls` | `controls.e2e.ts`, `describe('control inventory')` | The Gestures section of the Control Inventory: long press, double tap, and `TapAsync(new TapOptions { Count = 3 })`. No model. |
 
-All tests are in the `Device` category. They need a booted simulator or emulator and the app's build; see [`samples/MobileApp.E2ETests`](../../samples/MobileApp.E2ETests/README.md) for the prerequisites and `E2E_MOBILE_*` variables.
+All tests are in the `RealModel` and `Device` categories, so `TestCategory!=RealModel` skips them, and CI does too. They need a booted simulator or emulator and the app's build; see [`samples/MobileApp.E2ETests`](../../samples/MobileApp.E2ETests/README.md) for the prerequisites and `E2E_MOBILE_*` variables.
 
 ```bash
 dotnet build apps/MobileBenchmark -f net11.0-ios -r iossimulator-arm64
