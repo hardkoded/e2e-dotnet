@@ -106,6 +106,13 @@ public sealed record EngineSpec
         Task<IReadOnlyDictionary<string, string>>
     >? ReadStyle { get; init; }
 
+    /// <summary>
+    /// Measures how much of a node <see cref="Locate"/> returned is inside the viewport, for <c>toBeInViewport</c>, without scrolling or changing
+    /// app state; needs <see cref="Locate"/>. Throw <c>NODE_STALE</c> if the node no longer binds, and <c>UNSUPPORTED_CAPABILITY</c> for a
+    /// node whose geometry the platform does not report.
+    /// </summary>
+    public Func<NodeRef, OperationContext, Task<ViewportIntersection>>? ViewportIntersection { get; init; }
+
     /// <summary>Resolves a query against the surface, returning the nodes it matches.</summary>
     public Func<LocatorExpression, OperationContext, Task<IReadOnlyList<EngineNode>>>? Locate { get; init; }
 
@@ -117,6 +124,33 @@ public sealed record EngineSpec
 
     /// <summary>Whether the tap actions accept modifier keys; only with <see cref="Perform"/>.</summary>
     public bool? TapModifiers { get; init; }
+
+    /// <summary>
+    /// <see cref="Prepare"/> binds the target to the device <c>EnginePrepareInfo.Device</c> names, for <c>e2e run --device</c>, over the device
+    /// the engine was configured with; needs <see cref="Prepare"/>. Declared and carried in the manifest; the port has no <c>--device</c> flag to read it yet (#2213).
+    /// </summary>
+    public bool? SelectsDevice { get; init; }
+
+    /// <summary>The engine grants <c>app.permissions: 'all'</c>. Declared and carried in the manifest; the port does not read it yet (#2213).</summary>
+    public bool? GrantsAllPermissions { get; init; }
+
+    /// <summary>
+    /// The engine reads the object form of <c>app.launchArguments</c> from <c>EngineAppInfo.LaunchArgumentValues</c>. Without it the harness
+    /// refuses an object at config load.
+    /// </summary>
+    public bool? LaunchArgumentValues { get; init; }
+
+    /// <summary>
+    /// The engine opens an app whose <c>url</c> is a <c>file:</c> URL, read from the disk of the machine the harness runs on. Without it the
+    /// harness refuses a file <c>app.url</c> at config load.
+    /// </summary>
+    public bool? FileApps { get; init; }
+
+    /// <summary>
+    /// How long the state behind the engine's fixtures, <c>app</c>, and <c>screen</c> lives: <see cref="EngineIsolation.Attempt"/> (the
+    /// default) or <see cref="EngineIsolation.Worker"/>.
+    /// </summary>
+    public string? Isolation { get; init; }
 
     /// <summary>Performs one pointer action at a viewport point, with no node behind it.</summary>
     public Func<Point, PointerAction, OperationContext, Task>? PerformAt { get; init; }
@@ -173,6 +207,16 @@ public sealed record EngineSpec
     public IReadOnlyDictionary<string, Delegate>? Fixtures { get; init; }
 }
 
+/// <summary>Upstream's <c>EngineIsolation</c> (<c>engine/index.ts</c>): how long the state behind an engine's fixtures, <c>app</c>, and <c>screen</c> lives.</summary>
+public static class EngineIsolation
+{
+    /// <summary>The state ends with the attempt; the default.</summary>
+    public const string Attempt = "attempt";
+
+    /// <summary>The state outlives an attempt and lives as long as the worker.</summary>
+    public const string Worker = "worker";
+}
+
 /// <summary>
 /// Upstream's engine handle (<c>defineEngine</c>'s result, <c>engine/manifest.ts</c>): the validated engine with its capability set. A handle
 /// is only built by <see cref="EngineManifest.DefineEngine"/>.
@@ -198,7 +242,7 @@ public sealed class EngineHandle
 
     public int? Workers => Spec.Workers;
 
-    /// <summary>The capabilities the spec declares: <c>observation</c>, <c>computed-style</c>, <c>actions</c>, <c>location</c>, <c>pointer</c>, <c>keyboard</c>, <c>state</c>, <c>artifacts</c>, and each fixture name.</summary>
+    /// <summary>The capabilities the spec declares: <c>observation</c>, <c>computed-style</c>, <c>actions</c>, <c>location</c>, <c>viewport-intersection</c>, <c>pointer</c>, <c>keyboard</c>, <c>state</c>, <c>artifacts</c>, and each fixture name.</summary>
     public IReadOnlySet<string> Capabilities { get; }
 
     /// <summary>The action kinds <see cref="Perform"/> honors, or null without the actions capability.</summary>
@@ -210,6 +254,21 @@ public sealed class EngineHandle
     /// <summary>The pointer action kinds <see cref="PerformAt"/> honors, or null without the pointer capability.</summary>
     public IReadOnlyList<string>? PointerActions => Spec.PointerActions;
 
+    /// <summary>Whether <c>Prepare</c> binds the device <c>--device</c> names; null when the spec does not declare it.</summary>
+    public bool? SelectsDevice => Spec.SelectsDevice == true ? true : null;
+
+    /// <summary>Whether the engine grants <c>app.permissions: 'all'</c>; null when the spec does not declare it.</summary>
+    public bool? GrantsAllPermissions => Spec.GrantsAllPermissions == true ? true : null;
+
+    /// <summary>Whether the engine reads the object form of <c>app.launchArguments</c>; null when the spec does not declare it.</summary>
+    public bool? LaunchArgumentValues => Spec.LaunchArgumentValues == true ? true : null;
+
+    /// <summary>Whether the engine opens a <c>file:</c> URL app; null when the spec does not declare it.</summary>
+    public bool? FileApps => Spec.FileApps == true ? true : null;
+
+    /// <summary><see cref="EngineIsolation.Worker"/> when the engine's fixtures, app, and screen outlive an attempt; null for the default, <see cref="EngineIsolation.Attempt"/>.</summary>
+    public string? Isolation => Spec.Isolation == EngineIsolation.Worker ? EngineIsolation.Worker : null;
+
     public Func<OperationContext, ObserveOptions?, Task<EngineSnapshot>>? Observe => Spec.Observe;
 
     public Func<
@@ -218,6 +277,9 @@ public sealed class EngineHandle
         OperationContext,
         Task<IReadOnlyDictionary<string, string>>
     >? ReadStyle => Spec.ReadStyle;
+
+    public Func<NodeRef, OperationContext, Task<ViewportIntersection>>? ViewportIntersection =>
+        Spec.ViewportIntersection;
 
     public Func<LocatorExpression, OperationContext, Task<IReadOnlyList<EngineNode>>>? Locate => Spec.Locate;
 
@@ -367,6 +429,16 @@ public static partial class EngineManifest
             capabilities.Add("location");
         }
 
+        if (spec.ViewportIntersection is not null)
+        {
+            if (!capabilities.Contains("location"))
+            {
+                throw Invalid(name, "declares viewportIntersection without locate: it measures located nodes");
+            }
+
+            capabilities.Add("viewport-intersection");
+        }
+
         if (spec.PerformAt is not null)
         {
             if (!capabilities.Contains("observation"))
@@ -395,6 +467,16 @@ public static partial class EngineManifest
                 name,
                 "declares tapModifiers without perform: modifiers ride the tap actions perform receives"
             );
+        }
+
+        if (spec.SelectsDevice == true && spec.Prepare is null)
+        {
+            throw Invalid(name, "declares selectsDevice without prepare: prepare binds the device --device names");
+        }
+
+        if (spec.Isolation is not null && spec.Isolation is not (EngineIsolation.Attempt or EngineIsolation.Worker))
+        {
+            throw Invalid(name, $"isolation must be 'attempt' or 'worker', got \"{spec.Isolation}\"");
         }
 
         if (spec.Keyboard is not null && !capabilities.Contains("observation"))

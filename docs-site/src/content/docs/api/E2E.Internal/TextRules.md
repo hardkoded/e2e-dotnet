@@ -123,6 +123,53 @@ equals, or is contained by, the subject, folding case when &lt;code class="param
 
 **Returns:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
+<a id="E2E_Internal_TextRules_CompileTextMatcher_"></a>
+<a id="E2E_Internal_TextRules_CompileTextMatcher_E2E_TextMatch_System_Boolean_"></a>
+
+### CompileTextMatcher(TextMatch, bool)
+
+
+```csharp
+public static Func<string, bool> CompileTextMatcher(TextMatch expected, bool exact = true)
+```
+
+
+Upstream's `compileTextMatcher` with its default comparison, which reads as `MatchesText` does: whitespace
+normalized, a string compared whole, or as a case-insensitive substring when &lt;code class="paramref"&gt;exact&lt;/code&gt; is false.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `expected` | [TextMatch](/api/E2E/TextMatch/) |  |
+| `exact` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
+
+**Returns:** [Func&lt;string, bool&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
+
+<a id="E2E_Internal_TextRules_CompileTextMatcher_E2E_TextMatch_System_Boolean_System_Boolean_System_Nullable_System_Boolean__"></a>
+
+### CompileTextMatcher(TextMatch, bool, bool, bool?)
+
+
+```csharp
+public static Func<string, bool> CompileTextMatcher(TextMatch expected, bool contains, bool normalize, bool? ignoreCase)
+```
+
+
+Upstream's `compileTextMatcher`: `Compare` compiled once for a pattern that is tested against many strings
+(every node of a tree): the pattern side is normalized here, not on every call.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `expected` | [TextMatch](/api/E2E/TextMatch/) |  |
+| `contains` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
+| `normalize` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
+| `ignoreCase` | [bool?](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
+
+**Returns:** [Func&lt;string, bool&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
+
 <a id="E2E_Internal_TextRules_Matches_"></a>
 <a id="E2E_Internal_TextRules_Matches_System_String_System_String_System_Boolean_"></a>
 

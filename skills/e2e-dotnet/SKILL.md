@@ -490,6 +490,13 @@ lines you changed:
   an engine reads allow-listed rendered properties of an observed node
   (`ComputedStyles.ComputedStyleProperties`) for a read-only project tool's
   `AgentToolContext.ReadAsync` (topic `agent`).
+  `EngineSpec.ViewportIntersection` (upstream's `viewportIntersection`) adds the
+  `viewport-intersection` capability, which needs `Locate`: it measures how much of
+  a located node is inside the viewport as a `ViewportIntersection`. `EngineSpec` also
+  declares `SelectsDevice` (needs `Prepare`), `GrantsAllPermissions`,
+  `LaunchArgumentValues`, `FileApps`, and `Isolation` (`EngineIsolation.Attempt`, the
+  default, or `EngineIsolation.Worker`). The manifest carries them; the port does not
+  read them yet.
 - Tests: one test class per feature, one behavior per test method,
   arrange, act, assert with every assertion last (topic `writing-tests`).
   Bad: one test that adds a todo, checks it, marks it done, and checks

@@ -50,6 +50,7 @@ Public types in the `E2E.Engine` namespace.
 | [EngineFixtureContext](/api/E2E.Engine/EngineFixtureContext/) | What an engine's fixture gets from the attempt, once per attempt. Upstream's EngineFixtureContext, of which the port has locator only: its fixtures take their own cancellation tokens, and record their steps through RunOperationAsync. |
 | [EngineHandle](/api/E2E.Engine/EngineHandle/) | Upstream's engine handle (defineEngine's result, engine/manifest.ts): the validated engine with its capability set. A handle is only built by DefineEngine(EngineSpec). |
 | [EngineInitInfo](/api/E2E.Engine/EngineInitInfo/) | What a worker's init is given, once per worker, before its first attempt. Upstream's EngineInitInfo. |
+| [EngineIsolation](/api/E2E.Engine/EngineIsolation/) | Upstream's EngineIsolation (engine/index.ts): how long the state behind an engine's fixtures, app, and screen lives. |
 | [EngineKeyboardSpec](/api/E2E.Engine/EngineKeyboardSpec/) | Upstream's keyboard hooks of an engine (engine/index.ts): typing, pressing, and dismissing. |
 | [EngineManifest](/api/E2E.Engine/EngineManifest/) | Upstream's defineEngine and isEngineHandle (engine/manifest.ts). The engine manifest: DefineEngine(EngineSpec) validates an engine at config load, synchronously and loudly, and computes its capability set. A combination the contract does not allow is INVALID_CONFIG, never a silent demotion to a lower tier. .NET-only holder name: C# has no free functions. |
 | [EngineNode](/api/E2E.Engine/EngineNode/) | Upstream's SemanticNode (engine/contract.ts): one node of an engine's tree. Named EngineNode because the port's IEngine already has a SemanticNode, which carries the port's own observation fields. |
@@ -123,6 +124,7 @@ Public types in the `E2E.Engine` namespace.
 | [VideoFile](/api/E2E.Engine/VideoFile/) | A video file in the attempt artifact directory. |
 | [VideoLink](/api/E2E.Engine/VideoLink/) | A recording a hosted service keeps, by URL: the report links to it and the runner never downloads it. |
 | [VideoSegment](/api/E2E.Engine/VideoSegment/) | One recorded video of an attempt: a file the engine wrote into the attempt artifact directory (VideoFile), or a recording a hosted service keeps and links to (VideoLink). |
+| [ViewportIntersection](/api/E2E.Engine/ViewportIntersection/) | How much of a node's box is inside the viewport, after clipping by the viewport and by every ancestor that clips its content (a scroll container, overflow: hidden, a frame), as ViewportIntersection measures it. It says nothing about another node covering the box. Upstream's ViewportIntersection (engine/contract.ts). |
 | [WebApp](/api/E2E.Engine/WebApp/) | App on a web target. A WebEngine target always declares app.url, so BaseUrl is always set. Upstream's WebApp (web/fixtures.ts). |
 | [WebBasicAuth](/api/E2E.Engine/WebBasicAuth/) | HTTP basic authentication the browser answers a 401 challenge with. |
 | [WebConnectOptions](/api/E2E.Engine/WebConnectOptions/) | Attach to a remote Chromium over CDP instead of launching one. Supplying ReconnectEndpoint opts into a persistent context instead. |

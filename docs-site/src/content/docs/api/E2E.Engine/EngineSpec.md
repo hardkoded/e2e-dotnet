@@ -105,6 +105,22 @@ Ends an attempt's isolation, within the cleanup budget.
 
 **Value:** [Func&lt;EngineCleanupContext, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 
+<a id="E2E_Engine_EngineSpec_FileApps_"></a>
+<a id="E2E_Engine_EngineSpec_FileApps"></a>
+
+### FileApps
+
+
+```csharp
+public bool? FileApps { get; init; }
+```
+
+
+The engine opens an app whose `url` is a `file:` URL, read from the disk of the machine the harness runs on. Without it the
+harness refuses a file `app.url` at config load.
+
+**Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_EngineSpec_Finish_"></a>
 <a id="E2E_Engine_EngineSpec_Finish"></a>
 
@@ -136,6 +152,21 @@ Fixture factories, by name. A name is lower-camel and not one a universal fixtur
 
 **Value:** [IReadOnlyDictionary&lt;string, Delegate&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
+<a id="E2E_Engine_EngineSpec_GrantsAllPermissions_"></a>
+<a id="E2E_Engine_EngineSpec_GrantsAllPermissions"></a>
+
+### GrantsAllPermissions
+
+
+```csharp
+public bool? GrantsAllPermissions { get; init; }
+```
+
+
+The engine grants `app.permissions: 'all'`. Declared and carried in the manifest; the port does not read it yet (#2213).
+
+**Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_EngineSpec_Init_"></a>
 <a id="E2E_Engine_EngineSpec_Init"></a>
 
@@ -151,6 +182,22 @@ Initializes a worker.
 
 **Value:** [Func&lt;EngineInitInfo, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 
+<a id="E2E_Engine_EngineSpec_Isolation_"></a>
+<a id="E2E_Engine_EngineSpec_Isolation"></a>
+
+### Isolation
+
+
+```csharp
+public string? Isolation { get; init; }
+```
+
+
+How long the state behind the engine's fixtures, `app`, and `screen` lives: [Attempt](/api/E2E.Engine/EngineIsolation/#E2E_Engine_EngineIsolation_Attempt) (the
+default) or [Worker](/api/E2E.Engine/EngineIsolation/#E2E_Engine_EngineIsolation_Worker).
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_Engine_EngineSpec_Keyboard_"></a>
 <a id="E2E_Engine_EngineSpec_Keyboard"></a>
 
@@ -165,6 +212,22 @@ public EngineKeyboardSpec? Keyboard { get; init; }
 Input to the focused field; needs [Observe](#E2E_Engine_EngineSpec_Observe).
 
 **Value:** [EngineKeyboardSpec](/api/E2E.Engine/EngineKeyboardSpec/)
+
+<a id="E2E_Engine_EngineSpec_LaunchArgumentValues_"></a>
+<a id="E2E_Engine_EngineSpec_LaunchArgumentValues"></a>
+
+### LaunchArgumentValues
+
+
+```csharp
+public bool? LaunchArgumentValues { get; init; }
+```
+
+
+The engine reads the object form of `app.launchArguments` from `EngineAppInfo.LaunchArgumentValues`. Without it the harness
+refuses an object at config load.
+
+**Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
 <a id="E2E_Engine_EngineSpec_Locate_"></a>
 <a id="E2E_Engine_EngineSpec_Locate"></a>
@@ -317,6 +380,22 @@ The secrets the engine's options hold, as handles; each name is kept once.
 
 **Value:** [IReadOnlyList&lt;Secret&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
+<a id="E2E_Engine_EngineSpec_SelectsDevice_"></a>
+<a id="E2E_Engine_EngineSpec_SelectsDevice"></a>
+
+### SelectsDevice
+
+
+```csharp
+public bool? SelectsDevice { get; init; }
+```
+
+
+[Prepare](#E2E_Engine_EngineSpec_Prepare) binds the target to the device `EnginePrepareInfo.Device` names, for `e2e run --device`, over the device
+the engine was configured with; needs [Prepare](#E2E_Engine_EngineSpec_Prepare). Declared and carried in the manifest; the port has no `--device` flag to read it yet (#2213).
+
+**Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_EngineSpec_Session_"></a>
 <a id="E2E_Engine_EngineSpec_Session"></a>
 
@@ -436,6 +515,23 @@ public string? Version { get; init; }
 The engine's version, recorded in reports and used to key saved sessions.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+<a id="E2E_Engine_EngineSpec_ViewportIntersection_"></a>
+<a id="E2E_Engine_EngineSpec_ViewportIntersection"></a>
+
+### ViewportIntersection
+
+
+```csharp
+public Func<NodeRef, OperationContext, Task<ViewportIntersection>>? ViewportIntersection { get; init; }
+```
+
+
+Measures how much of a node [Locate](#E2E_Engine_EngineSpec_Locate) returned is inside the viewport, for `toBeInViewport`, without scrolling or changing
+app state; needs [Locate](#E2E_Engine_EngineSpec_Locate). Throw `NODE_STALE` if the node no longer binds, and `UNSUPPORTED_CAPABILITY` for a
+node whose geometry the platform does not report.
+
+**Value:** [Func&lt;NodeRef, OperationContext, Task&lt;ViewportIntersection&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-3)
 
 <a id="E2E_Engine_EngineSpec_Workers_"></a>
 <a id="E2E_Engine_EngineSpec_Workers"></a>
