@@ -468,7 +468,7 @@ lines you changed:
 - An engine built in code (upstream's `targets: [{ engine: ... }]`) is set with
   `config.WithTarget(name, engine)` (an `IEngine`; the target keeps the app of
   the target of that name, and its platform is the engine's) or
-  `TargetConfig.Engine`. An `EngineHandle` (`EngineManifest.DefineEngine(...)` or `ProtocolClient.ConnectEngine(...)`) is a target too: `config.WithTarget(name, handle)` or `TargetConfig.EngineHandle`. Config load serves an in-process handle through `ProtocolClient.ProtocolEngine` (a connected one stays as declared), checks the app against what it declares (`LaunchArgumentValues`, `GrantsAllPermissions`, `FileApps`, `Session.OpenLink`, `ValidateApp`), and the digest reads it. The runner does not drive a handle yet: `E2EFixture`, `E2EHost.OpenAsync`, explore, and mcp refuse it with `INVALID_CONFIG`. `E2EFixture`'s default `CreateEngine`, `E2EHost.OpenAsync`, `e2e explore`, and `e2e mcp` run it; the `MobileAppTest` and `WinAppTest` fixtures build their own. A run
+  `TargetConfig.Engine`. An `EngineHandle` (`EngineManifest.DefineEngine(...)` or `ProtocolClient.ConnectEngine(...)`) is a target too: `config.WithTarget(name, handle)` or `TargetConfig.EngineHandle`. Config load serves an in-process handle through `ProtocolClient.ProtocolEngine` (a connected one stays as declared), checks the app against what it declares (`LaunchArgumentValues`, `GrantsAllPermissions`, `FileApps`, `Session.OpenLink`, `ValidateApp`), and the digest reads it. The runner does not drive a handle yet: `E2EFixture`, `E2EHost.OpenAsync`, explore, and mcp refuse it with `INVALID_CONFIG`. `E2EFixture`'s default `CreateEngine`, `E2EHost.OpenAsync`, `e2e explore`, and `e2e mcp` run an `IEngine` target; the `MobileAppTest` and `WinAppTest` fixtures build their own. A run
   checks every secret the engine's options hold (`IEngine.Secrets`) against
   `config.secrets` at load, naming the nearest secret for a typo and never
   accepting a credential's password, and the engine's name, version, platform,
@@ -498,8 +498,8 @@ lines you changed:
   a located node is inside the viewport as a `ViewportIntersection`. `EngineSpec` also
   declares `SelectsDevice` (needs `Prepare`), `GrantsAllPermissions`,
   `LaunchArgumentValues`, `FileApps`, and `Isolation` (`EngineIsolation.Attempt`, the
-  default, or `EngineIsolation.Worker`). The manifest carries them; the port reads
-  `FileApps` and not the others yet. `IEngine.FileApps` lets a target's `app.url` be a
+  default, or `EngineIsolation.Worker`). The manifest carries them; config validation reads `FileApps`,
+  `LaunchArgumentValues`, and `GrantsAllPermissions`, and the runner reads only `FileApps`. `IEngine.FileApps` lets a target's `app.url` be a
   `file:` URL (one file on this machine, no host, never a directory): an engine without
   it gets `INVALID_CONFIG`, and `EngineAppCheckInfo.FileApp` tells `ValidateApp`.
   `WebEngine` declares it and refuses a file app with `Browser`, `Connect`, `Headers`,
