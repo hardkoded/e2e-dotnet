@@ -66,6 +66,7 @@ public static class ProtocolServer
         private EngineHandle? _engine;
         private ServedAttempt? _attempt;
         private volatile bool _shutdown;
+        private bool _connectionClosed;
 
         public EngineServer(EngineHandle? engine, Func<JsonNode?, Task<EngineHandle>>? factory, MessageStreams streams)
         {
@@ -87,6 +88,7 @@ public static class ProtocolServer
                             {
                                 sources = _shutdown ? [] : [.. _signals.Values];
                                 _signals.Clear();
+                                _connectionClosed = true;
                             }
 
                             foreach (var source in sources)
@@ -150,7 +152,13 @@ public static class ProtocolServer
             }
         }
 
-        private static void Abort(CancellationTokenSource source)
+        /// <summary>
+        /// Cancels a source off the read loop: a callback that waits for a response only that loop can read would otherwise block it.
+        /// Upstream's <c>controller.abort()</c>.
+        /// </summary>
+        private static void Abort(CancellationTokenSource source) => _ = Task.Run(() => Cancel(source));
+
+        private static void Cancel(CancellationTokenSource source)
         {
             try
             {
@@ -636,6 +644,12 @@ public static class ProtocolServer
 
             lock (_gate)
             {
+                // A connection that closed already cannot abort a token minted now, so the hook gets a canceled one.
+                if (_connectionClosed)
+                {
+                    return new CancellationToken(true);
+                }
+
                 if (!_signals.TryGetValue(wire.Id, out var source))
                 {
                     source = new CancellationTokenSource();

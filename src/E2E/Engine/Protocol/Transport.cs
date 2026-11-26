@@ -94,9 +94,10 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
     public Task<ITransportConnection> OpenAsync(TransportContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
+        var cwd = _options.Cwd ?? context.Cwd;
         var start = new ProcessStartInfo(_options.Command)
         {
-            WorkingDirectory = _options.Cwd ?? context.Cwd,
+            WorkingDirectory = cwd,
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -125,6 +126,7 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
             start.Environment[name] = value;
         }
 
+        start.FileName = ResolveCommand(_options.Command, cwd, start.Environment);
         var process = new Process { StartInfo = start, EnableRaisingEvents = true };
         try
         {
@@ -140,6 +142,40 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
         var tail = new StderrTail();
         var stderrClosed = Task.Run(() => tail.ReadAsync(process.StandardError));
         return Task.FromResult<ITransportConnection>(new SpawnConnection(process, tail, stderrClosed, ExitAfterStdout));
+    }
+
+    /// <summary>
+    /// The executable to start. .NET looks a command up against the parent's directory and <c>PATH</c>, where upstream's <c>spawn</c> applies the
+    /// child's <c>cwd</c> and <c>env.PATH</c>: a relative path resolves against <paramref name="cwd"/>, and a bare name against the child's
+    /// <c>PATH</c>. A name found nowhere is left to the operating system to refuse.
+    /// </summary>
+    private static string ResolveCommand(string command, string cwd, IDictionary<string, string?> environment)
+    {
+        if (Path.IsPathRooted(command))
+        {
+            return command;
+        }
+
+        if (command.Contains(Path.DirectorySeparatorChar) || command.Contains(Path.AltDirectorySeparatorChar))
+        {
+            return Path.GetFullPath(command, Path.GetFullPath(cwd));
+        }
+
+        var path = environment.TryGetValue("PATH", out var value) ? value : null;
+        string[] extensions = OperatingSystem.IsWindows() ? ["", ".exe", ".cmd", ".bat"] : [""];
+        foreach (var directory in (path ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            foreach (var extension in extensions)
+            {
+                var candidate = Path.Combine(directory, command + extension);
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+        }
+
+        return command;
     }
 
     /// <summary>The last <see cref="StderrTailBytes"/> characters a server wrote to stderr.</summary>

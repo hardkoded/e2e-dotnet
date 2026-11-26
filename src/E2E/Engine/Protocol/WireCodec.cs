@@ -101,8 +101,15 @@ internal static class WireCodec
                 return (TextMatch.FromString(Required(node, "value")), node?["exact"] is null || Flag(node["exact"]));
             case "regexp":
                 var options = RegexOptions.None;
+                var source = Required(node, "source");
                 foreach (var flag in Required(node, "flags"))
                 {
+                    // JavaScript's sticky flag matches only at the start index: \G anchors a .NET match there.
+                    if (flag == 'y')
+                    {
+                        source = $@"\G(?:{source})";
+                    }
+
                     options |= flag switch
                     {
                         'i' => RegexOptions.IgnoreCase,
@@ -112,7 +119,7 @@ internal static class WireCodec
                     };
                 }
 
-                return (TextMatch.FromRegex(new Regex(Required(node, "source"), options, RegexTimeout)), true);
+                return (TextMatch.FromRegex(new Regex(source, options, RegexTimeout)), true);
             default:
                 throw new JsonException($"unknown text pattern \"{Required(node, "kind")}\"");
         }
