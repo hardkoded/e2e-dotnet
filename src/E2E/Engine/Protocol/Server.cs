@@ -85,15 +85,21 @@ public static class ProtocolServer
                     {
                         // A client that vanished cannot abort what it started; one that shut down cleanly has nothing left running,
                         // and its signals stay as it left them.
-                        CancellationTokenSource[] sources;
                         lock (_gate)
                         {
-                            sources = _shutdown ? [] : [.. _signals.Values];
+                            if (!_shutdown)
+                            {
+                                foreach (var source in _signals.Values)
+                                {
+                                    Abort(source);
+                                }
+                            }
+
                             _signals.Clear();
                             _connectionClosed = true;
                         }
 
-                        _ = CloseAsync(sources);
+                        _ = CloseAsync();
                     },
                     Requests = new Dictionary<string, Func<JsonNode?, Task<JsonNode?>>>
                     {
@@ -112,16 +118,14 @@ public static class ProtocolServer
                         ["$/abort"] = parameters =>
                         {
                             var abort = WireCodec.Read<AbortParams>(parameters);
-                            CancellationTokenSource? source;
                             lock (_gate)
                             {
-                                _signals.Remove(abort.Id, out source);
-                            }
-
-                            // A token carries no reason, so the client's reason does not cross: the engine sees a plain cancellation.
-                            if (source is not null)
-                            {
-                                _ = Abort(source);
+                                // A token carries no reason, so the client's reason does not cross: the engine sees a plain cancellation.
+                                // The removal and the abort are one step, so a close never sees the source gone and its abort not yet tracked.
+                                if (_signals.Remove(abort.Id, out var source))
+                                {
+                                    Abort(source);
+                                }
                             }
                         },
                     },
@@ -147,21 +151,14 @@ public static class ProtocolServer
         }
 
         /// <summary>
-        /// Cancels a source off the read loop: a callback that waits for a response only that loop can read would otherwise block it.
-        /// Upstream's <c>controller.abort()</c>.
+        /// Completes <see cref="Closed"/> once the cancellation callbacks every abort started ran, or <c>CloseWait</c> passed: a server process
+        /// that exits on it must not do so before the engine's callbacks ran, and one that never returns must not keep the server from ending.
         /// </summary>
-        /// <summary>
-        /// Signals every source off the read loop, then completes <see cref="Closed"/> once the callbacks ran or <c>CloseWait</c> passed: a
-        /// server process that exits on it must not do so before the engine's tokens were canceled, and a callback that never returns must not
-        /// keep the server from ending.
-        /// </summary>
-        private async Task CloseAsync(CancellationTokenSource[] sources)
+        private async Task CloseAsync()
         {
             try
             {
-                // The aborts a `$/abort` queued just before the close count too: they removed their sources from the map already.
-                var canceled = Task.WhenAll([.. sources.Select(Abort), .. PendingAborts()]);
-                await Task.WhenAny(canceled, Task.Delay(CloseWait)).ConfigureAwait(false);
+                await Task.WhenAny(Task.WhenAll(PendingAborts()), Task.Delay(CloseWait)).ConfigureAwait(false);
             }
             finally
             {
@@ -169,16 +166,12 @@ public static class ProtocolServer
             }
         }
 
-        private Task Abort(CancellationTokenSource source)
-        {
-            var aborting = Task.Run(() => Cancel(source));
-            lock (_gate)
-            {
-                _aborts.Add(aborting);
-            }
-
-            return aborting;
-        }
+        /// <summary>
+        /// Cancels a source and tracks the callbacks. <c>CancelAsync</c> marks the token canceled before it returns and runs the callbacks off the
+        /// read loop, so one that waits for a response only that loop can read cannot block it. Called with <c>_gate</c> held. Upstream's
+        /// <c>controller.abort()</c>.
+        /// </summary>
+        private void Abort(CancellationTokenSource source) => _aborts.Add(ObserveAsync(source.CancelAsync()));
 
         private Task[] PendingAborts()
         {
@@ -189,11 +182,11 @@ public static class ProtocolServer
             }
         }
 
-        private static void Cancel(CancellationTokenSource source)
+        private static async Task ObserveAsync(Task aborting)
         {
             try
             {
-                source.Cancel();
+                await aborting.ConfigureAwait(false);
             }
             catch (Exception cause)
             {
