@@ -22,7 +22,8 @@ public sealed class ManifestTests
                 | EngineCapabilities.Screenshot
                 | EngineCapabilities.Video
                 | EngineCapabilities.PinnedApp // .NET-only: upstream's launchesPinnedApp, which the port holds as a capability
-                | EngineCapabilities.OpenLink, // .NET-only: upstream's session.openLink hook, which the port holds as a capability
+                | EngineCapabilities.OpenLink // .NET-only: upstream's session.openLink hook, which the port holds as a capability
+                | EngineCapabilities.ViewportIntersection,
             engine.Capabilities
         );
         Assert.Equal(

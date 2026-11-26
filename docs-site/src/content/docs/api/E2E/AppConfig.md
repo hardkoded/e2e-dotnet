@@ -25,6 +25,23 @@ public sealed class AppConfig
 
 ## Properties
 
+<a id="E2E_AppConfig_AllPermissions_"></a>
+<a id="E2E_AppConfig_AllPermissions"></a>
+
+### AllPermissions
+
+
+```csharp
+public bool AllPermissions { get; init; }
+```
+
+
+`app.permissions: 'all'` (upstream's string form of `app.permissions`): grant every permission the engine can grant, in place
+of [Permissions](#E2E_AppConfig_Permissions). A web target grants each permission its browser takes; a device grants all of them in one agent-device
+`all` grant. Only an engine that grants `'all'` takes it; for any other the config is refused.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_AppConfig_AppPath_"></a>
 <a id="E2E_AppConfig_AppPath"></a>
 

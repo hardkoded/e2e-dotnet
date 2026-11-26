@@ -423,7 +423,7 @@ node under the soft keyboard is hidden, so the scroll goes on (topic `mobile`, "
 
 `Expect.That(locator)` polls until the assertion timeout, reading at 0, 20, and
 50 ms, then every 100 ms from the start:
-`ToBeVisibleAsync`, `ToBeHiddenAsync`, `ToBeAttachedAsync`,
+`ToBeVisibleAsync`, `ToBeHiddenAsync`, `ToBeInViewportAsync`, `ToBeAttachedAsync`,
 `ToBeEnabledAsync`, `ToBeDisabledAsync`, `ToBeEditableAsync`, `ToBeCheckedAsync`,
 `ToContainTextAsync`, `ToHaveTextAsync`, `ToHaveValueAsync`,
 `ToHaveCountAsync`, `ToHaveAttributeAsync`, and more. `.Not` inverts a
@@ -431,6 +431,15 @@ matcher. On a device, a node whose centre the soft keyboard covers is hidden for
 `ToBeVisibleAsync` and `ToBeHiddenAsync`, except the keyboard's own keys,
 suggestion bar, and dock, the focused field, and a container with a child still
 showing (see the mobile reference).
+- `ToBeInViewportAsync(ratio)` waits for part of the one match, or that share of its box
+  (`ratio` from 0 to 1; 0 is any area; otherwise `INVALID_ARGUMENT`), to be inside the
+  viewport, without scrolling. No match, a zero-size box, and (web) an element with no box
+  such as `display: none` are outside, so `.Not` accepts zero matches. The web engine measures
+  with the page's `IntersectionObserver`, as Playwright does, so scrolling and `overflow`
+  ancestors and frames clip the box. A device reports bounds already clipped, so there
+  `ratio > 0` fails with `UNSUPPORTED_CAPABILITY` once the node is on screen. It fails at once
+  with `UNSUPPORTED_CAPABILITY`, `.Not` included, on an engine without `ViewportIntersectionAsync`
+  or for a node whose bounds the engine cannot report.
 - `ToBeEditableAsync()` waits for an enabled control that is not read-only;
   `ToBeEditableAsync(false)` waits for a disabled or read-only one. It reads the node's
   `readonly` state, which the web engine reports by Playwright's `getReadonly` rules: an

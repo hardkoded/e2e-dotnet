@@ -388,8 +388,11 @@ public static class ProtocolServer
             switch (member)
             {
                 case "prepare":
-                    await InvokeAsync(hook!, [Prepare(parameters, Log, Signal(parameters))]).ConfigureAwait(false);
-                    return null;
+                    return WireCodec.Write(
+                        (EnginePrepareResult?)
+                            await InvokeAsync(hook!, [Prepare(parameters, Log, Signal(parameters))])
+                                .ConfigureAwait(false)
+                    );
                 case "finish":
                     await InvokeAsync(hook!, [Finish(parameters, Log, Signal(parameters))]).ConfigureAwait(false);
                     return null;

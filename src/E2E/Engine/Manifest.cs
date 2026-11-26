@@ -176,8 +176,8 @@ public sealed record EngineSpec
     /// <summary>Checks the app a target declares against what the engine can drive, at config load.</summary>
     public Action<EngineAppDeclaration, EngineAppCheckInfo>? ValidateApp { get; init; }
 
-    /// <summary>Prepares the engine for a run.</summary>
-    public Func<EnginePrepareInfo, Task>? Prepare { get; init; }
+    /// <summary>Prepares the engine for a run. Returns what prepare learned that the run must honour, or null when it bound nothing.</summary>
+    public Func<EnginePrepareInfo, Task<EnginePrepareResult?>>? Prepare { get; init; }
 
     /// <summary>Finishes a run.</summary>
     public Func<EngineFinishInfo, Task>? Finish { get; init; }
@@ -302,7 +302,7 @@ public sealed class EngineHandle
 
     public Action<EngineAppDeclaration, EngineAppCheckInfo>? ValidateApp => Spec.ValidateApp;
 
-    public Func<EnginePrepareInfo, Task>? Prepare => Spec.Prepare;
+    public Func<EnginePrepareInfo, Task<EnginePrepareResult?>>? Prepare => Spec.Prepare;
 
     public Func<EngineFinishInfo, Task>? Finish => Spec.Finish;
 

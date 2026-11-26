@@ -181,6 +181,7 @@ Every row works today. For an API that is not here, check [What e2e doesn't have
 | Playwright .NET | e2e |
 | --- | --- |
 | `ToBeVisibleAsync`, `ToBeHiddenAsync`, `ToBeEnabledAsync`, `ToBeDisabledAsync`, `ToBeFocusedAsync`, `ToHaveValueAsync`, `ToHaveAttributeAsync`, `ToHaveCountAsync`, `ToHaveAccessibleNameAsync`, `ToHaveRoleAsync`, `ToBeEditableAsync` | the same |
+| `ToBeInViewportAsync(new() { Ratio })` | `ToBeInViewportAsync(ratio)`; a zero-size element reads as outside, and on a device `ratio > 0` fails with `UNSUPPORTED_CAPABILITY` because a device reports only the visible part of a box |
 | `ToBeCheckedAsync()` | the same on a checkable node; on any other node `.Not.ToBeCheckedAsync()` passes, see [What differs on purpose](#what-differs-on-purpose) |
 | `ToHaveTextAsync()`, `ToContainTextAsync()` | compare the rendered text, see [What differs on purpose](#what-differs-on-purpose) |
 | `ToHaveTextAsync(new[] { "a", "b" })` on several matches | the same: `ToHaveTextAsync` needs the count to match |
@@ -313,7 +314,7 @@ Planned is on the roadmap. Not yet has no date. Not planned is left out on purpo
 | `EvaluateAsync(fn)`, `EvaluateAllAsync(fn)` on a locator, `DispatchEventAsync()`, `BlurAsync()`, `SelectTextAsync()`, `ToHaveCSSAsync()`, `ToHaveIdAsync()`, `ToHaveJSPropertyAsync()`, `ToContainClassAsync()`, `ToHaveValuesAsync()` | `Browser.EvaluateAsync<T>(expression, selector)` with a CSS selector in the argument and a value assert; `Expect.That(Browser).ToHaveClassAsync(locator, cls)` |
 | `SelectOptionAsync(new[] { "a", "b" })`, `ClickAsync(new() { ClickCount })`, `HoverAsync(new() { Position })` | `Browser.EvaluateAsync` for a multi-select; `Browser.Mouse` with `BoundingBoxAsync()` |
 | `Expect(async () => { ... }).ToPassAsync()` with custom intervals | `PassOptions.Intervals`, a list of `TimeSpan` pauses whose last entry repeats. `PollOptions.Intervals` does the same for `Expect.Poll` |
-| `ToBeEmptyAsync()`, `IsEditableAsync()`, `ToBeInViewportAsync()`, `ToHaveAccessibleDescriptionAsync()`, `ToBeCheckedAsync(new() { Indeterminate })`, `UseInnerText` | `ToHaveValueAsync("")` on a form control, `ToHaveTextAsync("")` on other elements; `ToBeEditableAsync()` for `IsEditableAsync()`; `Expect.Poll` over `BoundingBoxAsync()`; a `GetByRole` query |
+| `ToBeEmptyAsync()`, `IsEditableAsync()`, `ToHaveAccessibleDescriptionAsync()`, `ToBeCheckedAsync(new() { Indeterminate })`, `UseInnerText` | `ToHaveValueAsync("")` on a form control, `ToHaveTextAsync("")` on other elements; `ToBeEditableAsync()` for `IsEditableAsync()`; a `GetByRole` query |
 | `Locator.ScreenshotAsync()`, `ToHaveScreenshotAsync(new() { FullPage, Clip, Animations, Caret, Scale, StylePath })` | The viewport or one locator in `ToHaveScreenshotAsync`; `App.ScreenshotAsync(label)` captures the viewport |
 | `Expect(locator, new() { Message })` | `Expect.That(locator, "message")`; the message opens the failure. `Timeout` on each call |
 | A custom matcher | An async helper that calls `Expect.That` |

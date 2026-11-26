@@ -29,6 +29,21 @@ The app a host drives: what `app.open()` opens on a browser, or launches on a de
 
 ## Properties
 
+<a id="E2E_LaunchApp_AllPermissions_"></a>
+<a id="E2E_LaunchApp_AllPermissions"></a>
+
+### AllPermissions
+
+
+```csharp
+public bool AllPermissions { get; init; }
+```
+
+
+`app.permissions: 'all'`.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_LaunchApp_AppPath_"></a>
 <a id="E2E_LaunchApp_AppPath"></a>
 

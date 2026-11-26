@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json.Nodes;
 using E2E.Engine;
 using static E2E.Mobile.Tests.RawNodes;
 using static E2E.Mobile.Tests.Screens;
@@ -150,5 +151,121 @@ public sealed class LocationTests
             await session.LocateAsync(TestId("greet"), TimeSpan.FromSeconds(5), CancellationToken.None)
         );
         Assert.Equal("com.foo:id/greet", greet.TestId);
+    }
+
+    private static LocatorExpression ExactText(string value) =>
+        LocatorExpression.For(
+            "text",
+            TextMatch.FromString(value),
+            new TextMatchOptions { Exact = true },
+            nameof(value)
+        );
+
+    private static RawNode[] SettingsWith(params RawNode[] extra) => [.. SettingsNodes, .. extra];
+
+    [Fact]
+    public async Task Answers_whether_a_located_node_is_on_the_screen_never_the_share_agent_device_clipped_away()
+    {
+        var h = Harness.Create();
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            FakeDeviceClient.SnapshotOf(
+                SettingsWith(
+                    N("@e11", index: 11, parentIndex: 0, depth: 1, type: "button", label: "Unplaced"),
+                    N(
+                        "@e12",
+                        index: 12,
+                        parentIndex: 0,
+                        depth: 1,
+                        type: "button",
+                        label: "Lower",
+                        rect: new Rect(10, 600, 100, 40)
+                    )
+                )
+            )
+        );
+        var session = await OpenAttempt(h);
+        async Task<ViewportIntersection> Measure(string label)
+        {
+            var node = Assert.Single(
+                await session.LocateAsync(ExactText(label), TimeSpan.FromSeconds(5), CancellationToken.None)
+            );
+            var issued = h.Fake.Calls.Count;
+            try
+            {
+                // Read off the capture the locate took: no second snapshot, no device command.
+                return await session.ViewportIntersectionAsync(node, OperationContext.Test, CancellationToken.None);
+            }
+            finally
+            {
+                Assert.Equal(issued, h.Fake.Calls.Count);
+            }
+        }
+
+        Assert.Equal(new ViewportIntersection(true), await Measure("About"));
+        // Below y 390 on the 390x844 screen: the height is measured against the height, not the width.
+        Assert.Equal(new ViewportIntersection(true), await Measure("Lower"));
+        Assert.Equal(new ViewportIntersection(true), await Measure("Password"));
+        // Below the 844-point screen.
+        Assert.Equal(new ViewportIntersection(false), await Measure("Hidden"));
+        var unplaced = await Assert.ThrowsAsync<EngineException>(() => Measure("Unplaced"));
+        Assert.Equal(EngineErrorCodes.UnsupportedCapability, unplaced.Code);
+    }
+
+    [Fact]
+    public async Task Measures_against_a_resized_screen_once_the_device_confirms_it_without_waiting_for_an_observe()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        var below = N(
+            "@e11",
+            index: 11,
+            parentIndex: 0,
+            depth: 1,
+            type: "button",
+            label: "Below",
+            rect: new Rect(10, 850, 100, 20)
+        );
+        async Task<ViewportIntersection> LocateBelow()
+        {
+            var node = Assert.Single(
+                await session.LocateAsync(ExactText("Below"), TimeSpan.FromSeconds(5), CancellationToken.None)
+            );
+            return await session.ViewportIntersectionAsync(node, OperationContext.Test, CancellationToken.None);
+        }
+
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(SettingsWith(below)));
+        Assert.Equal(new ViewportIntersection(false), await LocateBelow());
+
+        // A foldable unfolds: the tree grows to 402x874, and the device's screen agrees.
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            FakeDeviceClient.SnapshotOf(
+                SettingsWith(below),
+                ("viewport", new JsonObject { ["width"] = 402, ["height"] = 874 })
+            )
+        );
+        h.Fake.Respond(DeviceMethods.CaptureScreenshot, _ => new JsonObject
+        {
+            ["logicalWidth"] = 402,
+            ["logicalHeight"] = 874,
+        });
+        Assert.Equal(new ViewportIntersection(true), await LocateBelow());
+    }
+
+    [Fact]
+    public async Task Refuses_to_say_whether_a_node_is_in_the_viewport_when_its_window_has_no_known_place_on_the_screen()
+    {
+        var h = Harness.Create();
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            FakeDeviceClient.SnapshotOf(SettingsNodes, ("warnings", new JsonArray(DeviceErrors.OriginWarning)))
+        );
+        var session = await OpenAttempt(h);
+        var hidden = Assert.Single(
+            await session.LocateAsync(ExactText("Hidden"), TimeSpan.FromSeconds(5), CancellationToken.None)
+        );
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            session.ViewportIntersectionAsync(hidden, OperationContext.Test, CancellationToken.None)
+        );
+        Assert.Equal(EngineErrorCodes.UnsupportedCapability, error.Code);
+        Assert.Contains(DeviceErrors.OriginUnknownBounds, error.Message);
     }
 }
