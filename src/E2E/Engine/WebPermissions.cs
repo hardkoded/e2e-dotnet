@@ -121,11 +121,10 @@ internal static class WebPermissions
     /// named grant keeps the refusal, since the user can drop the name. Playwright keeps a refused name among the context's grants, so the
     /// context's grants are cleared before each retry. Upstream's <c>grantPermissions</c>.
     /// </summary>
-    public static Task GrantPermissionsAsync(
-        IBrowserContext context,
-        IReadOnlyList<string> names,
-        bool skipUnknown
-    ) => GrantPermissionsAsync(context, names, skipUnknown, static (context, names) => context.GrantPermissionsAsync(names));
+    public static Task GrantPermissionsAsync(IBrowserContext context, IReadOnlyList<string> names, bool skipUnknown) =>
+        GrantPermissionsAsync(context, names, skipUnknown, static (context, names) =>
+            context.GrantPermissionsAsync(names)
+        );
 
     /// <summary>
     /// <see cref="GrantPermissionsAsync(IBrowserContext, IReadOnlyList{string}, bool)"/> through <paramref name="grant"/>, the call that

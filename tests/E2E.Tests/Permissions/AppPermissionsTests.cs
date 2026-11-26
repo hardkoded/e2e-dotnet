@@ -97,15 +97,12 @@ public sealed class AppPermissionsTests
 
             spying = true;
             var second = await StartAsync();
-            await WebEngineTests.RunAsync(
-                second,
-                async () =>
-                {
-                    // Refused with the whole list, then granted without the unknown name.
-                    Assert.Equal([true, false], calls);
-                    Assert.Equal("the rest", await CopyAsync(second, "the rest"));
-                }
-            );
+            await WebEngineTests.RunAsync(second, async () =>
+            {
+                // Refused with the whole list, then granted without the unknown name.
+                Assert.Equal([true, false], calls);
+                Assert.Equal("the rest", await CopyAsync(second, "the rest"));
+            });
         }
         finally
         {
