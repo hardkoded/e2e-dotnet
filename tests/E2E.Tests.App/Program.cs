@@ -23,6 +23,7 @@ using System.Text;
 //   print <code|stay> <line>...    prints each line to stdout, then exits with the code or stays up
 //   print-template <template>      prints the template with ${NAME} replaced by that environment variable, then stays up
 //   write-env <file>               writes the environment, one NAME=VALUE per line, to the file, then exits
+//   protocol-server               upstream's fixtures/protocol-server.ts: a toy engine served over stdio (see ProtocolServerFixture)
 //   file-lock-worker <lock> <log> <exitedPid> <startAt> <stop>  upstream's helpers/file-lock-worker.ts: takes the lock over and over (see FileLockWorker)
 //   refresh-worker <file> <tokenUrl> <apiUrl>  upstream's oauth/helpers/refresh-worker.ts: one call over the stored login (see RefreshWorker)
 if (args.Length == 0)
@@ -113,6 +114,12 @@ switch (args[0])
         }
 
         File.WriteAllLines(args[1], lines);
+        return 0;
+    case "protocol-server":
+        await ProtocolServerFixture.RunAsync();
+        return 0;
+    case "protocol-server-late-child":
+        await ProtocolServerFixture.RunLateChildAsync();
         return 0;
     case "file-lock-worker":
         await FileLockWorker.RunAsync(args[1], args[2], args[3], args[4], args[5]);

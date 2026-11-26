@@ -303,12 +303,36 @@ public sealed class SpawnTransport(SpawnTransportOptions options) : IEngineTrans
         {
             var tail = _stderr.ToString().Trim();
             var exit = Interlocked.Read(ref _exit);
-            var status = exit == NotExited ? "" : $"exited with code {exit}";
+            var status =
+                exit == NotExited ? ""
+                : SignalOf(exit) is { } signal ? $"killed by {signal}"
+                : $"exited with code {exit}";
             return string.Join(
                 "; ",
                 new[] { status, tail.Length == 0 ? "" : $"stderr:\n{tail}" }.Where(part => part.Length > 0)
             );
         }
+
+        /// <summary>
+        /// The signal that stopped a server, from the exit code .NET reports for a signaled child on Unix (128 plus the signal number); null
+        /// for a plain exit. Upstream reads <c>child.signalCode</c>, which .NET has no equivalent of.
+        /// </summary>
+        private static string? SignalOf(long exit) =>
+            !OperatingSystem.IsWindows() && exit > 128
+                ? (exit - 128) switch
+                {
+                    1 => "SIGHUP",
+                    2 => "SIGINT",
+                    3 => "SIGQUIT",
+                    6 => "SIGABRT",
+                    9 => "SIGKILL",
+                    11 => "SIGSEGV",
+                    13 => "SIGPIPE",
+                    14 => "SIGALRM",
+                    15 => "SIGTERM",
+                    _ => null,
+                }
+                : null;
 
         /// <summary>Closes stdin; false when the server already closed its end.</summary>
         private bool TryCloseOutput()
