@@ -247,12 +247,8 @@ public sealed class EngineProtocolTests
         await remote.Dispose!(DisposeContext());
     }
 
-    /// <summary>
-    /// Partial: upstream also checks the cause's own <c>code</c> (<c>ECONNREFUSED</c>), a property a .NET exception has none of. The port
-    /// checks the stack and the cause's message and stack.
-    /// </summary>
     [Fact]
-    public async Task Partial_Keeps_a_thrown_errors_stack_and_causes_across_the_protocol()
+    public async Task Keeps_a_thrown_errors_stack_and_causes_across_the_protocol()
     {
         Exception thrown = null!;
         Exception inner = null!;
@@ -260,7 +256,9 @@ public sealed class EngineProtocolTests
         {
             try
             {
-                throw new InvalidOperationException("connect ECONNREFUSED");
+                var refused = new InvalidOperationException("connect ECONNREFUSED");
+                refused.Data[Protocol.ErrnoKey] = "ECONNREFUSED";
+                throw refused;
             }
             catch (Exception cause)
             {
@@ -284,31 +282,24 @@ public sealed class EngineProtocolTests
 
         Assert.Equal(thrown.StackTrace, received.Data[Protocol.RemoteStackKey]);
         Assert.Equal("connect ECONNREFUSED", received.InnerException!.Message);
+        Assert.Equal("ECONNREFUSED", received.InnerException.Data[Protocol.ErrnoKey]);
         Assert.Equal(inner.StackTrace, received.InnerException.Data[Protocol.RemoteStackKey]);
         await remote.Dispose!(DisposeContext());
     }
 
-    /// <summary>
-    /// Partial: upstream counts the <c>abort</c> listeners left on the caller's signal, which a <see cref="CancellationToken"/> does not
-    /// list. The port checks that a disposed encoder, which the connection's close disposes, no longer reports the token's cancellation.
-    /// </summary>
     [Fact]
-    public async Task Partial_Detaches_from_a_callers_signal_once_the_connection_closes()
+    public async Task Detaches_from_a_callers_signal_once_the_connection_closes()
     {
-        var input = new System.IO.Pipelines.Pipe();
-        var output = new System.IO.Pipelines.Pipe();
-        using var connection = new Connection(new MessageStreams(input.Reader.AsStream(), output.Writer.AsStream()));
-        var encoder = new SignalEncoder();
-        encoder.Attach(connection);
         using var live = new CancellationTokenSource();
-        encoder.Encode(live.Token);
-        encoder.Dispose();
+        var (_, remote) = Of(Toy());
+        for (var cycle = 0; cycle < 3; cycle += 1)
+        {
+            await remote.Init!(InitInfo(signal: live.Token));
+            await remote.Observe!(Operation(live.Token), null);
+            await remote.Dispose!(DisposeContext());
+        }
 
-        live.Cancel();
-        await output.Writer.CompleteAsync();
-
-        using var reader = new StreamReader(output.Reader.AsStream());
-        Assert.Equal("", await reader.ReadToEndAsync());
+        Assert.Equal(0, SignalEncoder.GetEventListeners(live.Token));
     }
 
     [Fact]
