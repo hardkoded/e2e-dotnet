@@ -679,11 +679,12 @@ A query with `Visible` set must match only nodes whose `States.Hidden` is false.
 | --- | --- |
 | `workers`, `EngineInitInfo.workerSlot` at a hook | No worker pool or runner. |
 | `EngineDisposeContext.reuseSignal` | `EngineDisposeContext.ReuseSignal`, honored by `IDisposableEngine` on the mobile engine. No scheduler in the port grants it. |
-| `EngineAttemptContext.resolveSecret`, `ResolveSecretOptions` | `EngineStartOptions.ResolveSecret` is `internal`; the harness resolves only a secret in `IEngine.Secrets` and fails any other with `SECRET_UNAVAILABLE`. [#1246](https://github.com/hardkoded/e2e-dotnet/issues/1246) tracks making it public. |
+| `EngineAttemptContext.resolveSecret`, `ResolveSecretOptions` | `EngineAttemptContext.ResolveSecret` and `ResolveSecretOptions` are public and carry the secret over the engine protocol. `EngineStartOptions.ResolveSecret` stays `internal`; the harness resolves only a secret in `IEngine.Secrets` and fails any other with `SECRET_UNAVAILABLE`. [#1246](https://github.com/hardkoded/e2e-dotnet/issues/1246) tracks making it public. |
 | `Engine.fixtures`, `EngineFixtureContext.fixture`, `FixtureOperation`, `expectable`, `requires` | [#1197](https://github.com/hardkoded/e2e-dotnet/issues/1197) and [#1185](https://github.com/hardkoded/e2e-dotnet/issues/1185). |
 | `timeoutMs` on `SwipeAsync`, `BackAsync`, `ResizeAsync` and the session hooks | `OperationContext.Timeout` on the agent's swipe, back and resize (what is left of the step's budget), and on the app's open, back, restart, clear-state and screenshot (the browser's budget, bounded by the test). The web engine bounds `OpenAsync`, `BackAsync`, `RestartAsync`, `ClearStateAsync`, `ResizeAsync`, `PressAsync`, `TypeTextAsync`, `ScreenshotAsync`, `ScreenshotArtifactAsync`, `CaptureStateAsync`, `RestoreStateAsync`, and the video start and stop by it. The other engines carry it. The agent's perform calls carry the step's budget too, and so does a replayed recorded action. ([#1366](https://github.com/hardkoded/e2e-dotnet/issues/1366)) |
 | `artifacts.startTrace`, `stopTrace` | Removed upstream. |
-| The engine protocol (`serveEngine`, `connectEngine`, `spawnTransport`) | [#873](https://github.com/hardkoded/e2e-dotnet/issues/873). |
+| `serveEngine`, `spawnTransport`, `socketTransport`, `loopbackTransport` | `ProtocolServer.ServeEngineAsync`, `SpawnTransport`, `SocketTransport`, `LoopbackTransport`. |
+| `connectEngine`, the protocol client | [#2208](https://github.com/hardkoded/e2e-dotnet/issues/2208), [#2209](https://github.com/hardkoded/e2e-dotnet/issues/2209). |
 | `RETRYABLE_ENGINE_ERROR_CODES` as an exported set, `rejectUnknownKeys` | `EngineErrorCodes.IsRetryable`, and typed options need no key check. |
 | `ObservationPixels` | The port's `Observation.Pixels` is an `EngineScreenshot`. |
 

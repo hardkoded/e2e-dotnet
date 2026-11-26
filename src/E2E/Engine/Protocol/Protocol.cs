@@ -52,10 +52,10 @@ public sealed record InitializeResult(int ProtocolVersion, EngineManifest Manife
 public sealed record WireSignal(int Id, bool? Aborted = null, RpcErrorObject? Reason = null);
 
 /// <summary>An operation context on the wire. Upstream's <c>WireOperation</c>.</summary>
-public sealed record WireOperation(WireSignal Signal, int TimeoutMs, string RunId, string AttemptId, string Origin);
+public sealed record WireOperation(WireSignal Signal, double TimeoutMs, string RunId, string AttemptId, string Origin);
 
 /// <summary>An engine cleanup context on the wire. Upstream's <c>WireCleanup</c>.</summary>
-public sealed record WireCleanup(WireSignal Signal, int TimeoutMs);
+public sealed record WireCleanup(WireSignal Signal, double TimeoutMs);
 
 /// <summary>Observation pixels on the wire: <c>Data</c> is base64. Upstream's <c>WirePixels</c>.</summary>
 public sealed record WirePixels(string Data, string MediaType, int Width, int Height, double Scale);

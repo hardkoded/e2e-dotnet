@@ -481,7 +481,11 @@ lines you changed:
   (upstream's `createEngineSession`) wraps a handle as an `ITargetSession`: it
   mints the refs' revisions, routes each verb to the member that implements it,
   and refuses an action kind the engine did not declare. It sits beside `IEngine`;
-  the test runner and the agent still take an `IEngine`. `EngineSpec.ReadStyle`
+  the test runner and the agent still take an `IEngine`. `ProtocolServer.ServeEngineAsync(handle)`
+  (upstream's `serveEngine`) serves a handle over the engine protocol on stdin and
+  stdout, and `SpawnTransport`, `SocketTransport` and `LoopbackTransport` open the
+  streams a client speaks over; the protocol client is not ported yet. `EngineSpec.StartAttempt`
+  takes an `EngineAttemptContext` and `EngineSpec.Dispose` an `EngineDisposeContext`. `EngineSpec.ReadStyle`
   (upstream's `readStyle`) adds the `computed-style` capability, which needs `Observe`:
   an engine reads allow-listed rendered properties of an observed node
   (`ComputedStyles.ComputedStyleProperties`) for a read-only project tool's

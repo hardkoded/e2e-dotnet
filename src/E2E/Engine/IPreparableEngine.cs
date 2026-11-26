@@ -50,6 +50,12 @@ public sealed record EngineDisposeContext
     public required TimeSpan CleanupTimeout { get; init; }
 
     /// <summary>
+    /// Upstream's <c>EngineCleanupContext.signal</c>, which <c>EngineDisposeContext</c> extends: aborts when the cleanup budget is spent. Set
+    /// when the context crosses the engine protocol; <see cref="IDisposableEngine.DisposeAsync"/> takes its own token.
+    /// </summary>
+    public CancellationToken Signal { get; init; }
+
+    /// <summary>
     /// Upstream's <c>reuseSignal</c>: a token that is live (not canceled) permits the engine to keep the run-owned resources its workers hold
     /// for a replacement, until the token is canceled or the dispose settles. Null or a canceled token requires the final cleanup, which is
     /// what a run that retires its workers asks for.

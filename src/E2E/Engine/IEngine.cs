@@ -239,8 +239,8 @@ public sealed class EngineStartOptions
     public Action<string>? Navigation { get; init; }
 }
 
-/// <summary>What an engine asks of <see cref="EngineStartOptions.ResolveSecret"/> beside the value.</summary>
-internal sealed record ResolveSecretOptions
+/// <summary>What an engine asks of <see cref="EngineStartOptions.ResolveSecret"/> beside the value. Upstream's <c>ResolveSecretOptions</c>.</summary>
+public sealed record ResolveSecretOptions
 {
     /// <summary>The forms of the plaintext the engine hands to the app in its place, which are redacted wherever the value is.</summary>
     public Func<string, IReadOnlyList<string>>? Derived { get; init; }
@@ -751,6 +751,12 @@ public sealed record EnginePrepareInfo : IEngineHostIdentity
     /// </summary>
     public string? ProjectRoot { get; init; }
 
+    /// <summary>
+    /// The app the target declares, as upstream's <c>EnginePrepareInfo.app</c>: where an engine reads the build it installs
+    /// (<see cref="EngineAppInfo.AppPath"/>, relative to <see cref="ProjectRoot"/>). Null for a caller that supplies none.
+    /// </summary>
+    public EngineAppInfo? App { get; init; }
+
     /// <summary>Whether the run would show the surface (<c>--headed</c>). Upstream's <c>headed</c>.</summary>
     public bool Headed { get; init; }
 
@@ -923,6 +929,12 @@ public sealed record EngineInitInfo : IEngineHostIdentity
 
     /// <summary>Whether the run asked for a visible surface (<c>--headed</c>). Upstream's <c>headed</c>.</summary>
     public bool Headed { get; init; }
+
+    /// <summary>The directory relative paths in the config resolve against, as <see cref="EnginePrepareInfo.ProjectRoot"/>. Upstream's <c>projectRoot</c>.</summary>
+    public string? ProjectRoot { get; init; }
+
+    /// <summary>The app the target declares, as <see cref="EnginePrepareInfo.App"/>. Upstream's <c>app</c>.</summary>
+    public EngineAppInfo? App { get; init; }
 
     public required Action<string> Log { get; init; }
 }
