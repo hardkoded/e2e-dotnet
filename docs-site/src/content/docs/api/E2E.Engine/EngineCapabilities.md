@@ -248,7 +248,7 @@ TapModifiers = 128
 ```
 
 
-The `Modifiers` of [LocatorAction.Tap](/api/E2E.Engine/LocatorAction.Tap/) and [LocatorAction.DoubleTap](/api/E2E.Engine/LocatorAction.DoubleTap/): keys held for the click.
+The `Modifiers` of [LocatorAction.Tap](/api/E2E.Engine/LocatorAction.Tap/) and [LocatorAction.DoubleTap](/api/E2E.Engine/LocatorAction.DoubleTap/), and [LocatorAction.MultiTap](/api/E2E.Engine/LocatorAction.MultiTap/): keys held for the click.
 
 **Value:** [EngineCapabilities](./)
 

@@ -26,6 +26,7 @@ public sealed class PerformTests
         var before = h.Fake.Calls.Count;
         await session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None);
         await session.PerformAsync(about, new LocatorAction.DoubleTap(), CancellationToken.None);
+        await session.PerformAsync(about, new LocatorAction.MultiTap(3), CancellationToken.None);
         await session.LongPressAsync(about, TimeSpan.FromMilliseconds(900));
         await session.LongPressAsync(about);
         await session.PerformAsync(search, new LocatorAction.Focus(), CancellationToken.None);
@@ -45,6 +46,7 @@ public sealed class PerformTests
             before,
             ("interactions.press", """{"ref":"@e4","settle":true,"settleQuietMs":150}"""),
             ("interactions.press", """{"ref":"@e4","count":2,"settle":true,"settleQuietMs":150}"""),
+            ("interactions.press", """{"ref":"@e4","count":3,"settle":true,"settleQuietMs":150}"""),
             ("interactions.longPress", """{"ref":"@e4","durationMs":900}"""),
             // No duration named: the engine's one-second hold, past a Pressable's delayLongPress.
             ("interactions.longPress", """{"ref":"@e4","durationMs":1000}"""),
@@ -97,6 +99,30 @@ public sealed class PerformTests
             ("interactions.longPress", """{"ref":"@e4","settle":true,"settleQuietMs":150,"durationMs":1000}"""),
             ("interactions.hover", """{"ref":"@e4"}"""),
             ("interactions.drag", """{"source":"@e4","destination":"@e3"}""")
+        );
+    }
+
+    [Fact]
+    public async Task Refuses_a_multiTap_above_agent_devices_200_presses_before_any_wait_or_device_call_and_sends_200()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        var about = Named(await RootOf(session), "About");
+        var before = h.Fake.Calls.Count;
+
+        // A test step waits for the node to settle and steady before it presses; the refusal comes before those waits, so no snapshot and no press.
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(about, new LocatorAction.MultiTap(201), OperationContext.Test, CancellationToken.None)
+        );
+
+        Assert.Equal(EngineErrorCodes.UnsupportedCapability, error.Code);
+        Assert.Contains("at most 200", error.Message);
+        Assert.Empty(h.Fake.Calls.Skip(before));
+        await session.PerformAsync(about, new LocatorAction.MultiTap(200), CancellationToken.None);
+        JsonAssert.Calls(
+            h.Fake.Calls,
+            before,
+            ("interactions.press", """{"ref":"@e4","count":200,"settle":true,"settleQuietMs":150}""")
         );
     }
 

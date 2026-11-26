@@ -61,3 +61,19 @@ for a replacement, until the token is canceled or the dispose settles. Null or a
 what a run that retires its workers asks for.
 
 **Value:** [CancellationToken?](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken)
+
+<a id="E2E_Engine_EngineDisposeContext_Signal_"></a>
+<a id="E2E_Engine_EngineDisposeContext_Signal"></a>
+
+### Signal
+
+
+```csharp
+public CancellationToken Signal { get; init; }
+```
+
+
+Upstream's `EngineCleanupContext.signal`, which `EngineDisposeContext` extends: aborts when the cleanup budget is spent. Set
+when the context crosses the engine protocol; `DisposeAsync` takes its own token.
+
+**Value:** [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken)

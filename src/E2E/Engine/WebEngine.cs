@@ -513,6 +513,9 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
         }
     }
 
+    /// <summary>The web engine grants <c>app.permissions: 'all'</c>: each permission its browser takes (<see cref="WebPermissions.GrantedPermissions"/>).</summary>
+    public bool GrantsAllPermissions => true;
+
     // A provider or a CDP attach speaks CDP, so it takes Chromium's names.
     private BrowserName PermissionBrowser(WebConnectOptions? connect) =>
         connect is null && _options.Browser is null ? _options.BrowserName : BrowserName.Chromium;
@@ -661,7 +664,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                         options.ActionTimeout,
                         _options,
                         initScripts,
-                        context => SetUpContextAsync(context, origins, options.Permissions),
+                        context => SetUpContextAsync(context, origins, options, connect),
                         url => ConfiguredHeadersFor(url, origins),
                         SiteOf(app),
                         seams,
@@ -765,7 +768,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                     options.ActionTimeout,
                     _options,
                     initScripts,
-                    context => SetUpContextAsync(context, origins, options.Permissions),
+                    context => SetUpContextAsync(context, origins, options, connect),
                     url => ConfiguredHeadersFor(url, origins),
                     seams,
                     credentials: credentials,
@@ -1701,15 +1704,21 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
     private async Task SetUpContextAsync(
         IBrowserContext context,
         IReadOnlySet<string> origins,
-        IReadOnlyDictionary<string, AppPermissionState>? permissions
+        EngineStartOptions options,
+        WebConnectOptions? connect
     )
     {
         await InstallConfiguredHeadersAsync(context, origins).ConfigureAwait(false);
 
-        // ValidatePermissions admitted only grants.
-        if (permissions is { Count: > 0 })
+        // ValidatePermissions admitted only grants. For 'all' a name an older browser refuses as unknown is left out.
+        var granted = WebPermissions.GrantedPermissions(
+            PermissionBrowser(connect),
+            options.Permissions,
+            options.AllPermissions
+        );
+        if (granted.Count > 0)
         {
-            await context.GrantPermissionsAsync([.. permissions.Keys]).ConfigureAwait(false);
+            await WebPermissions.GrantPermissionsAsync(context, granted, options.AllPermissions).ConfigureAwait(false);
         }
     }
 
@@ -2686,9 +2695,9 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             await Page.Mouse.UpAsync().ConfigureAwait(false);
         }
 
-        /// <summary>A browser honors the SPI v1 actions plus blur and in-memory uploads. Upstream's <c>actions: [...LOCATOR_ACTION_KINDS, 'blur', 'setInputFilePayloads']</c>.</summary>
+        /// <summary>A browser honors the SPI v1 actions plus blur, in-memory uploads, and multi-taps. Upstream's <c>actions: [...LOCATOR_ACTION_KINDS, 'blur', 'setInputFilePayloads', 'multiTap']</c>.</summary>
         public IReadOnlyCollection<string> ActionKinds { get; } =
-        [.. EngineActionKinds.Locator, "blur", "setInputFilePayloads"];
+        [.. EngineActionKinds.Locator, "blur", "setInputFilePayloads", "multiTap"];
 
         /// <summary>A page takes every pointer action of the contract at a bare point too.</summary>
         public IReadOnlyCollection<string> PointerActionKinds => EngineActionKinds.Pointer;
@@ -4592,6 +4601,28 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                             {
                                 Timeout = budget.PlaywrightTimeout,
                                 Modifiers = Held(doubleTap.Modifiers),
+                            }
+                        )
+                        .ConfigureAwait(false);
+                    break;
+                case LocatorAction.MultiTap multi:
+                    if (multi.Count > int.MaxValue)
+                    {
+                        // .NET-only: Playwright's click count is an int, where upstream's is a number.
+                        throw new EngineException(
+                            EngineErrorCodes.UnsupportedCapability,
+                            $"the browser clicks at most {int.MaxValue} times in a row; got a count of {multi.Count}"
+                        );
+                    }
+
+                    // One click sequence with a rising `detail`, as a person's triple click is.
+                    await element
+                        .ClickAsync(
+                            new ElementHandleClickOptions
+                            {
+                                Timeout = budget.PlaywrightTimeout,
+                                ClickCount = (int)multi.Count,
+                                Modifiers = Held(multi.Modifiers),
                             }
                         )
                         .ConfigureAwait(false);

@@ -53,6 +53,26 @@ public sealed class EngineProtocolTests
     }
 
     /// <summary>
+    /// Partial: upstream sends the action through a loopback JSON-RPC pair to a toy engine and checks what it receives. The port has no JSON-RPC
+    /// client to loop back to (issue #2245 ports it); it checks that the engine manifest names <c>multiTap</c> and that the wire codec carries the
+    /// count and the modifiers unchanged.
+    /// </summary>
+    [Fact]
+    public void Partial_Advertises_multiTap_and_carries_its_count_and_modifiers_over_JSON_RPC_unchanged()
+    {
+        Assert.Contains("multiTap", EngineActionKinds.KnownLocator);
+        Assert.Equal("multiTap", EngineActionKinds.Of(new LocatorAction.MultiTap(3)));
+        var action = new LocatorAction.MultiTap(3, [KeyModifier.Shift]);
+
+        var wire = WireCodec.EncodeLocatorAction(action);
+
+        Assert.Equal("""{"kind":"multiTap","count":3,"modifiers":["Shift"]}""", wire.ToJsonString());
+        var decoded = Assert.IsType<LocatorAction.MultiTap>(WireCodec.DecodeLocatorAction(wire));
+        Assert.Equal(3, decoded.Count);
+        Assert.Equal([KeyModifier.Shift], decoded.Modifiers);
+    }
+
+    /// <summary>
     /// Partial: upstream sends the read through a loopback JSON-RPC pair and reads the values on the other side. The port checks that an
     /// engine declaring <c>readStyle</c> has the <c>computed-style</c> capability, and that one without <c>observe</c> is refused.
     /// </summary>

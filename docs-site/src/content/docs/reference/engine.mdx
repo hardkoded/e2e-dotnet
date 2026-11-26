@@ -147,7 +147,7 @@ public enum OperationOrigin { Test, Agent }
 | `Scroll` | `SwipeAsync` | The viewport swipe, `LocatorAction.Swipe`, `LocatorAction.ScrollIntoView`; the agent's `scroll` and `scroll_to`. |
 | `History` | `BackAsync` | `App.BackAsync()`, the agent's `back`. |
 | `Screenshot` | `ScreenshotAsync` | `ToHaveScreenshotAsync`. |
-| `TapModifiers` | `PerformAsync` | `Modifiers` on `Tap`, `DoubleTap`, and `SecondaryTap`. |
+| `TapModifiers` | `PerformAsync` | `Modifiers` on `Tap`, `DoubleTap`, `MultiTap`, and `SecondaryTap`. |
 | `Video` | `StartVideoAsync`, `StopVideoAsync` | Every `video` mode but `off`, and `App.StartRecordingAsync()`. |
 | `PinnedApp` | `RestartAsync` | A target with no app URL: `App.OpenAsync()` calls `RestartAsync`. .NET-only name for upstream's `launchesPinnedApp`. |
 | `Upload` | `PerformAsync` with `SetInputFiles` | The agent's `upload` tool. .NET-only name. |
@@ -161,7 +161,7 @@ public enum OperationOrigin { Test, Agent }
 
 `EngineSpec.ViewportIntersection` (upstream's `viewportIntersection`) measures how much of a node `Locate` returned is inside the viewport, as a `ViewportIntersection(Intersects, Ratio)`, after clipping by the viewport and by every ancestor that clips its content. `Ratio` is null where the platform reports only the visible part of a box. It needs `Locate` (`viewportIntersection without locate` is `INVALID_CONFIG`) and adds `viewport-intersection` to `Capabilities`. Throw `NODE_STALE` if the node no longer binds, and `UNSUPPORTED_CAPABILITY` for a node whose geometry the platform does not report. Nothing in the port calls it yet: `toBeInViewport` is not ported.
 
-`EngineSpec` also declares `SelectsDevice` (needs `Prepare`; `selectsDevice without prepare` is `INVALID_CONFIG`), `GrantsAllPermissions`, `LaunchArgumentValues`, `FileApps`, and `Isolation` (`EngineIsolation.Attempt`, the default, or `EngineIsolation.Worker`; anything else is `INVALID_CONFIG`). The engine manifest carries them. `FileApps` is read (see below); the port does not read the others yet: it has no `--device` flag, no `app.permissions: 'all'`, no object form of `launchArguments`, and no worker isolation.
+`EngineSpec` also declares `SelectsDevice` (needs `Prepare`; `selectsDevice without prepare` is `INVALID_CONFIG`), `GrantsAllPermissions`, `LaunchArgumentValues`, `FileApps`, and `Isolation` (`EngineIsolation.Attempt`, the default, or `EngineIsolation.Worker`; anything else is `INVALID_CONFIG`). The engine manifest carries them. The port reads `GrantsAllPermissions` (see `IEngine.GrantsAllPermissions`); it does not read the rest yet: it has no `--device` flag, no object form of `launchArguments`, and no worker isolation. `FileApps` is read, below.
 
 `IEngine.FileApps` (upstream's `fileApps`) says the engine opens an app whose `app.url` is a `file:` URL, reading the file from the disk of the machine the harness runs on. Without it the harness refuses a file `app.url` at config load with `INVALID_CONFIG`. An engine that is handed one gets `EngineAppCheckInfo.FileApp = true` in `ValidateApp`, from the harness's own reading of the URL (`file:8443/report` is the host `file` on port 8443, not a file). Refuse there what cannot read the runner's disk. `WebEngine` declares `FileApps`, and refuses a file app with a browser provider (`WebEngineOptions.Browser`), `Connect`, `Headers`, or `BasicAuth` as `INVALID_CONFIG`.
 
@@ -313,6 +313,7 @@ public async Task<IEngineSession> StartAsync(EngineStartOptions options, Cancell
 | `BaseUrl` | the app URL, given to `session.open` | The target's base URL, normalized. Null when the target declares none. |
 | `TargetName` | `targetName` | For the errors an engine raises about its app. |
 | `Permissions` | `app.permissions` | By name: `Grant`, `Deny`, `Reset`. What each means is the engine's. |
+| `AllPermissions` | `app.permissions: 'all'` | Grant every permission the engine can grant, in place of `Permissions`. Only an engine whose `IEngine.GrantsAllPermissions` is true receives it: for any other, config load refuses `'all'` with `INVALID_CONFIG`. |
 | `ActionTimeout` | the action timeout | The configured action timeout. |
 | `ProjectRoot` | `projectRoot` | Anchors files an engine option names. Defaults to the working directory. |
 | `Env` | `info.env` | The run's environment with what prepare left in it. Defaults to the process environment. |
@@ -395,6 +396,7 @@ When a semantic read fails, an engine may return masked pixels in place of the t
 | --- | --- | --- | --- |
 | `tap` | `Tap(Modifiers?)` | yes | yes |
 | `doubleTap` | `DoubleTap(Modifiers?)` | yes | yes |
+| `multiTap` | `MultiTap(Count, Modifiers?)`; `TapAsync(new TapOptions { Count = 3 })` | yes | - |
 | `secondaryTap` | `SecondaryTap(Modifiers?)` | yes | yes |
 | `longPress` | `LongPress(Duration?)` | yes | yes |
 | `fill` | `Fill(Value, Sensitive)` | yes | - |
@@ -449,10 +451,11 @@ The app under test is declared on the target (`targets[].app`); an engine only d
 | --- | --- |
 | `url` | `EngineStartOptions.BaseUrl`, and each `OpenAsync(url)` the harness resolved. |
 | `permissions` | `EngineStartOptions.Permissions`. |
+| `allPermissions` | `EngineStartOptions.AllPermissions`. |
 | `bundleId`, `appPath`, `launchArguments` | The port's `MobileEngine` and `WinAppEngine` take them from their own options; a custom engine's options carry them. They are not on `EngineStartOptions`. |
 | `command`, `readyUrl` | Never. The host starts the app. |
 
-`EngineAppInfo` (`Site`, `BundleId`, `AppPath`, `LaunchArguments`, `Permissions`) is what `EngineDoctorInfo.App` carries; `Site` is the registrable domain of the app URL. `AppPermissionState` is `Grant`, `Deny`, or `Reset`: held, refused, or not asked for yet, so the OS asks again.
+`EngineAppInfo` (`Site`, `BundleId`, `AppPath`, `LaunchArguments`, `Permissions`, `AllPermissions`) is what `EngineDoctorInfo.App` carries; `Site` is the registrable domain of the app URL. `AppPermissionState` is `Grant`, `Deny`, or `Reset`: held, refused, or not asked for yet, so the OS asks again.
 
 Upstream's `validateApp` hook and `EngineAppDeclaration` are not members of `IEngine`. `WebEngine.ValidateApp`, `MobileEngine.ValidateApp`, and `WinAppEngine.ValidateApp` check their app at configuration time from their target engines; throw `ConfigurationException` `INVALID_CONFIG` naming the target.
 

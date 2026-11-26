@@ -186,6 +186,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         {
             LocatorAction.Tap => "tap",
             LocatorAction.DoubleTap => "doubleTap",
+            LocatorAction.MultiTap => "multiTap",
             LocatorAction.Fill => "fill",
             LocatorAction.Press => "press",
             LocatorAction.Select => "selectOption",
