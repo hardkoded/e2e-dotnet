@@ -899,6 +899,9 @@ public sealed class E2EConfig
                     )
                     : null,
                 Permissions = ReadPermissions(Property(rawApp, "permissions"), where + ".permissions"),
+                AllPermissions =
+                    Property(rawApp, "permissions") is { ValueKind: JsonValueKind.String } all
+                    && all.GetString() == "all",
             };
 
             // Resolved once here so a bad command, a free port nothing starts on, or a {port} without a URL fails at load, as upstream's resolveConfig does.
@@ -1844,7 +1847,7 @@ public sealed class E2EConfig
             );
     }
 
-    // Checks app.permissions: an object of permission name to grant, deny, or reset.
+    // Checks app.permissions: 'all', or an object of permission name to grant, deny, or reset.
     private static ReadOnlyDictionary<string, AppPermissionState>? ReadPermissions(JsonElement? raw, string label)
     {
         if (raw is not { } value)
@@ -1852,9 +1855,15 @@ public sealed class E2EConfig
             return null;
         }
 
+        // 'all' is AppConfig.AllPermissions, not a map.
+        if (value is { ValueKind: JsonValueKind.String } && value.GetString() == "all")
+        {
+            return null;
+        }
+
         if (value.ValueKind != JsonValueKind.Object)
         {
-            throw Invalid(label + " must be an object of permission name to grant, deny, or reset");
+            throw Invalid(label + " must be 'all' or an object of permission name to grant, deny, or reset");
         }
 
         var permissions = new Dictionary<string, AppPermissionState>(StringComparer.Ordinal);
@@ -2110,6 +2119,13 @@ public sealed class AppConfig
     /// </summary>
     public IReadOnlyDictionary<string, AppPermissionState>? Permissions { get; init; }
 
+    /// <summary>
+    /// <c>app.permissions: 'all'</c> (upstream's string form of <c>app.permissions</c>): grant every permission the engine can grant, in place
+    /// of <see cref="Permissions"/>. A web target grants each permission its browser takes; a device grants all of them in one agent-device
+    /// <c>all</c> grant. Only an engine that grants <c>'all'</c> takes it; for any other the config is refused.
+    /// </summary>
+    public bool AllPermissions { get; init; }
+
     /// <summary>This app with another URL: the one on the port its command was started on.</summary>
     internal AppConfig WithUrl(string? url) =>
         new()
@@ -2123,6 +2139,7 @@ public sealed class AppConfig
             LaunchArguments = LaunchArguments,
             LaunchArgumentValues = LaunchArgumentValues,
             Permissions = Permissions,
+            AllPermissions = AllPermissions,
             Command = Command,
             ReadyUrl = ReadyUrl,
         };

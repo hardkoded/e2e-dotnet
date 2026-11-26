@@ -91,6 +91,21 @@ public sealed class MobileTargetEngineTests
     }
 
     [Fact]
+    public void Takes_all_permissions_as_one_grant_and_hands_it_to_validateApp_as_allPermissions()
+    {
+        var app = new AppConfig { BundleId = "com.example.shop", AllPermissions = true };
+        var engine = MobileTargetEngine.Create(Target("ios", app), NoEnvironment, null);
+        Assert.True(engine.GrantsAllPermissions);
+        Assert.True(engine.Options.App.AllPermissions);
+        Assert.Null(engine.Options.App.Permissions);
+        // Config load hands an engine 'all' as AllPermissions, never as a map.
+        ((IEngine)engine).ValidateApp(
+            TargetApps.EngineAppDeclarationOf("ios", app),
+            new EngineAppCheckInfo { TargetName = "ios" }
+        );
+    }
+
+    [Fact]
     public void Refuses_a_permission_the_device_does_not_know_naming_the_nearest()
     {
         var app = new AppConfig

@@ -37,6 +37,9 @@ public sealed record LaunchApp
 
     /// <summary>Permissions the app holds, by name.</summary>
     public IReadOnlyDictionary<string, AppPermissionState>? Permissions { get; init; }
+
+    /// <summary><c>app.permissions: 'all'</c>.</summary>
+    public bool AllPermissions { get; init; }
 }
 
 /// <summary>What <see cref="Launch.LaunchAsync"/> is given. Upstream's <c>LaunchOptions</c> (<c>core/launch.ts</c>).</summary>
@@ -504,6 +507,7 @@ public sealed class Host : IAsyncDisposable
             LaunchArguments = _app?.LaunchArguments,
             LaunchArgumentValues = LaunchArgumentRules.WithoutNulls(_app?.LaunchArgumentValues),
             Permissions = _app?.Permissions,
+            AllPermissions = _app?.AllPermissions ?? false,
             TestTitle = "core",
             Trace = new ResolvedRecording(RecordingMode.Off, RecordingSource.Default),
             Video = new ResolvedRecording(RecordingMode.Off, RecordingSource.Default),
@@ -689,6 +693,11 @@ public static class Launch
                             engine,
                             "target \"" + target + "\" app"
                         );
+                        TargetApps.CheckAllPermissions(
+                            app?.AllPermissions ?? false,
+                            engine,
+                            "target \"" + target + "\" app"
+                        );
                         var resolved = TargetApps.ResolveTargetApp(
                             target,
                             new AppConfig
@@ -701,6 +710,7 @@ public static class Launch
                                 LaunchArguments = app?.LaunchArguments,
                                 LaunchArgumentValues = app?.LaunchArgumentValues,
                                 Permissions = app?.Permissions,
+                                AllPermissions = app?.AllPermissions ?? false,
                             },
                             projectRoot
                         );

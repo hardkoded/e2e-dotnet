@@ -99,6 +99,8 @@ await Device.HomeAsync();
 await Device.OpenAppAsync(AppId, new OpenAppOptions { Relaunch = true });
 ```
 
+To grant every permission the platform can set before a launch, declare `"permissions": "all"` on the target's `app`, or pass `AllPermissions = true` for one launch: `new OpenAppOptions { Relaunch = true, AllPermissions = true }`. It is one agent-device `all` grant and replaces the permission map. On Android it grants each runtime permission the app's manifest declares; on an iOS simulator it grants each privacy service the runtime can set, and the simulator refuses notifications, so accept that prompt with `Device.AlertAsync(AlertAction.Accept)`.
+
 `Device.Locator` takes an agent-device selector, for controls the `Screen` queries cannot name. It polls and is strict like any locator:
 
 ```csharp
@@ -476,6 +478,7 @@ public static class DeviceCloudProvider
 ## Known device limitations
 
 - `Locator.DoubleTapAsync` and `Screen.DoubleTapAtAsync` on iOS are two taps about 285 to 335 ms apart. Give a double-tap detector a window of 350 ms or more.
+- `TapAsync(new TapOptions { Count = n })` for 3 or more is `multiTap`: `n` presses at the same cadence as a double tap, so the same short-window caveat applies. A `Count` above agent-device's 200 is `UNSUPPORTED_CAPABILITY` before any press. At about 285 ms a press on iOS, 200 presses take about a minute, past the default action timeout of 30 s, so pass a longer `Timeout` for a large `Count`.
 
 ## Next
 

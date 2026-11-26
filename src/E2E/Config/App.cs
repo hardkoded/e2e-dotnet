@@ -36,7 +36,8 @@ internal sealed record PortRequest(string Host, int? Port);
 /// <param name="AppPath"><c>app.appPath</c>.</param>
 /// <param name="LinkBase">The link base <c>App.OpenAsync(path)</c> joins on a device target; see <see cref="AppConfig.LinkBase"/>.</param>
 /// <param name="LaunchArguments"><c>app.launchArguments</c>, checked: a list of strings or an object of argument name to value.</param>
-/// <param name="Permissions"><c>app.permissions</c>.</param>
+/// <param name="Permissions"><c>app.permissions</c> as a map of permission name to state.</param>
+/// <param name="AllPermissions"><c>app.permissions: 'all'</c>.</param>
 /// <param name="Command"><c>app.command</c> with <c>{port}</c> expanded to the port the app is served on.</param>
 /// <param name="ReadyUrl">Readiness probe for <paramref name="Command"/>; set whenever the command is.</param>
 internal sealed record ResolvedApp(
@@ -50,6 +51,7 @@ internal sealed record ResolvedApp(
     string? LinkBase,
     ResolvedLaunchArguments? LaunchArguments,
     IReadOnlyDictionary<string, AppPermissionState>? Permissions,
+    bool AllPermissions,
     CommandConfig? Command,
     string? ReadyUrl
 );
@@ -170,6 +172,25 @@ internal static partial class TargetApps
         }
     }
 
+    /// <summary>
+    /// Refuses <c>app.permissions: 'all'</c> on an engine that does not grant it: an engine that predates <c>'all'</c> would read the string as a map
+    /// of names. Upstream's check in <c>checkTargetApp</c>.
+    /// </summary>
+    public static void CheckAllPermissions(bool allPermissions, IEngine engine, string where)
+    {
+        ArgumentNullException.ThrowIfNull(engine);
+        if (allPermissions && !engine.GrantsAllPermissions)
+        {
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                where
+                    + ".permissions is 'all', which engine \""
+                    + engine.Name
+                    + "\" does not take (it declares no grantsAllPermissions)"
+            );
+        }
+    }
+
     /// <summary>Whether a link names a refused scheme (see <see cref="Urls.IsRefusedLinkScheme"/>); one that does not parse is refused too. Upstream's <c>refusesLink</c>.</summary>
     public static bool RefusesLink(string link)
     {
@@ -256,6 +277,7 @@ internal static partial class TargetApps
                 app.LaunchArgumentValues
             ),
             app.Permissions,
+            app.AllPermissions,
             command,
             command is null ? null : readyUrl
         );
@@ -288,6 +310,7 @@ internal static partial class TargetApps
             LaunchArguments = launchArguments,
             LaunchArgumentValues = launchArgumentValues,
             Permissions = app.Permissions,
+            AllPermissions = app.AllPermissions,
         };
     }
 
@@ -310,6 +333,7 @@ internal static partial class TargetApps
             LaunchArguments = launchArguments,
             LaunchArgumentValues = launchArgumentValues,
             Permissions = app.Permissions,
+            AllPermissions = app.AllPermissions,
         };
     }
 
@@ -364,8 +388,8 @@ internal static partial class TargetApps
         );
         Add(
             "permissions",
-            app.Permissions is null
-                ? null
+            app.AllPermissions ? JsonValue.Create("all")
+                : app.Permissions is null ? null
                 : new JsonObject(
                     app.Permissions.Select(pair =>
                         KeyValuePair.Create(

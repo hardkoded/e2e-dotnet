@@ -90,6 +90,7 @@ public static class EngineActionKinds
         {
             LocatorAction.Tap => "tap",
             LocatorAction.DoubleTap => "doubleTap",
+            LocatorAction.MultiTap => "multiTap",
             LocatorAction.SecondaryTap => "secondaryTap",
             LocatorAction.LongPress => "longPress",
             LocatorAction.Fill => "fill",

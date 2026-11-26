@@ -58,6 +58,12 @@ public sealed record OpenAppOptions
     /// <c>Permissions</c> for a relaunch of the pinned app.
     /// </summary>
     public IReadOnlyDictionary<DevicePermission, PermissionState>? Permissions { get; init; }
+
+    /// <summary>
+    /// Grants every permission before this launch, in one agent-device <c>all</c> grant (upstream's <c>permissions: 'all'</c>), in place of
+    /// <see cref="Permissions"/>. agent-device expands it: the app's declared permissions on Android, each privacy service on iOS.
+    /// </summary>
+    public bool AllPermissions { get; init; }
 }
 
 public sealed partial class DeviceSession
@@ -108,8 +114,15 @@ public sealed partial class DeviceSession
                     )
                     : null
             );
+        // The launch's own permissions win over the target's, as upstream's `options.permissions ?? configuredPermissions(app)`.
+        var all = options.AllPermissions || (options.Permissions is null && configured && _app.AllPermissions);
         var permissions = options.Permissions ?? (configured ? _app.Permissions : null);
-        if (permissions is not null)
+        if (all)
+        {
+            // 'all' is one agent-device `all` grant on either platform (upstream's presetPermissions).
+            await SetAllPermissionsAsync(app, cancellationToken).ConfigureAwait(false);
+        }
+        else if (permissions is not null)
         {
             // Before the launch, never after: iOS terminates a running app whose permission changed, and Android one
             // whose permission was revoked, so a change after the launch would leave the test on no screen.
@@ -270,6 +283,23 @@ public sealed partial class DeviceSession
                 $"{label}.{permission.WireName()} must be one of {string.Join(", ", states)}, got {(int)state}"
             );
         }
+    }
+
+    /// <summary>The one <c>all</c> grant of <c>app.permissions: 'all'</c>, on <paramref name="app"/>; <see cref="MobileApp.AllPermissions"/> says what it grants on each platform.</summary>
+    private async Task SetAllPermissionsAsync(string app, CancellationToken cancellationToken)
+    {
+        await CommandAsync(
+                "permission all grant",
+                DeviceMethods.SettingsUpdate,
+                Selection.ToArgs(
+                    ("setting", JsonValue.Create("permission")),
+                    ("permission", JsonValue.Create("all")),
+                    ("state", JsonValue.Create(PermissionState.Grant.WireName())),
+                    ("app", JsonValue.Create(app))
+                ),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
     }
 
     /// <summary>One permission change on <paramref name="app"/>, which needs no running app and no open in the session.</summary>

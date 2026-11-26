@@ -100,6 +100,12 @@ public sealed record MobileApp
 
     /// <summary>Permissions the app holds before every fresh launch.</summary>
     public IReadOnlyDictionary<DevicePermission, PermissionState>? Permissions { get; init; }
+
+    /// <summary>
+    /// <c>app.permissions: 'all'</c>: one agent-device <c>all</c> grant before every fresh launch, in place of <see cref="Permissions"/>.
+    /// Upstream's <c>LaunchPermissions</c> <c>'all'</c>.
+    /// </summary>
+    public bool AllPermissions { get; init; }
 }
 
 /// <summary>

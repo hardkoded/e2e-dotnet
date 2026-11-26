@@ -23,7 +23,7 @@ public enum EngineCapabilities
     /// <summary><see cref="IEngineSession.ScreenshotAsync(CancellationToken)"/>, which <c>toHaveScreenshot</c> compares.</summary>
     Screenshot = 64,
 
-    /// <summary>The <c>Modifiers</c> of <see cref="LocatorAction.Tap"/> and <see cref="LocatorAction.DoubleTap"/>: keys held for the click.</summary>
+    /// <summary>The <c>Modifiers</c> of <see cref="LocatorAction.Tap"/> and <see cref="LocatorAction.DoubleTap"/>, and <see cref="LocatorAction.MultiTap"/>: keys held for the click.</summary>
     TapModifiers = 128,
 
     /// <summary><see cref="IEngineSession.StartVideoAsync(CancellationToken)"/> and <see cref="IEngineSession.StopVideoAsync(CancellationToken)"/>: the engine can record the attempt as video.</summary>
@@ -184,6 +184,12 @@ public sealed class EngineStartOptions
     /// </summary>
     public IReadOnlyDictionary<string, AppPermissionState>? Permissions { get; init; }
 
+    /// <summary>
+    /// <c>app.permissions: 'all'</c>: grant every permission the engine can grant, in place of <see cref="Permissions"/> (upstream's
+    /// <c>EngineAppInfo.allPermissions</c>). Only an engine whose <see cref="IEngine.GrantsAllPermissions"/> is true receives it.
+    /// </summary>
+    public bool AllPermissions { get; init; }
+
     public TimeSpan ActionTimeout { get; init; } = E2EDefaults.ActionTimeout;
 
     /// <summary>Anchors the files the engine options name, such as an init script's <c>Path</c>. Defaults to the working directory.</summary>
@@ -293,6 +299,12 @@ public interface IEngine
     /// it cannot drive. The harness has already checked every field's shape. Upstream's optional <c>validateApp</c>; the default checks nothing.
     /// </summary>
     void ValidateApp(EngineAppDeclaration app, EngineAppCheckInfo info) { }
+
+    /// <summary>
+    /// The engine grants <c>app.permissions: 'all'</c>, which reaches it as <see cref="EngineStartOptions.AllPermissions"/>. Without it the harness
+    /// refuses <c>'all'</c> at config load, so an engine that predates the value never receives it. Upstream's <c>EngineHandle.grantsAllPermissions</c>.
+    /// </summary>
+    bool GrantsAllPermissions => false;
 }
 
 /// <summary>One attempt's session with the app. Disposed at the end of the attempt, after <c>afterEach</c>.</summary>
@@ -859,6 +871,12 @@ public record EngineAppInfo
 
     /// <summary>Permissions the app holds, by name; what each state means is the engine's.</summary>
     public IReadOnlyDictionary<string, AppPermissionState>? Permissions { get; init; }
+
+    /// <summary>Whether the app holds <c>app.permissions: 'all'</c> (upstream's <c>EngineAppInfo.allPermissions</c>, present only as <c>true</c>).</summary>
+    [System.Text.Json.Serialization.JsonIgnore(
+        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault
+    )]
+    public bool AllPermissions { get; init; }
 }
 
 /// <summary>

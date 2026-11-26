@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Engine;
 using E2E.Reports;
 
 namespace E2E.Tests.Config;
@@ -1034,6 +1035,15 @@ public sealed class ResolveConfigTests
             permission.Message,
             StringComparison.Ordinal
         );
+        Assert.Contains(
+            "app.permissions must be 'all' or an object of permission name to grant, deny, or reset",
+            Assert
+                .Throws<ConfigurationException>(() =>
+                    AppOn("ios", """{ "bundleId": "dev.shop.app", "permissions": "every" }""")
+                )
+                .Message,
+            StringComparison.Ordinal
+        );
         var notAnObject = Assert.Throws<ConfigurationException>(() =>
             E2EConfig.Parse("""{ "targets": [{ "app": "https://app.test" }] }""", Root, Env())
         );
@@ -1169,6 +1179,67 @@ public sealed class ResolveConfigTests
                 .Replace("\"ios\"", "\"web\"", StringComparison.Ordinal) + " NaN",
             nan.Message
         );
+    }
+
+    /// <summary>Partial: upstream also refuses a <c>grantsAllPermissions</c> that is not a boolean; the port types it as one.</summary>
+    [Fact]
+    public void Partial_Takes_all_only_on_an_engine_that_declares_GrantsAllPermissions_which_receives_it_as_AllPermissions()
+    {
+        var declared = AppOn("ios", """{ "bundleId": "dev.shop.app", "permissions": "all" }""").Target;
+        TargetConfig With(IEngine engine) =>
+            new()
+            {
+                Name = "web",
+                Platform = "ios",
+                App = declared.App,
+                Engine = engine,
+            };
+
+        // An engine that predates 'all' would read the string as a map of names.
+        var refused = Assert.Throws<ConfigurationException>(() =>
+            TargetEngines.Create(With(new AllPermissionsEngine(grants: false)), null, null)
+        );
+        Assert.Equal("INVALID_CONFIG", refused.Code);
+        Assert.Equal(
+            "target \"web\" app.permissions is 'all', which engine \"granting\" does not take (it declares no grantsAllPermissions)",
+            refused.Message
+        );
+
+        var granting = new AllPermissionsEngine(grants: true);
+        TargetEngines.Create(With(granting), null, null);
+        var seen = Assert.IsType<EngineAppDeclaration>(Assert.Single(granting.Declared));
+        Assert.Equal("dev.shop.app", seen.BundleId);
+        Assert.True(seen.AllPermissions);
+        Assert.Null(seen.Permissions);
+
+        var resolved = TargetApps.ResolveTargetApp("web", declared.App, Root);
+        Assert.True(resolved.AllPermissions);
+        Assert.Null(resolved.Permissions);
+        var info = TargetApps.EngineAppInfoOf(resolved);
+        Assert.Equal("dev.shop.app", info.BundleId);
+        Assert.True(info.AllPermissions);
+        Assert.Null(info.Permissions);
+        Assert.Equal("all", TargetApps.DigestTargetApp(declared.App)["permissions"]!.GetValue<string>());
+    }
+
+    private sealed class AllPermissionsEngine(bool grants) : IEngine
+    {
+        public List<EngineAppDeclaration> Declared { get; } = [];
+
+        public string Name => "granting";
+
+        public string Platform => "ios";
+
+        public string Version => "1.0.0";
+
+        public EngineCapabilities Capabilities => EngineCapabilities.Observation;
+
+        public bool GrantsAllPermissions => grants;
+
+        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        void IEngine.ValidateApp(EngineAppDeclaration app, EngineAppCheckInfo info) => Declared.Add(app);
     }
 
     [Fact]

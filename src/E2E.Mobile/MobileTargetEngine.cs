@@ -52,6 +52,7 @@ public static class MobileTargetEngine
             LaunchArguments = target.App.LaunchArguments,
             LaunchArgumentValues = target.App.LaunchArgumentValues,
             Permissions = DevicePermissionsOf(target.Name, target.App.Permissions),
+            AllPermissions = target.App.AllPermissions,
         };
         MobileEngine.ValidateApp(app, target.App.Url, target.Name, platform);
         IDeviceProvider? provider = null;

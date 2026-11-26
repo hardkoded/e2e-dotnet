@@ -90,6 +90,7 @@ internal static class MobileAppHost
                 LaunchArguments = config.Target.App.LaunchArguments,
                 LaunchArgumentValues = config.Target.App.LaunchArgumentValues,
                 Permissions = MobileTargetEngine.DevicePermissionsOf(config.Target.Name, config.Target.App.Permissions),
+                AllPermissions = config.Target.App.AllPermissions,
             },
         };
 
