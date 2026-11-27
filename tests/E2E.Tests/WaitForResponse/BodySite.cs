@@ -55,7 +55,7 @@ internal sealed class BodySite : IDisposable
         {
             try
             {
-                EndAsync(client, "200 OK", "content-type: text/plain\r\n", "released").GetAwaiter().GetResult();
+                _ = EndAsync(client, "200 OK", "content-type: text/plain\r\n", "released");
             }
             catch (Exception)
             {

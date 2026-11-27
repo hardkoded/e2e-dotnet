@@ -3501,20 +3501,21 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                     // Before the first page exists, the wait listens on the context, which needs no page and
                     // starts listening in this call, so a navigation started right after it cannot get ahead.
                     var viewed = new Dictionary<IResponse, BrowserResponse>(ReferenceEqualityComparer.Instance);
+                    var context = _page is { IsClosed: false } ? null! : RequireContext();
                     var response = await (
-                        _page is { IsClosed: false }
+                        _page is { IsClosed: false } page
                             ? WaitForNetworkAsync<IResponse>(
                                 "Response",
-                                listener => Page.Response += listener,
-                                listener => Page.Response -= listener,
+                                listener => page.Response += listener,
+                                listener => page.Response -= listener,
                                 candidate => matches(ViewOf(candidate)),
                                 timeout,
                                 cancellationToken
                             )
                             : WaitForNetworkAsync<IResponse>(
                                 "Response",
-                                listener => RequireContext().Response += listener,
-                                listener => RequireContext().Response -= listener,
+                                listener => context.Response += listener,
+                                listener => context.Response -= listener,
                                 candidate => matches(ViewOf(candidate)),
                                 timeout,
                                 cancellationToken
@@ -3560,20 +3561,21 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                 try
                 {
                     var viewed = new Dictionary<IRequest, WebRequest>(ReferenceEqualityComparer.Instance);
+                    var context = _page is { IsClosed: false } ? null! : RequireContext();
                     var request = await (
-                        _page is { IsClosed: false }
+                        _page is { IsClosed: false } page
                             ? WaitForNetworkAsync<IRequest>(
                                 "Request",
-                                listener => Page.Request += listener,
-                                listener => Page.Request -= listener,
+                                listener => page.Request += listener,
+                                listener => page.Request -= listener,
                                 candidate => matches(ViewOf(candidate)),
                                 timeout,
                                 cancellationToken
                             )
                             : WaitForNetworkAsync<IRequest>(
                                 "Request",
-                                listener => RequireContext().Request += listener,
-                                listener => RequireContext().Request -= listener,
+                                listener => context.Request += listener,
+                                listener => context.Request -= listener,
                                 candidate => matches(ViewOf(candidate)),
                                 timeout,
                                 cancellationToken
@@ -3688,7 +3690,8 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                 }
             }
 
-            EventHandler<T> listener = (_, candidate) => _ = Task.Run(() => EvaluateAsync(candidate));
+            // Run inline, in event order: a synchronous predicate finishes before the next event, so it is never called after the match.
+            EventHandler<T> listener = (_, candidate) => _ = EvaluateAsync(candidate);
             subscribe(listener);
             try
             {
