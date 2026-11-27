@@ -422,6 +422,46 @@ public sealed class PollConditionTests
     }
 
     [Fact]
+    public async Task Counts_a_negation_as_held_only_until_the_deadline_when_the_sleep_before_the_last_read_wakes_late()
+    {
+        var reads = new List<double>();
+        var poll = InternalTime.PollConditionAsync(
+            new PollConditionOptions
+            {
+                Deadline = new Deadline(TimeSpan.FromMilliseconds(3_000), _time),
+                Clock = _time,
+                Token = CancellationToken.None,
+                Negated = true,
+                Evaluate = () =>
+                {
+                    reads.Add(_time.Elapsed.TotalMilliseconds);
+                    return Task.FromResult<bool?>(_time.Elapsed < TimeSpan.FromMilliseconds(2_050));
+                },
+                OnTimeout = _ => new InvalidOperationException("negation timed out"),
+            }
+        );
+        var settled = Assert.ThrowsAsync<InvalidOperationException>(() => poll);
+
+        // The last read at 2.9 s sleeps until the deadline; a loaded event loop wakes it 150 ms late.
+        while (!poll.IsCompleted)
+        {
+            await Task.Delay(1);
+            if (!_time.HasTimer)
+            {
+                continue;
+            }
+
+            _time.Advance(
+                reads.Count > 0 && reads[^1] >= 2_900 ? TimeSpan.FromMilliseconds(250) : TimeSpan.FromMilliseconds(1)
+            );
+        }
+
+        Assert.Equal("negation timed out", (await settled).Message);
+        Assert.Equal(2_100, reads.Find(at => at >= 2_050));
+        Assert.Equal(2_900, reads[^1]);
+    }
+
+    [Fact]
     public async Task Ends_on_a_read_cut_off_within_the_longest_read_time_of_the_deadline_and_fails_on_one_that_hung_with_more_left()
     {
         var cut = new EngineException("OPERATION_TIMEOUT", "locate timed out");
