@@ -245,7 +245,7 @@ internal sealed class StepTraceSession
             return;
         }
 
-        if (_actionsAtEndMismatch >= 0 && _recorder.RecordedCount > _actionsAtEndMismatch)
+        if (_actionsAtEndMismatch >= 0 && _recorder.PushedCount > _actionsAtEndMismatch)
         {
             if (_options.Write)
             {
@@ -521,7 +521,7 @@ internal sealed class StepTraceSession
         _handedOffMs = NowMs();
         if (string.Equals(reason, "end-mismatch", StringComparison.Ordinal))
         {
-            _actionsAtEndMismatch = _recorder.RecordedCount;
+            _actionsAtEndMismatch = _recorder.PushedCount;
         }
 
         _prefix = new ReplayedPrefix(

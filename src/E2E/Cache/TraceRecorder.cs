@@ -39,6 +39,13 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     /// <summary>Number of actions recorded so far, gaps included.</summary>
     public int RecordedCount => _actions.Count;
 
+    /// <summary>
+    /// How many actions and gaps were handed to the recorder, a scroll that folds into the one before it included. Upstream counts
+    /// them in the step session's <c>record</c> (<c>actionsAfterEndMismatch</c>); the port's dispatcher records straight into the shared
+    /// recorder, so the count lives here. Not <see cref="RecordedCount"/>, which a fold leaves as it was.
+    /// </summary>
+    public int PushedCount { get; private set; }
+
     /// <summary>When the last action or gap was recorded, in Unix milliseconds; null before the first.</summary>
     public long? LastActionAtMs => _lastActionAtMs;
 
@@ -290,6 +297,7 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     /// </summary>
     private void Push(RecordedAction action)
     {
+        PushedCount++;
         if (_actions.Count >= _maxActions)
         {
             _truncated = true;
@@ -318,6 +326,7 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
         {
             // The smallest coverage of the repeats decides the viewport fallback, so a list that shrank on the way is never
             // promoted by its first size.
+            PushedCount++;
             last.Times = (last.Times ?? 1) + 1;
             last.Spans = last.Spans is { } previous && scroll.Spans is { } current ? Math.Min(previous, current) : null;
             _lastActionAtMs = _time.GetUtcNow().ToUnixTimeMilliseconds();
@@ -391,6 +400,7 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     public void Clear()
     {
         _actions.Clear();
+        PushedCount = 0;
         _truncated = false;
         _lastActionAtMs = null;
     }

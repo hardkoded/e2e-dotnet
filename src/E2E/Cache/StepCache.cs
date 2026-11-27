@@ -654,6 +654,10 @@ public sealed class FileStepCache : IStepCache
     // Key hashes by the step each entry was recorded for, read once on the first strict miss that asks.
     private Dictionary<string, List<string>>? _recordings;
 
+    // Upstream's `FileCacheStore.keyHashes` step: the entry files of the directory. A seam for a test to fail the listing.
+    internal Func<string, IEnumerable<string>> EnumerateEntryFiles { get; set; } =
+        directory => Directory.EnumerateFiles(directory, "*.json");
+
     public FileStepCache(string directory)
         : this(directory, MaxCacheWireBytes, true) { }
 
@@ -812,7 +816,7 @@ public sealed class FileStepCache : IStepCache
             return recordings;
         }
 
-        foreach (var path in Directory.EnumerateFiles(_directory, "*.json"))
+        foreach (var path in EnumerateEntryFiles(_directory))
         {
             var key = Path.GetFileNameWithoutExtension(path);
             if (!IsKeyHash(key))
