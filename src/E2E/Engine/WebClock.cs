@@ -288,6 +288,12 @@ internal static partial class WebClock
     {
         var styles = DateTimeStyles.AllowWhiteSpaces;
 
+        // The reduced ISO date forms (`2024`, `2024-02`) are UTC too; normalize them to a full date .NET reads.
+        if (ReducedDatePattern().IsMatch(text))
+        {
+            text = text.Length == 4 ? text + "-01-01" : text + "-01";
+        }
+
         // A date-only ISO string is UTC in JavaScript; every other form without an offset is local time.
         styles |= DateOnlyPattern().IsMatch(text) ? DateTimeStyles.AssumeUniversal : DateTimeStyles.AssumeLocal;
         return DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, styles, out var parsed)
@@ -338,12 +344,11 @@ internal static partial class WebClock
     [GeneratedRegex(@"^([0-9][0-9]:){0,2}[0-9][0-9]?\z", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
     private static partial Regex TicksPattern();
 
-    [GeneratedRegex(
-        @"^[0-9]{4}-[0-9][0-9]-[0-9][0-9]\z",
-        RegexOptions.CultureInvariant,
-        matchTimeoutMilliseconds: 1000
-    )]
+    [GeneratedRegex(@"^[0-9]{4}(-[0-9][0-9]){2}\z", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
     private static partial Regex DateOnlyPattern();
+
+    [GeneratedRegex(@"^[0-9]{4}(-[0-9][0-9])?\z", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
+    private static partial Regex ReducedDatePattern();
 
     /// <summary>Playwright's own prefix of a clock error, which the page's timer error never has.</summary>
     [GeneratedRegex(

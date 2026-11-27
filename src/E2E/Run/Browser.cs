@@ -1591,7 +1591,7 @@ public sealed class BrowserClock
             )
         );
 
-    /// <summary>Fast-forwards to <paramref name="time"/> and pauses there: timers fire only through <see cref="RunForAsync"/> and <see cref="FastForwardAsync"/>.</summary>
+    /// <summary>Fast-forwards to <paramref name="time"/> and pauses there, which stops the page's timers: they fire only through <see cref="RunForAsync"/> and <see cref="FastForwardAsync"/>.</summary>
     public Task PauseAtAsync(ClockTime time, CancellationToken cancellationToken = default) =>
         _browser.RunStepAsync(StepKind.Resource, "browser.clock.pauseAt", WebClock.ClockTimeLabel(time), () =>
             RunAsync(
@@ -1606,7 +1606,7 @@ public sealed class BrowserClock
             RunAsync(() => new ClockCall(ClockMethod.Resume), cancellationToken)
         );
 
-    /// <summary>Makes <c>Date.now()</c> and <c>new Date()</c> return <paramref name="time"/> from now on, while timers keep running.</summary>
+    /// <summary>Makes <c>Date.now()</c> and <c>new Date()</c> return <paramref name="time"/> from now on. It fixes only <c>Date</c>: unlike <see cref="PauseAtAsync"/>, it does not pause timers, which keep running.</summary>
     public Task SetFixedTimeAsync(ClockTime time, CancellationToken cancellationToken = default) =>
         _browser.RunStepAsync(StepKind.Resource, "browser.clock.setFixedTime", WebClock.ClockTimeLabel(time), () =>
             RunAsync(

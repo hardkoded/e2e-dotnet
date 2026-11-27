@@ -67,6 +67,20 @@ public sealed class ClockArgumentsTests
             WebClock.ClockTimeValue("api", "2024-02-02")
         );
 
+        // So are the reduced ISO date forms.
+        Assert.Equal(
+            DateTimeOffset
+                .Parse("2024-02-01T00:00:00Z", System.Globalization.CultureInfo.InvariantCulture)
+                .ToUnixTimeMilliseconds(),
+            WebClock.ClockTimeValue("api", "2024-02")
+        );
+        Assert.Equal(
+            DateTimeOffset
+                .Parse("2024-01-01T00:00:00Z", System.Globalization.CultureInfo.InvariantCulture)
+                .ToUnixTimeMilliseconds(),
+            WebClock.ClockTimeValue("api", "2024")
+        );
+
         // 1e16 is past the range a Date holds, which Playwright refuses as an invalid date.
         foreach (var refused in new ClockTime[] { "", " ", "soon", double.NaN, double.PositiveInfinity, 1e16, default })
         {

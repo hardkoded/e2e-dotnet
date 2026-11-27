@@ -138,6 +138,7 @@ Public types in the `E2E.Engine` namespace.
 | [WebInitScript](/api/E2E.Engine/WebInitScript/) | A script every document runs before the page's own, in every tab and frame: JavaScript source, a file of it, or a function source the page calls. A string converts to source. |
 | [WebMedia](/api/E2E.Engine/WebMedia/) | User preferences a page reads through @media rules and matchMedia, as Playwright's emulateMedia sets them. A feature left null keeps the browser's own value, or the one an earlier call set. |
 | [WebRequest](/api/E2E.Engine/WebRequest/) | A request the page made: what a route handler reads as Request and WaitForRequestAsync returns. |
+| [WebRouteRequest](/api/E2E.Engine/WebRouteRequest/) | The request a route intercepted. |
 | [WebScreencastOptions](/api/E2E.Engine/WebScreencastOptions/) | How the engine's own screencast of the page records an attempt that records video: the frame size and the JPEG quality of the frames it encodes. Which attempts record is the config's video, not an engine option. Upstream's WebScreencastOptions. |
 | [WebViewport](/api/E2E.Engine/WebViewport/) | A page size in CSS pixels. |
 
@@ -145,6 +146,7 @@ Public types in the `E2E.Engine` namespace.
 
 | Type | Summary |
 | --- | --- |
+| [ClockCall](/api/E2E.Engine/ClockCall/) | One clock call with its argument resolved to milliseconds, as a replacement context replays it; a call that failed after Playwright logged it counts too (upstream's ClockCall). |
 | [ClockTicks](/api/E2E.Engine/ClockTicks/) | A span of time for Browser.Clock (upstream's ClockTicks): milliseconds, or an 'ss', 'mm:ss', or 'hh:mm:ss' string. A fraction of a millisecond is dropped. |
 | [ClockTime](/api/E2E.Engine/ClockTime/) | A point in time for Browser.Clock (upstream's ClockTime): epoch milliseconds, a string a Date parses, or a DateTimeOffset. A fraction of a millisecond is dropped. |
 | [Point](/api/E2E.Engine/Point/) | A point of the viewport, in the space Rect is in and PerformAtAsync dispatches in. Upstream's ViewportPoint. |
@@ -177,6 +179,7 @@ Public types in the `E2E.Engine` namespace.
 | [BrowserName](/api/E2E.Engine/BrowserName/) | A browser the engine launches (upstream BrowserName). |
 | [BrowserProtocol](/api/E2E.Engine/BrowserProtocol/) | The protocol a leased browser's endpoint speaks. .NET-only: upstream's lease always carries a CDP endpoint. |
 | [BrowserProviderScope](/api/E2E.Engine/BrowserProviderScope/) | How long a lease lives. Worker (the default) is one browser per worker slot, acquired in prepare and released in finish. Attempt is a fresh browser per attempt, acquired when the attempt starts and released when it ends, reconnected through the lease's ReconnectEndpoint after a transport drop. |
+| [ClockMethod](/api/E2E.Engine/ClockMethod/) | The clock calls a test makes (upstream's ClockCall['method']). |
 | [DialogType](/api/E2E.Engine/DialogType/) | The kind of a native dialog, independent of its message (upstream's Dialog['type']). |
 | [EngineCapabilities](/api/E2E.Engine/EngineCapabilities/) | Capabilities the harness reads off an engine. An engine never calls a model. |
 | [EngineDoctorStatus](/api/E2E.Engine/EngineDoctorStatus/) | How one finding of an engine's doctor went. Upstream's EngineDoctorCheck.status, a union of four strings. .NET-only name: a C# union has to be a type. |

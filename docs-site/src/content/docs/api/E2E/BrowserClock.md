@@ -86,7 +86,7 @@ public Task PauseAtAsync(ClockTime time, CancellationToken cancellationToken = d
 ```
 
 
-Fast-forwards to &lt;code class="paramref"&gt;time&lt;/code&gt; and pauses there: timers fire only through `RunForAsync` and `FastForwardAsync`.
+Fast-forwards to &lt;code class="paramref"&gt;time&lt;/code&gt; and pauses there, which stops the page's timers: they fire only through `RunForAsync` and `FastForwardAsync`.
 
 **Parameters**
 
@@ -151,7 +151,7 @@ public Task SetFixedTimeAsync(ClockTime time, CancellationToken cancellationToke
 ```
 
 
-Makes `Date.now()` and `new Date()` return &lt;code class="paramref"&gt;time&lt;/code&gt; from now on, while timers keep running.
+Makes `Date.now()` and `new Date()` return &lt;code class="paramref"&gt;time&lt;/code&gt; from now on. It fixes only `Date`: unlike `PauseAtAsync`, it does not pause timers, which keep running.
 
 **Parameters**
 
