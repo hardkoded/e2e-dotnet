@@ -283,6 +283,14 @@ public abstract class E2EFixture
         var baseUrl = BaseUrl;
         var configuredUrl = baseUrl;
         var declared = DeclaredTarget;
+        if (declared.EngineHandle is not null)
+        {
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"target \"{declared.Name}\" declares an engine handle, which the fixture does not run yet (it runs an IEngine); use WithTarget(name, IEngine)"
+            );
+        }
+
         if (declared.App.Command is not null && string.Equals(baseUrl, declared.App.Url, StringComparison.Ordinal))
         {
             // A fixture that points BaseUrl somewhere else does not use the declared app, so the command does not start for it.

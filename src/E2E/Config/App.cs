@@ -110,9 +110,36 @@ internal static partial class TargetApps
     }
 
     /// <summary>
+    /// <see cref="CheckTargetApp(TargetConfig, IEngine)"/> for an engine handle, the form upstream's <c>checkTargetApp</c> takes: the same
+    /// checks against what the handle declares, then its <see cref="EngineHandle.ValidateApp"/>, which a handle may leave out.
+    /// </summary>
+    public static void CheckTargetApp(TargetConfig target, EngineHandle engine)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(engine);
+        var where = $"target \"{target.Name}\" app";
+        CheckLinkBase(target.App.LinkBase, engine, where);
+        CheckLaunchArgumentsFor(target.App, engine, where);
+        CheckAllPermissions(target.App.AllPermissions, engine, where);
+        var file = target.App.Url is { } url && Urls.NamesFile(url);
+        if (file && engine.FileApps != true)
+        {
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"{where}.url is a file, and engine \"{engine.Name}\" does not declare that it opens one from this machine's disk: use an engine version that does, or serve the app over http(s)"
+            );
+        }
+
+        engine.ValidateApp?.Invoke(
+            EngineAppDeclarationOf(target.Name, target.App),
+            new EngineAppCheckInfo { TargetName = target.Name, FileApp = file ? true : null }
+        );
+    }
+
+    /// <summary>
     /// A <c>file:</c> app URL against the engine that will open it, for a session started with a base URL and no target config: the engine
     /// must declare <see cref="IEngine.FileApps"/>, and its own <see cref="IEngine.ValidateApp"/> is told <see cref="EngineAppCheckInfo.FileApp"/>.
-    /// Any other URL passes. The same two checks as <see cref="CheckTargetApp"/>.
+    /// Any other URL passes. The same two checks as <see cref="CheckTargetApp(TargetConfig, IEngine)"/>.
     /// </summary>
     public static void CheckFileAppUrl(EngineAppDeclaration app, IEngine engine, string targetName)
     {
@@ -138,7 +165,19 @@ internal static partial class TargetApps
     /// Checks <c>app.linkBase</c>: an absolute URL, or a bare custom scheme (<c>shopapp://</c>), with no query or fragment for a path to land after, on
     /// an engine that opens links. The message never echoes the value: it may carry a token. Upstream's <c>checkLinkBase</c>.
     /// </summary>
-    public static string? CheckLinkBase(string? linkBase, IEngine? engine, string where)
+    public static string? CheckLinkBase(string? linkBase, IEngine? engine, string where) =>
+        CheckLinkBase(
+            linkBase,
+            engine?.Name,
+            engine is not null && (engine.Capabilities & EngineCapabilities.OpenLink) != 0,
+            where
+        );
+
+    /// <summary><see cref="CheckLinkBase(string?, IEngine?, string)"/> for an engine handle, which opens links when it declares <c>Session.OpenLink</c>.</summary>
+    public static string? CheckLinkBase(string? linkBase, EngineHandle? engine, string where) =>
+        CheckLinkBase(linkBase, engine?.Name, engine?.Session?.OpenLink is not null, where);
+
+    private static string? CheckLinkBase(string? linkBase, string? engineName, bool opensLinks, string where)
     {
         if (linkBase is null)
         {
@@ -150,13 +189,13 @@ internal static partial class TargetApps
             throw new ConfigurationException("INVALID_CONFIG", where + ".linkBase must be a non-empty string");
         }
 
-        if (engine is null || (engine.Capabilities & EngineCapabilities.OpenLink) == 0)
+        if (!opensLinks)
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
                 where
                     + ".linkBase opens links in a device app, and engine "
-                    + (engine?.Name ?? "none")
+                    + (engineName ?? "none")
                     + " opens none; a browser target opens paths against app.url"
             );
         }
@@ -197,11 +236,23 @@ internal static partial class TargetApps
 
     /// <summary>
     /// Checks that the engine takes the form <c>app.launchArguments</c> was declared in: an object only on an engine that declares
-    /// <see cref="IEngine.LaunchArgumentValues"/>. Upstream's refusal in <c>checkTargetApp</c>, which the port runs where it runs <see cref="CheckLinkBase"/>.
+    /// <see cref="IEngine.LaunchArgumentValues"/>. Upstream's refusal in <c>checkTargetApp</c>, which the port runs where it runs <see cref="CheckLinkBase(string?, IEngine?, string)"/>.
     /// </summary>
     public static void CheckLaunchArgumentsFor(AppConfig? app, IEngine engine, string where)
     {
         ArgumentNullException.ThrowIfNull(engine);
+        CheckLaunchArgumentsFor(app, engine.Name, engine.LaunchArgumentValues, where);
+    }
+
+    /// <summary><see cref="CheckLaunchArgumentsFor(AppConfig?, IEngine, string)"/> for an engine handle, which takes the object form when it declares <see cref="EngineHandle.LaunchArgumentValues"/>.</summary>
+    public static void CheckLaunchArgumentsFor(AppConfig? app, EngineHandle engine, string where)
+    {
+        ArgumentNullException.ThrowIfNull(engine);
+        CheckLaunchArgumentsFor(app, engine.Name, engine.LaunchArgumentValues == true, where);
+    }
+
+    private static void CheckLaunchArgumentsFor(AppConfig? app, string engineName, bool takesObject, string where)
+    {
         ArgumentNullException.ThrowIfNull(where);
         if (app is null)
         {
@@ -213,13 +264,13 @@ internal static partial class TargetApps
             app.LaunchArguments,
             app.LaunchArgumentValues
         );
-        if (launchArguments?.Values is not null && !engine.LaunchArgumentValues)
+        if (launchArguments?.Values is not null && !takesObject)
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
                 where
                     + ".launchArguments is an object, and engine \""
-                    + engine.Name
+                    + engineName
                     + "\" takes only a list of strings: write the arguments as a list, or use an engine version that supports the object syntax"
             );
         }
@@ -232,13 +283,25 @@ internal static partial class TargetApps
     public static void CheckAllPermissions(bool allPermissions, IEngine engine, string where)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        if (allPermissions && !engine.GrantsAllPermissions)
+        CheckAllPermissions(allPermissions, engine.Name, engine.GrantsAllPermissions, where);
+    }
+
+    /// <summary><see cref="CheckAllPermissions(bool, IEngine, string)"/> for an engine handle, which grants <c>'all'</c> when it declares <see cref="EngineHandle.GrantsAllPermissions"/>.</summary>
+    public static void CheckAllPermissions(bool allPermissions, EngineHandle engine, string where)
+    {
+        ArgumentNullException.ThrowIfNull(engine);
+        CheckAllPermissions(allPermissions, engine.Name, engine.GrantsAllPermissions == true, where);
+    }
+
+    private static void CheckAllPermissions(bool allPermissions, string engineName, bool grants, string where)
+    {
+        if (allPermissions && !grants)
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
                 where
                     + ".permissions is 'all', which engine \""
-                    + engine.Name
+                    + engineName
                     + "\" does not take (it declares no grantsAllPermissions)"
             );
         }

@@ -997,19 +997,37 @@ public sealed class EngineProtocolTests
             }
         );
 
-    /// <summary>
-    /// Partial: upstream resolves two config targets and checks that the harness serves the in-process one through <c>protocolEngine</c> and
-    /// leaves the connected one as declared. The port's config types a target's engine as <see cref="IEngine"/>, so it holds no
-    /// <see cref="EngineHandle"/> to serve; the port checks the client <see cref="ProtocolClient.ProtocolEngine"/> makes.
-    /// </summary>
     [Fact]
-    public void Partial_Serves_every_in_process_target_through_one_protocol_client_and_leaves_a_connected_engine_as_declared()
+    public void Serves_every_in_process_target_through_one_protocol_client_and_leaves_a_connected_engine_as_declared()
     {
         var engine = E2E.Engine.EngineManifest.DefineEngine(Toy());
         var (_, remote) = Of(Toy());
+        var root = Directory.GetCurrentDirectory();
+        var config = E2EConfig
+            .Default(root)
+            .WithTarget(
+                new TargetConfig
+                {
+                    Name = "toy",
+                    Platform = "toy",
+                    App = new AppConfig(),
+                    EngineHandle = engine,
+                }
+            )
+            .WithTarget(
+                new TargetConfig
+                {
+                    Name = "remote",
+                    Platform = "toy",
+                    App = new AppConfig(),
+                    EngineHandle = remote,
+                }
+            );
 
-        var served = ProtocolClient.ProtocolEngine(engine);
+        var resolved = ResolvedConfig.Resolve(config);
+        var served = resolved.Targets.Single(target => target.Name == "toy").EngineHandle;
 
+        Assert.NotNull(served);
         Assert.NotSame(engine, served);
         Assert.Same(served, ProtocolClient.ProtocolEngine(served));
         Assert.Equal("toy", served.Name);
@@ -1017,8 +1035,26 @@ public sealed class EngineProtocolTests
             engine.Capabilities.Order(StringComparer.Ordinal),
             served.Capabilities.Order(StringComparer.Ordinal)
         );
-        Assert.Same(remote, ProtocolClient.ProtocolEngine(remote));
-        Assert.Same(served, ProtocolClient.ProtocolEngine(engine));
+        Assert.Same(remote, resolved.Targets.Single(target => target.Name == "remote").EngineHandle);
+        Assert.Same(
+            served,
+            ResolvedConfig
+                .Resolve(
+                    E2EConfig
+                        .Default(root)
+                        .WithTarget(
+                            new TargetConfig
+                            {
+                                Name = "toy",
+                                Platform = "toy",
+                                App = new AppConfig(),
+                                EngineHandle = engine,
+                            }
+                        )
+                )
+                .Targets.Single(target => target.Name == "toy")
+                .EngineHandle
+        );
     }
 
     [Fact]

@@ -21,6 +21,14 @@ internal static class TargetEngines
     )
     {
         ArgumentNullException.ThrowIfNull(target);
+        if (target.EngineHandle is not null)
+        {
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"target \"{target.Name}\" holds an engine handle, which this host does not drive yet (it drives an IEngine); use WithTarget(name, IEngine)"
+            );
+        }
+
         if (target.Engine is { } held)
         {
             TargetApps.CheckTargetApp(target, held);
