@@ -156,6 +156,7 @@ A browser provider or `Connect` takes the `chromium` names; the engine drives `C
 - `bundleId`, `appPath`, and `launchArguments` describe an installed device app and are refused.
 - `app.permissions` must name permissions the engine's browser grants, and only grants.
 - A `file:` `app.url` (one file on this machine, opened from disk) needs a browser the engine launches itself: a browser provider, `Connect`, `Headers`, and `BasicAuth` are refused, since the browser may run elsewhere and a file has no origin to send credentials to.
+- Navigation takes a `file:` URL only for a file in the app file's directory or below it: `App.OpenAsync("pages/about.html")`. A file outside it and any directory are `POLICY_DENIED`, with symbolic links resolved. The agent works from the tree alone: it is sent no screenshot, `VisionMode.Only` is `POLICY_DENIED`, and neither `Agent.AssertAsync` nor a failure keeps one. See [Navigation](/reference/security/#navigation).
 
 Each failure is `INVALID_CONFIG`. Config loading does not run `ValidateApp`: a web target without `app.url` still loads. Attempt start validates `app.permissions` separately, through `WebPermissions.ValidatePermissions`.
 

@@ -669,7 +669,12 @@ public sealed class E2ESession : IAsyncDisposable
                 scope.Steps.RecordScreen(() =>
                     StepScreens.TraceScreen(
                         screen,
-                        new TraceScreenOptions(scope.Redactor, runLimits.MaxObservationBytes, scope.AppOrigin)
+                        new TraceScreenOptions(
+                            scope.Redactor,
+                            runLimits.MaxObservationBytes,
+                            scope.AppOrigin,
+                            scope.BaseUrl
+                        )
                     )
                 )
             );
@@ -1777,6 +1782,7 @@ public sealed class E2ESession : IAsyncDisposable
                             StepRecords.LastOrDefault(step => step.Status != StepStatus.Passed) is not { } failed
                             || OwnSteps.IsOwnStep(failed),
                         AppOrigin = _scope.AppOrigin,
+                        AppBase = _scope.BaseUrl,
                         MaxObservationBytes = ResolvedAgent.RunLimits(_scope.Agents.Values).MaxObservationBytes,
                         AttemptDir = trace.AttemptDir,
                     }

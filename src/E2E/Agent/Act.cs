@@ -206,7 +206,7 @@ public sealed partial class Agent
                     agent.Context is null ? 0 : ModelAdapter.TokenUpperBound(agent.Context),
                     ledger.Bytes,
                     // An assertion that asked for the tree alone never shows pixels (upstream's `spec.vision !== false`).
-                    PixelsAllowed: spec.Vision != VisionMode.Off
+                    PixelsAllowed: spec.Vision != VisionMode.Off && !_scope.IsFileApp
                 ),
                 new ActionDispatcherOptions(
                     () => declared,
@@ -344,7 +344,10 @@ public sealed partial class Agent
 
             // Evidence for an assert is taken after the verdict, on a pass and on a failure alike.
             var kept =
-                spec.Kind == ExecutorStepKind.Assert && spec.Screenshot != false && budget.HardStop is null
+                spec.Kind == ExecutorStepKind.Assert
+                && spec.Screenshot != false
+                && !_scope.IsFileApp
+                && budget.HardStop is null
                     ? await KeepBoundedEvidenceAsync(budget, outer.Token, cancellationToken).ConfigureAwait(false)
                     : null;
             Settle(verdict, budget, spec, executor, kept, api, out var summary);

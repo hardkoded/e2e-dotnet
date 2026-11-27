@@ -797,10 +797,10 @@
       "baselinedAt": "2026-11-18T15:41:48.2141259+00:00"
     },
     {
-      "hash": "37287f3585403bd2",
+      "hash": "d87dfdd93cc74e85",
       "ruleId": "SW003",
       "filePath": "src/E2E/Run/FailureEvidence.cs",
-      "lineNumber": 135,
+      "lineNumber": 147,
       "codeSnippet": "catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)\n            {\n                // An unwritable directory: the tree stays unrecorded.\n            }",
       "message": "Empty catch block swallows exceptions without handling",
       "baselinedAt": "2026-11-19T23:29:10.1381354+00:00"

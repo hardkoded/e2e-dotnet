@@ -219,6 +219,11 @@ internal static class StepHolds
                 await session.ObserveAsync(operation, operation.Signal).ConfigureAwait(false),
                 options
             );
+            if (screen is null)
+            {
+                return null;
+            }
+
             return string.Join(
                 '\n',
                 (screen.Location is null ? Enumerable.Empty<string>() : [screen.Location]).Concat(

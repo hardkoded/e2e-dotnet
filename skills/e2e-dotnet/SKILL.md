@@ -505,7 +505,12 @@ lines you changed:
   `file:` URL (one file on this machine, no host, never a directory): an engine without
   it gets `INVALID_CONFIG`, and `EngineAppCheckInfo.FileApp` tells `ValidateApp`.
   `WebEngine` declares it and refuses a file app with `Browser`, `Connect`, `Headers`,
-  or `BasicAuth`. A file has no origin, site, or port, so `{port}` in `app.command` is
+  or `BasicAuth`. Navigation takes a `file:` URL only for a file in the app file's
+  directory or below it (symbolic links resolved), never a directory (`POLICY_DENIED`).
+  A page that leaves that directory by a link is refused in place of its screen
+ : no model observation, trace screen, or failure
+  screen text. A file app gets no pixels: `VisionMode.Only` is `POLICY_DENIED`, and
+  `Agent.AssertAsync` and a failure keep no screenshot. A file has no origin, site, or port, so `{port}` in `app.command` is
   `INVALID_CONFIG` and a command beside it needs `app.readyUrl` (`APP_URL_REQUIRED`).
 - Tests: one test class per feature, one behavior per test method,
   arrange, act, assert with every assertion last (topic `writing-tests`).
