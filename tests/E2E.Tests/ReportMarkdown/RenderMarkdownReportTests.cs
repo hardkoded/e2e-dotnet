@@ -486,6 +486,68 @@ public sealed class RenderMarkdownReportTests
     }
 
     [Fact]
+    public void Escapes_an_ampersand_so_entity_text_in_a_title_or_a_message_shows_as_written()
+    {
+        var entities = Named(
+            "renders &copy; and &lt;b&gt; literally",
+            ResultStatus.Failed,
+            attempts:
+            [
+                Attempt(
+                    AttemptStatus.Failed,
+                    error: new ReportError("ASSERTION_FAILED", "expected \"Tom & Jerry\" to equal \"Tom &amp; Jerry\"")
+                ),
+            ]
+        );
+
+        var body = Render(Page(ReportRunStatus.Failed, [entities]));
+
+        Assert.Contains("renders &amp;copy; and &amp;lt;b&amp;gt; literally", body);
+        Assert.Contains("expected \"Tom &amp; Jerry\" to equal \"Tom &amp;amp; Jerry\"", body);
+        Assert.DoesNotContain("&copy;", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Escapes_an_underscore_at_the_edge_of_a_word_so_a_title_or_a_message_is_not_bold_or_italic()
+    {
+        var underscores = Named(
+            "reads the __proto__ key",
+            ResultStatus.Failed,
+            attempts:
+            [
+                Attempt(
+                    AttemptStatus.Failed,
+                    error: new ReportError("ASSERTION_FAILED", "_id_ is missing (_x) in snake_case _ __")
+                ),
+            ]
+        );
+
+        var body = Render(Page(ReportRunStatus.Failed, [underscores]));
+
+        Assert.Contains("reads the \\_\\_proto\\_\\_ key", body);
+        Assert.Contains("\\_id\\_ is missing (\\_x) in snake_case _ __", body);
+        Assert.Contains("**ASSERTION_FAILED**", body);
+    }
+
+    [Fact]
+    public void Keeps_an_entity_from_decoding_into_a_mention_or_an_issue_link_and_leaves_an_ampersand_inside_a_code_span_alone()
+    {
+        // `&#64;alice` holds `#6`, so it is a linkable token and already goes out as code; the hex and named spellings are plain text.
+        var entities = Named(
+            "ping &#x40;alice &commat;bob &#64;carol, see &num;12 at https://x.test/?a=1&b=2",
+            ResultStatus.Failed,
+            attempts: [Attempt(AttemptStatus.Failed, error: ReportBuilders.Error())]
+        );
+
+        var body = Render(Page(ReportRunStatus.Failed, [entities]));
+
+        Assert.Contains(
+            "ping &amp;#x40;alice &amp;commat;bob `&#64;carol,` see &amp;num;12 at `https://x.test/?a=1&b=2`",
+            body
+        );
+    }
+
+    [Fact]
     public void Shows_a_token_GitHub_would_link_as_code_and_keeps_a_quoted_line_from_opening_a_block()
     {
         // GitHub's mention and issue filters run on the rendered text, so an entity or a backslash before `@` or `#` changes nothing; a code span is skipped.
