@@ -75,7 +75,7 @@ public sealed class DeviceFixtureTests
     }
 
     [Fact]
-    public async Task Counts_a_back_home_lock_unlock_alert_keyboard_rotation_or_fold_as_an_action_so_a_control_that_arrives_with_it_waits_out_the_transition_budget()
+    public async Task Partial_Counts_a_back_home_lock_unlock_alert_keyboard_rotation_or_fold_as_an_action_so_a_control_that_arrives_with_it_waits_out_the_transition_budget()
     {
         var h = Harness.Create(options => options with { TransitionMilliseconds = 120 });
         var session = await OpenAttempt(h);
@@ -228,7 +228,7 @@ public sealed class DeviceFixtureTests
     }
 
     [Fact]
-    public async Task Issues_one_settings_or_system_command_per_method()
+    public async Task Partial_Issues_one_settings_or_system_command_per_method()
     {
         var h = Harness.Create();
         var session = await OpenAttempt(h);
@@ -1105,7 +1105,11 @@ public sealed class DeviceFixtureTests
     [Fact]
     public async Task Locks_and_unlocks_the_selected_device_through_agent_devices_one_lock_screen_command()
     {
-        var android = Android("com.example.app");
+        var android = Harness.Create(
+            options => options with { Platform = MobilePlatform.Android, Device = "emulator-5554" },
+            true,
+            app => app with { BundleId = "com.example.app" }
+        );
         var session = await OpenAttempt(android);
         android.Fake.Respond(DeviceMethods.CommandLockScreen, args => new JsonObject
         {
@@ -1119,8 +1123,8 @@ public sealed class DeviceFixtureTests
         JsonAssert.Calls(
             android.Fake.Calls,
             before,
-            ("command.lockScreen", """{"platform":"android","action":"lock"}"""),
-            ("command.lockScreen", """{"platform":"android","action":"unlock"}""")
+            ("command.lockScreen", """{"platform":"android","serial":"emulator-5554","action":"lock"}"""),
+            ("command.lockScreen", """{"platform":"android","serial":"emulator-5554","action":"unlock"}""")
         );
     }
 
