@@ -149,6 +149,12 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | `driver.keys('Enter')`, `pressKeyCode(66)` | `.PressAsync("Enter")` on the field |
 | `.getText()`, `.getValue()`, `.getAttribute('value')` | `.TextContentAsync()`, `.InputValueAsync()` |
 | `.isDisplayed()`, `.isEnabled()`, `.getAttribute('checked')` | `.IsVisibleAsync()`, `.IsEnabledAsync()`, `.IsCheckedAsync()` |
+| `.getAttribute('label')` | `.GetAttributeAsync("label")`. [`GetAttributeAsync`](/reference/engine/) lists what each attribute reads |
+| `.getAttribute('resource-id')`, iOS `.getAttribute('name')` | `.GetAttributeAsync("resource-id")`. An iOS element with no identifier has none; read `label`. On an iOS device cloud, `resource-id` and `label` can each return the other's value |
+| Android `.getAttribute('name')`, `.getAttribute('text')` | `.TextContentAsync()`. On a node with only a content description, it reads the description |
+| `.getAttribute('class')`, iOS `.getAttribute('type')`, `.getTagName()` | `.GetAttributeAsync("class")`. On iOS it drops the `XCUIElementType` prefix: `Button`, not `XCUIElementTypeButton` |
+| `.getAttribute('content-desc')` | `.GetAttributeAsync("content-desc")`, Android only |
+| `.getAttribute('hint')` | `.GetAttributeAsync("placeholder")` |
 | `.isExisting()` | `await locator.CountAsync() > 0` |
 | `.getLocation()`, `.getSize()` | `.BoundingBoxAsync()` |
 | `.waitForDisplayed({ timeout })` | `await Expect.That(locator).ToBeVisibleAsync(timeout: ...)`, or `locator.WaitForAsync()` |
@@ -271,7 +277,7 @@ Planned rows are on the roadmap, and Not yet rows have no date. Not planned rows
 
 | Appium | Use today |
 | --- | --- |
-| `.getAttribute()` for a label, id, or class, `.isSelected()`, `.getTagName()` | `ToHaveAccessibleNameAsync` for a label, `ToBeSelectedAsync` for the selected state. No read for an id, class, or tag name |
+| `.isSelected()` | `ToBeSelectedAsync` for the selected state |
 | `pressKeyCode(code)`, `driver.keys('Backspace')` | `.PressAsync()` takes `Enter`, `Space`, or one character. Use `.ClearAsync()` and `.FillAsync()` |
 | `driver.getWindowRect()`, `mobile: deviceInfo` | `Device.ViewportAsync()` returns size only. Window position and full device information have no equivalent |
 | `UiScrollable` `scrollToEnd()`, `scrollToBeginning()` | Loop `locator.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down })` until `AllTextContentsAsync()` stops changing; `Up` for the beginning |

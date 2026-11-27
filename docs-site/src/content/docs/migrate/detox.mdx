@@ -155,7 +155,7 @@ Planned is on the roadmap, and Not yet has no date. Not planned is left out on p
 | `.scrollTo('bottom')` | `list.ScrollUntilVisibleAsync(lastRow)`, or the first row with `new ScrollUntilVisibleOptions { Direction = ScrollDirection.Up }` |
 | `.tapBackspaceKey()` | `.FillAsync(t)` with the shorter text. `.PressAsync("Backspace")` is `UNSUPPORTED_CAPABILITY` on a device |
 | `.setDatePickerDate()`, `.setColumnToValue()`, `.adjustSliderToPosition()` | An `Agent.ActAsync` goal, or a drag with `Screen.SwipeAsync(new SwipePathOptions { From = ..., To = ... })` on a slider, the points taken from `.BoundingBoxAsync()` |
-| `.getAttributes()` | One call per field: `.TextContentAsync()`, `.InputValueAsync()`, `.IsEnabledAsync()`, `.IsVisibleAsync()`, `.IsCheckedAsync()`, `.BoundingBoxAsync()`, `.GetAttributeAsync("placeholder")` |
+| `.getAttributes()` | One call per field: `.TextContentAsync()`, `.InputValueAsync()`, `.GetAttributeAsync()`, `.IsEnabledAsync()`, `.IsVisibleAsync()`, `.IsCheckedAsync()`, `.BoundingBoxAsync()` |
 | `permissions` for names and values beyond `PermissionState.Grant`, `Deny`, `Reset` | Tap the prompt's button, or `Device.AlertAsync(AlertAction.Accept)` |
 | `device.sendUserNotification()` | `Device.UnstableRaw.Client.CallAsync(...)`, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes) |
 | `launchApp({ languageAndLocale })` | On iOS, `app.launchArguments` of `["-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"]`, see [Run the app in another language](/get-started/mobile/#run-the-app-in-another-language) |
