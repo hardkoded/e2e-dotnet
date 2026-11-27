@@ -1239,17 +1239,21 @@ public sealed class PageResponse : WebResponse
     {
         if (!_settled && !_wait.IsCancellationRequested)
         {
-            try
+            var read = await Task.WhenAny(body, Task.Delay(Timeout.Infinite, _wait)).ConfigureAwait(false);
+            if (read == body)
             {
-                return await body.WaitAsync(_wait).ConfigureAwait(false);
+                return await body.ConfigureAwait(false);
             }
-            catch (OperationCanceledException) when (_settled)
+
+            // The wait returned this response while the read was pending: it goes on as a read of that response.
+            if (!_settled)
             {
-                // The wait returned this response while the read was pending: it goes on as a read of that response.
-            }
-            catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
-            {
-                throw new EngineException(EngineErrorCodes.Cancelled, "waitForResponse body cancelled", false, ex);
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+
+                throw new EngineException(EngineErrorCodes.Cancelled, "waitForResponse body cancelled", false);
             }
         }
 
