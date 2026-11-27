@@ -75,6 +75,15 @@ public static class DesktopOptionsResolver
     public static ResolvedDesktopOptions Resolve(DesktopOptions? options)
     {
         var bag = options ?? new DesktopOptions();
+        // .NET-only branch: a C# enum can hold a value no member names, where upstream's `snapshot` is checked against its two strings.
+        if (bag.Snapshot is { } snapshot && !Enum.IsDefined(snapshot))
+        {
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"desktop({{ snapshot }}) must be 'full' or 'interactive', got {(int)snapshot}"
+            );
+        }
+
         if (bag.SettleMilliseconds is < 0)
         {
             throw new ConfigurationException(
@@ -100,7 +109,29 @@ public static class DesktopOptionsResolver
     }
 
     /// <summary>Why the engine refuses this machine: it drives macOS only, and the native driver is built for nothing else. Upstream's <c>unsupportedPlatform</c>.</summary>
-    public static string UnsupportedPlatform() => UnsupportedPlatform(RuntimeInformation.OSDescription);
+    public static string UnsupportedPlatform() => UnsupportedPlatform(ProcessPlatform());
+
+    /// <summary>
+    /// The host's operating system as Node's <c>process.platform</c> names it (<c>darwin</c>, <c>linux</c>, <c>win32</c>), which upstream's messages
+    /// carry. .NET-only: .NET has no <c>process.platform</c>.
+    /// </summary>
+    internal static string ProcessPlatform() =>
+        OperatingSystem.IsMacOS() ? "darwin"
+        : OperatingSystem.IsLinux() ? "linux"
+        : OperatingSystem.IsWindows() ? "win32"
+        : OperatingSystem.IsFreeBSD() ? "freebsd"
+        : "unknown";
+
+    /// <summary>The host's CPU architecture as Node's <c>process.arch</c> names it (<c>arm64</c>, <c>x64</c>). .NET-only: .NET has no <c>process.arch</c>.</summary>
+    internal static string ProcessArch() =>
+        RuntimeInformation.ProcessArchitecture switch
+        {
+            Architecture.Arm64 => "arm64",
+            Architecture.X64 => "x64",
+            Architecture.X86 => "ia32",
+            Architecture.Arm => "arm",
+            var other => other.ToString().ToLowerInvariant(),
+        };
 
     /// <summary><see cref="UnsupportedPlatform()"/> for a host the caller names (.NET-only: tests answer for either OS).</summary>
     internal static string UnsupportedPlatform(string os) =>

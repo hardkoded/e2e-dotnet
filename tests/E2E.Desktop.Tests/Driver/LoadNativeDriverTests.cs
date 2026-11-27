@@ -43,8 +43,13 @@ public sealed class LoadNativeDriverTests
         Assert.Equal(NativeFunctions.Order().ToArray(), declared);
     }
 
+    /// <summary>
+    /// Partial: upstream asserts the version is <c>checkout build</c> for an addon built into the package's directory, and that the loader takes
+    /// that build before a platform package. The port has one driver, managed code in this assembly, so its version is the assembly's and there is
+    /// no second build to prefer. That every function is callable is the compiler's here (<c>MacOsDriver</c> implements the interface).
+    /// </summary>
     [MacOsFact]
-    public void Names_the_build_it_loaded_and_keeps_every_native_function_callable()
+    public void Partial_Names_the_build_it_loaded_and_keeps_every_native_function_callable()
     {
         var driver = DesktopDriverCalls.LoadNativeDriver();
         Assert.False(string.IsNullOrEmpty(driver.Version));

@@ -112,6 +112,61 @@ internal static partial class LaunchOwnership
             : BundleCheck.Ok(declared);
     }
 
+    /// <summary>
+    /// The path with every symbolic link in it resolved, as Node's <c>fs.realpath</c> gives it (upstream's <c>init</c> launches the real path of
+    /// the bundle). .NET-only helper: <see cref="FileSystemInfo.ResolveLinkTarget"/> resolves only a link at the end of a path, so each
+    /// component is resolved in turn. A path that does not exist is returned as it is.
+    /// </summary>
+    public static string RealPath(string path)
+    {
+        var resolved = Path.GetFullPath(path);
+        // A link can point at another link or through one: bounded, as the OS bounds it, so a loop ends.
+        for (var round = 0; round < 40; round++)
+        {
+            var root = Path.GetPathRoot(resolved) ?? "";
+            var current = root;
+            var changed = false;
+            var parts = resolved[root.Length..]
+                .Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+            for (var index = 0; index < parts.Length; index++)
+            {
+                current = Path.Combine(current, parts[index]);
+                FileSystemInfo info = Directory.Exists(current) ? new DirectoryInfo(current) : new FileInfo(current);
+                if (info.LinkTarget is null)
+                {
+                    continue;
+                }
+
+                FileSystemInfo? target;
+                try
+                {
+                    target = info.ResolveLinkTarget(returnFinalTarget: false);
+                }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+                {
+                    return resolved;
+                }
+
+                if (target is null)
+                {
+                    return resolved;
+                }
+
+                resolved = Path.GetFullPath(Path.Combine(target.FullName, Path.Combine(parts[(index + 1)..])));
+                changed = true;
+                break;
+            }
+
+            if (!changed)
+            {
+                return resolved;
+            }
+        }
+
+        // Node's fs.realpath fails with ELOOP here: a loop is no real path.
+        throw new IOException($"too many levels of symbolic links: {path}");
+    }
+
     /// <summary>The run's environment cut to the variables the app may see (<c>INHERITED_ENV</c>, and <c>LC_*</c>). Upstream's <c>inheritedEnv</c>.</summary>
     public static IReadOnlyDictionary<string, string> InheritedEnv(IReadOnlyDictionary<string, string?> env)
     {

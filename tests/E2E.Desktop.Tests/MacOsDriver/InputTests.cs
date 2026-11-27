@@ -121,19 +121,18 @@ public sealed class InputTests
         {
             Assert.Throws<Failure>(() => Input.ParseCombo(combo));
         }
-    }
 
-    [MacOnlyFact]
-    public void Does_not_refuse_control_q_as_a_quit()
-    {
-        // Control-Q is no quit; whether it resolves depends on the layout this Mac has.
-        try
+        // Control-Q is no quit; whether it resolves depends on the layout this Mac has. Resolving a key needs the macOS keyboard layout.
+        if (OperatingSystem.IsMacOS())
         {
-            Input.ParseCombo("ctrl+q");
-        }
-        catch (Failure failure)
-        {
-            Assert.NotEqual(Codes.PolicyDenied, failure.Code);
+            try
+            {
+                Input.ParseCombo("ctrl+q");
+            }
+            catch (Failure failure)
+            {
+                Assert.NotEqual(Codes.PolicyDenied, failure.Code);
+            }
         }
     }
 }

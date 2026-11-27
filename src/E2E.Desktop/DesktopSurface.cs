@@ -263,7 +263,7 @@ internal sealed partial class DesktopSurface
             throw new EngineException("ENGINE_FAILURE", problem, retryable: false);
         }
 
-        var real = new DirectoryInfo(bundle).ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? bundle;
+        var real = LaunchOwnership.RealPath(bundle);
         return new LaunchTarget(real, null, checkedBundle.BundleId!);
     }
 

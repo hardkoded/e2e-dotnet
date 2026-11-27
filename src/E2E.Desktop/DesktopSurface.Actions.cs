@@ -86,13 +86,13 @@ internal sealed partial class DesktopSurface
                 throw NotActionable($"the window has nothing that scrolls {(horizontal ? "sideways" : "up and down")}");
             }
 
-            await ScrollAsync(BindingOf(target), rootSwipe.Direction, rootSwipe.Momentum, operation)
+            await ScrollAsync(Binding(target), rootSwipe.Direction, rootSwipe.Momentum, operation)
                 .ConfigureAwait(false);
             await SettleAsync(operation).ConfigureAwait(false);
             return;
         }
 
-        var binding = BindingOf(refId);
+        var binding = Binding(refId);
         switch (action)
         {
             case LocatorAction.Tap:
@@ -166,8 +166,107 @@ internal sealed partial class DesktopSurface
                     .ConfigureAwait(false);
                 break;
             case LocatorAction.Press press:
-                await PressOnNodeAsync(binding, press.Key, operation).ConfigureAwait(false);
+            {
+                // A key the engine cannot press is refused before focus moves, and so is one this Mac's keyboard layout cannot type (a digit shortcut on AZERTY).
+                var combo = DesktopKeys.ToCombo(press.Key);
+                var window = binding.WindowId
+                    ?? throw NotActionable($"node {binding.Id} was read in no window to press a key into");
+                try
+                {
+                    await ReadAsync(
+                            (driver, _) => driver.CheckComboAsync(combo),
+                            new DriverCall
+                            {
+                                Label = "press",
+                                Input = false,
+                                Signal = operation.Signal,
+                                TimeoutMs = operation.TimeoutMs,
+                            }
+                        )
+                        .ConfigureAwait(false);
+                }
+                catch (Exception cause) when (cause is not OperationCanceledException)
+                {
+                    throw DesktopDriverCalls.Translate(cause, "press", false);
+                }
+
+                // With `headed` the key goes through the real keyboard to the window in front: the control's window comes forward first, so a control in a
+                // window useWindow() picked while another held the keyboard can take focus. The checks below still run before the key.
+                if (Options.Headed && _pid is { } pid)
+                {
+                    var focusId = RequireDriver().InputId();
+                    try
+                    {
+                        await InputAsync(
+                                (driver, timeoutMs) => driver.FocusWindowAsync(pid, window, focusId, timeoutMs),
+                                new DriverCall
+                                {
+                                    Label = "focus window",
+                                    Input = true,
+                                    Signal = operation.Signal,
+                                    TimeoutMs = operation.TimeoutMs,
+                                    OnCutOff = () => _driver?.CancelInput(focusId),
+                                }
+                            )
+                            .ConfigureAwait(false);
+                    }
+                    catch (Exception cause) when (cause is not OperationCanceledException)
+                    {
+                        throw DesktopDriverCalls.Translate(cause, "focus window", true);
+                    }
+                }
+
+                await RefCommandAsync("focus", binding, operation).ConfigureAwait(false);
+                try
+                {
+                    // The key goes to the process, which hands it to its key window: with another window that could be it, the control's must be the one
+                    // shown focused. A window on another Space, which the window list shows as not visible, is still the control's: with `headed` the press
+                    // brings it forward.
+                    var windows = await OwnWindowsAsync(operation).ConfigureAwait(false);
+                    var home = windows.FirstOrDefault(candidate => candidate.Id == window)
+                        ?? throw NotActionable($"the window node {binding.Id} was read in is gone");
+                    if (home.Minimized == true)
+                    {
+                        throw NotActionable(
+                            $"the window node {binding.Id} was read in is minimized, so no key reaches it"
+                        );
+                    }
+
+                    var rivals = windows.Where(candidate =>
+                        candidate.Id != window && candidate.Visible != false && candidate.Minimized != true
+                    );
+                    if (rivals.Any() && home.IsFocused != true)
+                    {
+                        throw NotActionable(
+                            $"node {binding.Id} is in a window that cannot be shown to be the app's key window, so the key could land in another window"
+                        );
+                    }
+
+                    // Focusing can hand focus on (a dialog it opens): the key goes only when the control still holds it.
+                    if (!await HoldsFocusAsync(binding, window, operation).ConfigureAwait(false))
+                    {
+                        throw NotActionable(
+                            $"node {binding.Id} did not keep keyboard focus, so the key would land on another control"
+                        );
+                    }
+
+                    await SendKeyAsync(combo, window, $"press {press.Key}", operation, binding.Ref)
+                        .ConfigureAwait(false);
+                }
+                catch (EngineException cause) when (cause.Retryable)
+                {
+                    // The focus already moved: a retry of the whole press would focus the control a second time, which an app's focus handler sees.
+                    throw new EngineException(
+                        "ACTION_MAY_HAVE_COMMITTED",
+                        $"press {press.Key}: {cause.Message} (the control was already focused)",
+                        retryable: false,
+                        cause
+                    );
+                }
+
                 break;
+            }
+
             case LocatorAction.Select select:
                 await SelectAsync(binding, OptionLabel(select), operation).ConfigureAwait(false);
                 break;
@@ -180,104 +279,6 @@ internal sealed partial class DesktopSurface
         }
 
         await SettleAsync(operation).ConfigureAwait(false);
-    }
-
-    /// <summary>The <c>press</c> of a locator: the key goes to the control's own window, with the checks that it kept focus.</summary>
-    private async Task PressOnNodeAsync(NodeBinding binding, string key, DesktopOperation operation)
-    {
-        // A key the engine cannot press is refused before focus moves, and so is one this Mac's keyboard layout cannot type (a digit shortcut on AZERTY).
-        var combo = DesktopKeys.ToCombo(key);
-        var window = binding.WindowId
-            ?? throw NotActionable($"node {binding.Id} was read in no window to press a key into");
-        try
-        {
-            await ReadAsync(
-                    (driver, _) => driver.CheckComboAsync(combo),
-                    new DriverCall
-                    {
-                        Label = "press",
-                        Input = false,
-                        Signal = operation.Signal,
-                        TimeoutMs = operation.TimeoutMs,
-                    }
-                )
-                .ConfigureAwait(false);
-        }
-        catch (Exception cause) when (cause is not OperationCanceledException)
-        {
-            throw DesktopDriverCalls.Translate(cause, "press", false);
-        }
-
-        // With `headed` the key goes through the real keyboard to the window in front: the control's window comes forward first, so a control in a
-        // window useWindow() picked while another held the keyboard can take focus. The checks below still run before the key.
-        if (Options.Headed && _pid is { } pid)
-        {
-            var focusId = RequireDriver().InputId();
-            try
-            {
-                await InputAsync(
-                        (driver, timeoutMs) => driver.FocusWindowAsync(pid, window, focusId, timeoutMs),
-                        new DriverCall
-                        {
-                            Label = "focus window",
-                            Input = true,
-                            Signal = operation.Signal,
-                            TimeoutMs = operation.TimeoutMs,
-                            OnCutOff = () => _driver?.CancelInput(focusId),
-                        }
-                    )
-                    .ConfigureAwait(false);
-            }
-            catch (Exception cause) when (cause is not OperationCanceledException)
-            {
-                throw DesktopDriverCalls.Translate(cause, "focus window", true);
-            }
-        }
-
-        await RefCommandAsync("focus", binding, operation).ConfigureAwait(false);
-        try
-        {
-            // The key goes to the process, which hands it to its key window: with another window that could be it, the control's must be the one
-            // shown focused. A window on another Space, which the window list shows as not visible, is still the control's: with `headed` the press
-            // brings it forward.
-            var windows = await OwnWindowsAsync(operation).ConfigureAwait(false);
-            var home = windows.FirstOrDefault(candidate => candidate.Id == window)
-                ?? throw NotActionable($"the window node {binding.Id} was read in is gone");
-            if (home.Minimized == true)
-            {
-                throw NotActionable($"the window node {binding.Id} was read in is minimized, so no key reaches it");
-            }
-
-            var rivals = windows.Where(candidate =>
-                candidate.Id != window && candidate.Visible != false && candidate.Minimized != true
-            );
-            if (rivals.Any() && home.IsFocused != true)
-            {
-                throw NotActionable(
-                    $"node {binding.Id} is in a window that cannot be shown to be the app's key window, so the key could land in another window"
-                );
-            }
-
-            // Focusing can hand focus on (a dialog it opens): the key goes only when the control still holds it.
-            if (!await HoldsFocusAsync(binding, window, operation).ConfigureAwait(false))
-            {
-                throw NotActionable(
-                    $"node {binding.Id} did not keep keyboard focus, so the key would land on another control"
-                );
-            }
-
-            await SendKeyAsync(combo, window, $"press {key}", operation, binding.Ref).ConfigureAwait(false);
-        }
-        catch (EngineException cause) when (cause.Retryable)
-        {
-            // The focus already moved: a retry of the whole press would focus the control a second time, which an app's focus handler sees.
-            throw new EngineException(
-                "ACTION_MAY_HAVE_COMMITTED",
-                $"press {key}: {cause.Message} (the control was already focused)",
-                retryable: false,
-                cause
-            );
-        }
     }
 
     /// <summary>The agent reads the screen right after acting, so its actions let the UI settle first; a test's own steps verify with <c>expect</c>.</summary>

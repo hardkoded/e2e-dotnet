@@ -80,7 +80,7 @@ internal static class DesktopDriverCalls
     /// <c>loadNativeDriver</c>, whose addon the macOS builds ship: the port's driver is managed code over the system frameworks.
     /// </summary>
     public static IDesktopDriver LoadNativeDriver() =>
-        LoadNativeDriver(OperatingSystem.IsMacOS(), System.Runtime.InteropServices.RuntimeInformation.OSDescription);
+        LoadNativeDriver(OperatingSystem.IsMacOS(), DesktopOptionsResolver.ProcessPlatform());
 
     /// <summary><see cref="LoadNativeDriver()"/> for a host the caller has already asked (.NET-only: tests answer for either OS).</summary>
     internal static IDesktopDriver LoadNativeDriver(bool isMacOS, string os)
@@ -89,7 +89,7 @@ internal static class DesktopDriverCalls
         {
             throw new EngineException(
                 "UNSUPPORTED_CAPABILITY",
-                $"E2E.Desktop has no native driver for {os}: it drives macOS apps only",
+                $"E2E.Desktop has no native driver for {os} on {DesktopOptionsResolver.ProcessArch()}: it drives macOS apps only",
                 retryable: false
             );
         }

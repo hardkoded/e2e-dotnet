@@ -370,7 +370,7 @@ internal sealed partial class DesktopSurface
     {
         ArgumentNullException.ThrowIfNull(expression);
         // A field's placeholder names it when it has no label, so a placeholder query would read the same text twice; it is refused, as before.
-        if (UsesPlaceholder(expression))
+        if (QueryKinds(expression).Contains("placeholder"))
         {
             throw Unsupported(
                 "macOS names a field with no label by its placeholder, so find it with getByRole('textbox', name) or getByLabel(name)"
@@ -425,19 +425,51 @@ internal sealed partial class DesktopSurface
         return matches;
     }
 
-    /// <summary>Whether an expression, or one it is built from, queries by placeholder.</summary>
-    private static bool UsesPlaceholder(LocatorExpression expression) =>
-        expression.Kind == "placeholder"
-        || (expression.Parent is { } parent && UsesPlaceholder(parent))
-        || (expression.Source is { } source && UsesPlaceholder(source))
-        || (expression.Has is { } has && UsesPlaceholder(has))
-        || (expression.HasNot is { } hasNot && UsesPlaceholder(hasNot))
-        || (expression.Left is { } left && UsesPlaceholder(left))
-        || (expression.Right is { } right && UsesPlaceholder(right));
+    /// <summary>Every query kind an expression uses, in it and in the expressions it is built from. Upstream's <c>queryKinds</c>.</summary>
+    private static HashSet<string> QueryKinds(LocatorExpression expression, HashSet<string>? kinds = null)
+    {
+        kinds ??= new HashSet<string>(StringComparer.Ordinal);
+        switch (expression.Kind)
+        {
+            case "filter":
+                QueryKinds(expression.Source!, kinds);
+                if (expression.Has is { } has)
+                {
+                    QueryKinds(has, kinds);
+                }
+
+                if (expression.HasNot is { } hasNot)
+                {
+                    QueryKinds(hasNot, kinds);
+                }
+
+                break;
+            case "index" or "frame":
+                QueryKinds(expression.Source!, kinds);
+                break;
+            case "union":
+                QueryKinds(expression.Left!, kinds);
+                QueryKinds(expression.Right!, kinds);
+                break;
+            case "selector":
+                break;
+            default:
+                // A query: its own kind, and the scope it searches in (`Parent`).
+                kinds.Add(expression.Kind);
+                if (expression.Parent is { } scope)
+                {
+                    QueryKinds(scope, kinds);
+                }
+
+                break;
+        }
+
+        return kinds;
+    }
 
     // --- helpers ---
 
-    private NodeBinding BindingOf(string id)
+    private NodeBinding Binding(string id)
     {
         if (!_bindings.TryGetValue(id, out var binding))
         {

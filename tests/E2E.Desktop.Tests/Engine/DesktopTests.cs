@@ -40,6 +40,8 @@ public sealed class DesktopTests : SurfaceTestBase
                 Assert.Throws<ConfigurationException>(() => DesktopOptionsResolver.Resolve(options)).Code
             );
         Invalid(new DesktopOptions { SettleMilliseconds = -1 });
+        // Upstream's `snapshot: 'all'`: an enum value no member names.
+        Invalid(new DesktopOptions { Snapshot = (DesktopSnapshotMode)7 });
         var withoutSettle = DesktopOptionsResolver.Resolve(new DesktopOptions { Settle = false });
         Assert.Equal((0, false, false), (withoutSettle.SettleMs, withoutSettle.Headed, withoutSettle.InteractiveOnly));
         Assert.Equal(24, DesktopOptionsResolver.Resolve(new DesktopOptions()).MaxDepth);

@@ -260,9 +260,9 @@ public sealed partial class DesktopEngine : IEngine<DesktopFixtures>, IDoctorEng
     private static partial Regex AppBundlePath();
 }
 
-/// <summary>Whether the machine is a Mac, and what it is called in a message. .NET-only: upstream reads <c>process.platform</c>, which its tests replace.</summary>
+/// <summary>Whether the machine is a Mac, and what it is called in a message (Node's <c>process.platform</c> name). .NET-only: upstream reads <c>process.platform</c>, which its tests replace.</summary>
 internal sealed record DesktopHost(bool IsMacOS, string Description)
 {
     public static DesktopHost Current { get; } =
-        new(OperatingSystem.IsMacOS(), System.Runtime.InteropServices.RuntimeInformation.OSDescription);
+        new(OperatingSystem.IsMacOS(), DesktopOptionsResolver.ProcessPlatform());
 }

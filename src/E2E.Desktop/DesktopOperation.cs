@@ -44,9 +44,6 @@ public sealed class DesktopOperation
     /// <summary>This operation with the budget it has left starting now. Upstream's <c>withDeadline</c>.</summary>
     public DesktopOperation WithDeadline() => new(Origin, TimeoutMs, Signal);
 
-    /// <summary>This operation with its budget cut to <paramref name="timeoutMs"/> from now and no more than it has left.</summary>
-    public DesktopOperation WithBudget(int timeoutMs) => new(Origin, Math.Min(timeoutMs, TimeoutMs), Signal);
-
     /// <summary>The operation of a session call: the budget, its origin, and the caller's token.</summary>
     internal static DesktopOperation Of(OperationContext context, TimeSpan fallback, CancellationToken signal)
     {
