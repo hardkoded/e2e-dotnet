@@ -126,9 +126,17 @@ internal static class ExploreBody
                 options.StepTimeout,
                 () => deadline - time.GetUtcNow()
             );
-            var ending = await RunStepsAsync(loop, cancellationToken).ConfigureAwait(false);
-            state.End(ending.Ended, ending.Summary);
-            Conclude(state);
+            try
+            {
+                var ending = await RunStepsAsync(loop, cancellationToken).ConfigureAwait(false);
+                state.End(ending.Ended, ending.Summary);
+                Conclude(state);
+            }
+            finally
+            {
+                // A finding tool abandoned at a step deadline may still be saving its screenshot; it lands after the verdict, so it is refused.
+                state.Close();
+            }
         };
     }
 

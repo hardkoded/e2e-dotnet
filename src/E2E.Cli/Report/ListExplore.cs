@@ -52,6 +52,10 @@ internal sealed class ExploreView
     private readonly List<FinishedStep> _steps = [];
     private readonly List<ReportExploreFinding> _findings = [];
     private OpenStep? _open;
+
+    /// <summary>Findings that arrived after their step ended, shown where they arrived until the next step ends.</summary>
+    private List<ReportExploreFinding> _late = [];
+
     private ExploreProgress.Planning? _planning;
     private ReportExploreEnded? _ended;
     private string? _summary;
@@ -97,10 +101,26 @@ internal sealed class ExploreView
             case ExploreProgress.StepFinished finished:
                 _steps.Add(new FinishedStep(finished.Step, _open?.Actions ?? 0, _open?.Findings.Count ?? 0));
                 _open = null;
+                _late = [];
                 break;
             case ExploreProgress.FindingReported reported:
-                _findings.Add(reported.Finding);
-                _open?.Findings.Add(reported.Finding);
+                var finding = reported.Finding;
+                _findings.Add(finding);
+                if (_open is not null && _open.Step.Index == finding.Step)
+                {
+                    _open.Findings.Add(finding);
+                    break;
+                }
+
+                // A finding whose screenshot was still saving when its step ended at the deadline.
+                var at = _steps.FindIndex(entry => entry.Step.Index == finding.Step);
+                if (at == -1)
+                {
+                    break;
+                }
+
+                _steps[at] = _steps[at] with { Findings = _steps[at].Findings + 1 };
+                _late.Add(finding);
                 break;
             case ExploreProgress.Finished finished:
                 _planning = null;
@@ -208,7 +228,7 @@ internal sealed class ExploreView
         return lines;
     }
 
-    /// <summary>One finding on one line: <c>⚑ high issue  Title (/path)</c>.</summary>
+    /// <summary>One finding on one line: <c>⚑ high issue  Title (/path)</c>, then <c>· step 1</c> when that step already ended.</summary>
     public string FindingLine(ReportExploreFinding finding, string indent = RowIndent)
     {
         ArgumentNullException.ThrowIfNull(finding);
@@ -217,7 +237,8 @@ internal sealed class ExploreView
             + SeverityColor(finding, FindingGlyph + " " + Grade(finding))
             + "  "
             + Format.Bounded(TextRules.Collapse(finding.Title))
-            + location;
+            + location
+            + (_late.Contains(finding) ? _pc.Dim(" · step " + finding.Step?.ToString(CultureInfo.InvariantCulture)) : "");
     }
 
     /// <summary>
@@ -276,11 +297,10 @@ internal sealed class ExploreView
             var what = planning.Closing ? "the closing assessment" : $"step {_steps.Count + 1} of {_budgets.MaxSteps}";
             return
             [
-                .. new[]
-                {
-                    LiveIndent + _pc.Dim($"{DownRight} planning {what}"),
-                    LiveIndent + "  " + RunningTree.WaitingRow(_pc, now, "Thinking"),
-                }.Take(budget),
+                .. new[] { LiveIndent + _pc.Dim($"{DownRight} planning {what}") }
+                    .Concat(_late.Select(finding => LiveIndent + "  " + FindingLine(finding, "")))
+                    .Append(LiveIndent + "  " + RunningTree.WaitingRow(_pc, now, "Thinking"))
+                    .Take(budget),
             ];
         }
 
@@ -316,7 +336,7 @@ internal sealed class ExploreView
                 .Where(stepEvent => stepEvent.Name != FindingToolEvent)
                 .Select(stepEvent => (At: stepEvent.StartedAt, Row: ListSteps.EventLine(_pc, stepEvent, maxWidth)))
                 .Concat(
-                    (_open?.Findings ?? []).Select(finding => (At: finding.ReportedAt, Row: FindingLine(finding, "")))
+                    _late.Concat(_open?.Findings ?? []).Select(finding => (At: finding.ReportedAt, Row: FindingLine(finding, "")))
                 )
                 .OrderBy(entry => entry.At)
                 .Select(entry => entry.Row),

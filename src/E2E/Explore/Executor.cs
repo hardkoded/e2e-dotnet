@@ -144,6 +144,9 @@ public static class ExploreExecutor
             async (input, context, cancellationToken) =>
             {
                 var report = ReadFinding(input);
+
+                // Read before the awaits: the step can end at its deadline while the evidence is saved.
+                var reportedIn = new ReportedIn(state.OpenStep);
                 var label = "finding-" + Interlocked.Increment(ref reported).ToString(CultureInfo.InvariantCulture);
                 var observation = await TryAsync(
                         () => context.ObserveAsync(new ExecutorObserveOptions { Pixels = true }, cancellationToken),
@@ -152,8 +155,8 @@ public static class ExploreExecutor
                     .ConfigureAwait(false);
 
                 // Evidence is worth keeping, never worth failing the finding for. It is saved first, so the finding is announced
-                // complete, evidence included.
-                var artifactId = observation?.Pixels is { } pixels
+                // complete, evidence included. Not once the record is closed: the finding is refused, and the file would belong to none.
+                var artifactId = observation?.Pixels is { } pixels && !state.Closed
                     ? await TryAsync(
                             () => context.AttachScreenshotAsync(pixels, label, cancellationToken),
                             cancellationToken
@@ -166,7 +169,8 @@ public static class ExploreExecutor
                         Path = observation?.Path,
                         ObservationRevision = observation?.Revision,
                         ArtifactId = artifactId,
-                    }
+                    },
+                    reportedIn
                 );
                 return "Finding "
                     + (finding.Index + 1).ToString(CultureInfo.InvariantCulture)

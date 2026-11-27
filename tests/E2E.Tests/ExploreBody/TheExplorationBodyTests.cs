@@ -595,6 +595,35 @@ public sealed class TheExplorationBodyTests
     }
 
     [Fact]
+    public async Task Takes_no_finding_once_it_is_over_however_it_ended()
+    {
+        var late = new FindingInput(ReportExploreFindingKind.Issue, 3, "Late", "e", "a", ["r"]);
+        var finished = new State("goal", Budgets);
+        await RunAsync(
+            Options(finished),
+            new ScriptedExploreAgent(
+                [PlanScript.Step("Cart", "open the cart"), PlanScript.Finish("Fine.")],
+                [ActOutcome.Passed("ok")]
+            )
+        );
+        Assert.Matches("exploration is over", Assert.Throws<InvalidOperationException>(() => finished.AddFinding(late)).Message);
+
+        var cancelled = new State("goal", Budgets);
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            RunAsync(
+                Options(cancelled),
+                new ScriptedExploreAgent(
+                    [PlanScript.Step("Cart", "open the cart")],
+                    [ActOutcome.Fails(new AgentException("CANCELLED", "the step was cancelled"))]
+                )
+            )
+        );
+        Assert.Equal("CANCELLED", error.Code);
+        Assert.Matches("exploration is over", Assert.Throws<InvalidOperationException>(() => cancelled.AddFinding(late)).Message);
+        Assert.Empty(cancelled.Findings);
+    }
+
+    [Fact]
     public async Task Surfaces_a_cancelled_step_and_a_planner_failure_as_the_run_error()
     {
         var cancelled = new State("goal", Budgets);
