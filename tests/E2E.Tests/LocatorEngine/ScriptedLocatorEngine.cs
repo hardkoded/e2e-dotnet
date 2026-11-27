@@ -12,7 +12,7 @@ internal delegate Task<IReadOnlyList<SemanticNode>> ResolveStep(TimeSpan budget)
 /// <summary>
 /// The <c>makeEngine</c> of upstream's <c>locator-engine.test.ts</c>: a <see cref="E2E.LocatorEngine"/> over a fake session whose locate and
 /// perform answer the next entry of a script, and a default past its end (the one match, an action that succeeds). The port's locate answers
-/// the nodes themselves, so there is no <c>read</c> script: a node is read as it is resolved.
+/// the nodes themselves, so a <c>read</c> script is optional: without one a node is read as it is resolved.
 /// </summary>
 internal sealed class ScriptedLocatorEngine
 {
@@ -43,6 +43,8 @@ internal sealed class ScriptedLocatorEngine
     private readonly List<LocatorAction> _performed = [];
     private readonly List<(Point Point, PointerAction Action)> _performedAt = [];
     private readonly object _gate = new();
+    private readonly List<Func<SemanticNode, Task<SemanticNode>>> _read;
+    private int _reads;
     private int _resolves;
     private int _performs;
 
@@ -50,11 +52,14 @@ internal sealed class ScriptedLocatorEngine
         List<ResolveStep> resolve,
         List<Func<Task>> perform,
         TimeSpan actionTimeout,
-        TimeProvider? clock
+        TimeProvider? clock,
+        bool measuresViewport,
+        List<Func<SemanticNode, Task<SemanticNode>>> read
     )
     {
         _resolve = resolve;
         _perform = perform;
+        _read = read;
         Engine = new E2E.LocatorEngine(
             new LocatorEngineOptions
             {
@@ -74,6 +79,10 @@ internal sealed class ScriptedLocatorEngine
                 ActionTimeout = actionTimeout,
                 AssertionTimeout = TimeSpan.FromMilliseconds(1_000),
                 Clock = clock ?? TimeProvider.System,
+                Read = read.Count == 0 ? null : (node, _, _) => ReadAsync(node),
+                ViewportIntersection = measuresViewport
+                    ? (_, _, _) => Task.FromResult(new global::E2E.Engine.ViewportIntersection(true, 1))
+                    : null,
             }
         );
     }
@@ -152,8 +161,37 @@ internal sealed class ScriptedLocatorEngine
         IEnumerable<ResolveStep>? resolve = null,
         IEnumerable<Func<Task>>? perform = null,
         TimeSpan? actionTimeout = null,
-        TimeProvider? clock = null
-    ) => new([.. resolve ?? []], [.. perform ?? []], actionTimeout ?? TimeSpan.FromMilliseconds(1_000), clock);
+        TimeProvider? clock = null,
+        bool measuresViewport = false,
+        IEnumerable<Func<SemanticNode, Task<SemanticNode>>>? read = null
+    ) =>
+        new(
+            [.. resolve ?? []],
+            [.. perform ?? []],
+            actionTimeout ?? TimeSpan.FromMilliseconds(1_000),
+            clock,
+            measuresViewport,
+            [.. read ?? []]
+        );
+
+    /// <summary>A read that fails with a retryable <c>NODE_STALE</c>, as a ref superseded between the resolve and the read does.</summary>
+    public static Func<SemanticNode, Task<SemanticNode>> ReadStale { get; } =
+        _ => Task.FromException<SemanticNode>(new EngineException(EngineErrorCodes.NodeStale, "stale", retryable: false));
+
+    /// <summary>A read that answers the node as located.</summary>
+    public static Func<SemanticNode, Task<SemanticNode>> ReadNode { get; } = Task.FromResult;
+
+    private Task<SemanticNode> ReadAsync(SemanticNode node)
+    {
+        Func<SemanticNode, Task<SemanticNode>> step;
+        lock (_gate)
+        {
+            step = _reads < _read.Count ? _read[_reads] : ReadNode;
+            _reads++;
+        }
+
+        return step(node);
+    }
 
     private T Locked<T>(Func<T> read)
     {

@@ -43,6 +43,12 @@ internal sealed class LocatorEngineOptions
     >? Locate { get; init; }
 
     /// <summary>
+    /// Reads one located node from the resolution that minted it (upstream's <c>session.read</c>), failing with <c>NODE_STALE</c> when the
+    /// node was superseded since. Null when the engine's locate answers the nodes themselves, so there is nothing to go stale.
+    /// </summary>
+    public Func<SemanticNode, OperationContext, CancellationToken, Task<SemanticNode>>? Read { get; init; }
+
+    /// <summary>
     /// How much of a node is inside the viewport (upstream's <c>session.viewportIntersection</c>); null when the engine cannot measure
     /// (upstream's <c>session.measuresViewport</c> false).
     /// </summary>
@@ -532,10 +538,11 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
             );
         }
 
-        var node = await TryReadAsync(expression, token, reads, MissingFrame.Empty).ConfigureAwait(false);
+        var (node, count, stale) = await ReadOneAsync(expression, token, reads, MissingFrame.Empty)
+            .ConfigureAwait(false);
         if (node is null)
         {
-            return new ViewportRead(null, 0, false, null);
+            return new ViewportRead(null, count, stale, null);
         }
 
         try
@@ -566,11 +573,54 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     }
 
     /// <summary>
-    /// Reads the one current match at once, for <c>isVisible</c> and <c>isHidden</c>: null for zero matches or a missing frame; two matches
-    /// are <c>LOCATOR_AMBIGUOUS</c>.
+    /// Reads the one current match at once, for <c>isVisible</c> and <c>isHidden</c>: null for zero matches, a missing frame, or a node that
+    /// went stale; two matches are <c>LOCATOR_AMBIGUOUS</c>.
     /// </summary>
-    internal Task<SemanticNode?> ReadNowAsync(LocatorExpression expression, CancellationToken token) =>
-        TryReadAsync(expression, token, missingFrame: MissingFrame.Empty);
+    internal async Task<SemanticNode?> ReadNowAsync(LocatorExpression expression, CancellationToken token)
+    {
+        var (node, _, _) = await ReadOneAsync(expression, token, null, MissingFrame.Empty).ConfigureAwait(false);
+        return node;
+    }
+
+    /// <summary>
+    /// Resolves and reads the one current match. A node superseded between the resolve and the read is one match with no node and
+    /// <c>stale</c> set: a poll samples again, and <see cref="ReadNowAsync"/> reads it as gone. Upstream's <c>readOne</c>.
+    /// </summary>
+    private async Task<(SemanticNode? Node, int Count, bool Stale)> ReadOneAsync(
+        LocatorExpression expression,
+        CancellationToken token,
+        ReadWindow? reads,
+        MissingFrame missingFrame
+    )
+    {
+        var located = await TryReadAsync(expression, token, reads, missingFrame).ConfigureAwait(false);
+        if (located is null)
+        {
+            return (null, 0, false);
+        }
+
+        if (options.Read is not { } read)
+        {
+            return (located, 1, false);
+        }
+
+        reads ??= Reads(new Deadline(ActionTimeout, Clock));
+        try
+        {
+            var node = await reads
+                .ReadAsync(budget =>
+                    AppNotOpen.GuardAsync(() =>
+                        read(located, ReadOperation(budget), token == default ? options.Cancellation() : token)
+                    )
+                )
+                .ConfigureAwait(false);
+            return (node, 1, false);
+        }
+        catch (EngineException ex) when (ex.Code == EngineErrorCodes.NodeStale)
+        {
+            return (null, 1, true);
+        }
+    }
 
     /// <summary>
     /// Reads one node for polling surfaces; null while zero matches. A poll that waits for absence passes <see cref="MissingFrame.Empty"/>:
