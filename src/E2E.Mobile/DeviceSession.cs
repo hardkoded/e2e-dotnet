@@ -1178,7 +1178,7 @@ internal sealed class InflightCommands
 /// stays there until the daemon answers. Once the caller left, the request is given <see cref="E2EDefaults.LaunchTimeout"/> to answer (the
 /// bound of <c>SettleInflightAsync</c> on the next start) and is aborted after that. An abort without a successful answer blocks later
 /// attempts on that device, since daemon completion is unknown. .NET-only: upstream's client has no signal to detach.
-/// A press is the exception, as in upstream's client, which takes a signal for <c>interactions.press</c> only (tester-army/e2e#1685): its
+/// A press and a hardware button press are the exception, as in upstream's client, which takes a signal for <c>interactions.press</c> (tester-army/e2e#1685) and <c>command.hardwareButton</c> (tester-army/e2e#2297): its
 /// request is aborted as soon as the caller leaves, and that abort does not block later attempts, since agent-device owns the drain of
 /// native work it already accepted.
 /// </summary>
@@ -1190,7 +1190,7 @@ internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflig
         cancellationToken.ThrowIfCancellationRequested();
         var abort = new CancellationTokenSource(Timeout.InfiniteTimeSpan, timeProvider ?? TimeProvider.System);
         var callerLeft = new System.Runtime.CompilerServices.StrongBox<bool>();
-        var cancellable = method == DeviceMethods.InteractionsPress;
+        var cancellable = method is DeviceMethods.InteractionsPress or DeviceMethods.CommandHardwareButton;
         var left = cancellationToken.CanBeCanceled
             ? cancellationToken.Register(
                 static state =>

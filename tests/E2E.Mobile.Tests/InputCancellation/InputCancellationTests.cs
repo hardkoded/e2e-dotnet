@@ -120,4 +120,49 @@ public sealed class InputCancellationTests
             release.TrySetResult();
         }
     }
+
+    [Fact]
+    public async Task Cancels_a_hardware_button_press_still_pending_when_the_input_budget_runs_out()
+    {
+        var h = Harness.Create(options =>
+            options with
+            {
+                Platform = MobilePlatform.Android,
+                TransitionMilliseconds = 0,
+            }
+        );
+        var release = new TaskCompletionSource();
+        var started = new TaskCompletionSource();
+        var finished = new TaskCompletionSource();
+        var delivered = 0;
+        var session = await OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(100));
+        try
+        {
+            h.Fake.RespondAsync(DeviceMethods.CommandHardwareButton, async (_, token) =>
+            {
+                started.TrySetResult();
+                await release.Task;
+                if (!token.IsCancellationRequested)
+                {
+                    Interlocked.Increment(ref delivered);
+                }
+
+                finished.TrySetResult();
+                return new JsonObject();
+            });
+            var pressing = session.Device.PressButtonAsync(HardwareButton.Power);
+            var rejected = Assert.ThrowsAsync<EngineException>(() => pressing);
+            await started.Task.WaitAsync(Bound);
+            Assert.Equal("ACTION_MAY_HAVE_COMMITTED", (await rejected.WaitAsync(Bound)).Code);
+
+            // The external request resumes after the input budget ran out.
+            release.SetResult();
+            await finished.Task.WaitAsync(Bound);
+            Assert.Equal(0, delivered);
+        }
+        finally
+        {
+            release.TrySetResult();
+        }
+    }
 }

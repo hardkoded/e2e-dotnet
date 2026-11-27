@@ -291,7 +291,7 @@ Planned rows are on the roadmap, and Not yet rows have no date. Not planned rows
 | `driver.getLogs('logcat')`, `'syslog'`, `'crashlog'` | Run `adb logcat` or `xcrun simctl spawn <udid> log stream` from a `[SetUp]` with `System.Diagnostics.Process` |
 | `queryAppState(id)` | Partial: `Device.IsAppInstalledAsync(id)` for installed, `Device.ForegroundAppAsync()` for the app in front. Running in the background has no equivalent |
 | `driver.lock()`, `driver.unlock()`, `mobile: lock`, `mobile: unlock` | `Device.LockAsync()`, `Device.UnlockAsync()`; Android 11 or newer, or an iOS simulator. For `lock(seconds)`, wait between the two. `Device.UnlockAsync()` enters no PIN or passcode |
-| power and volume buttons | `DeviceMethods.CommandHardwareButton` through `Device.UnstableRaw` with `button` set to `"power"`, `"volume-up"`, or `"volume-down"`; on iOS only the volume keys, on a physical device, not a simulator. Not on TestMu |
+| `mobile: pressButton` with `volumeUp` or `volumeDown`, `pressKeyCode` for power or volume | `Device.PressButtonAsync(HardwareButton.VolumeUp)`, `VolumeDown`, `Power`; not on an iOS simulator. See [Press a hardware button](/get-started/mobile/#press-a-hardware-button). Not on TestMu |
 | `driver.openNotifications()`, `mobile: pushNotification` | `Screen.SwipeAsync(new SwipePathOptions { From = ..., To = ... })` from the top edge; `xcrun simctl push` from .NET |
 | `driver.pushFile()`, `pullFile()`, `pullFolder()` | `adb push`, `adb pull`, or `xcrun simctl addmedia` from .NET; local devices only |
 | `driver.getAlertText()` | `Screen.GetByRole("alert").TextContentAsync()` on iOS, `GetByText` on Android |

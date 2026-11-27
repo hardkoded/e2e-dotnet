@@ -76,7 +76,7 @@ public sealed class DeviceFixtureTests
     }
 
     [Fact]
-    public async Task Partial_Counts_a_back_home_lock_unlock_alert_keyboard_rotation_or_fold_as_an_action_so_a_control_that_arrives_with_it_waits_out_the_transition_budget()
+    public async Task Partial_Counts_a_back_home_hardware_button_press_lock_unlock_alert_keyboard_rotation_or_fold_as_an_action_so_a_control_that_arrives_with_it_waits_out_the_transition_budget()
     {
         var h = Harness.Create(options => options with { TransitionMilliseconds = 120 });
         var session = await OpenAttempt(h);
@@ -86,6 +86,7 @@ public sealed class DeviceFixtureTests
         [
             () => device.BackAsync(),
             () => device.HomeAsync(),
+            () => device.PressButtonAsync(HardwareButton.VolumeUp),
             () => device.LockAsync(),
             () => device.UnlockAsync(),
             () => device.AlertAsync(AlertAction.Accept),
@@ -659,6 +660,7 @@ public sealed class DeviceFixtureTests
                     BiometricResult.Match
                 ),
             () => selected.AlertAsync(AlertAction.Accept),
+            () => selected.PressButtonAsync(HardwareButton.VolumeUp),
             () => selected.ClipboardAsync(),
             () => selected.SetClipboardAsync("x"),
             () => selected.SetPermissionAsync(DevicePermission.Camera, PermissionState.Grant),
@@ -1189,6 +1191,72 @@ public sealed class DeviceFixtureTests
         var refused = await Assert.ThrowsAsync<EngineException>(() => androidSession.Device.ClearKeychainAsync());
         Assert.Equal("UNSUPPORTED_CAPABILITY", refused.Code);
         Assert.Equal(count, android.Fake.Calls.Count);
+    }
+
+    [Theory]
+    [InlineData(HardwareButton.VolumeUp, "volume-up")]
+    [InlineData(HardwareButton.VolumeDown, "volume-down")]
+    [InlineData(HardwareButton.Power, "power")]
+    public async Task DevicePressButton_presses_that_agent_device_hardware_button_on_the_selected_device(
+        HardwareButton button,
+        string name
+    )
+    {
+        var h = Harness.Create(
+            options => options with { Platform = MobilePlatform.Android, Device = "emulator-5554" },
+            true,
+            app => app with { BundleId = "com.example.app" }
+        );
+        var session = await OpenAttempt(h);
+        var before = h.Fake.Calls.Count;
+        await session.Device.PressButtonAsync(button);
+        JsonAssert.Calls(
+            h.Fake.Calls,
+            before,
+            ("command.hardwareButton", $$"""{"platform":"android","serial":"emulator-5554","button":"{{name}}"}""")
+        );
+    }
+
+    // Upstream also refuses text names such as "VolumeUp" and "mute"; a HardwareButton enum cannot hold those, so only a value outside the enum reaches this check.
+    [Theory]
+    [InlineData(3)]
+    [InlineData(-1)]
+    [InlineData(99)]
+    public async Task Partial_DevicePressButton_refuses_a_name_outside_the_list_before_any_device_call(int value)
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        var before = h.Fake.Calls.Count;
+        var failure = await Assert.ThrowsAsync<TestException>(() =>
+            session.Device.PressButtonAsync((HardwareButton)value)
+        );
+        Assert.Equal("INVALID_ARGUMENT", failure.Code);
+        Assert.Contains("not a hardware button; press one of volume-up, volume-down, power", failure.Message);
+        Assert.Equal(before, h.Fake.Calls.Count);
+    }
+
+    [Fact]
+    public async Task Maps_agent_devices_refusal_of_a_simulators_hardware_button_to_UNSUPPORTED_CAPABILITY_with_its_hint()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+
+        // agent-device 0.21.42's own refusal on an iOS simulator, as an iPhone 18 Pro simulator returned it.
+        const string hint =
+            "hardware-button volume is supported on physical iPhone and iPad; iOS Simulators refuse because XCUIDevice exposes no volume press there.";
+        h.Fake.Respond(DeviceMethods.CommandHardwareButton, _ =>
+            throw new AgentDeviceError(
+                "UNSUPPORTED_OPERATION",
+                "hardware-button is not supported on this device",
+                new Dictionary<string, object?> { ["reason"] = "unsupported-device-kind", ["hint"] = hint }
+            )
+        );
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            session.Device.PressButtonAsync(HardwareButton.VolumeUp)
+        );
+        Assert.Equal("UNSUPPORTED_CAPABILITY", failure.Code);
+        Assert.Contains(hint, failure.Message);
+        Assert.Contains("command.hardwareButton", h.Fake.Methods());
     }
 
     [Fact]
