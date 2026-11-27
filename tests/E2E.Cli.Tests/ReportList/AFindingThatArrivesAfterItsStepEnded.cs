@@ -44,10 +44,7 @@ public sealed partial class ExploreRunsTests
             UntilStepOneEnded(reporter);
             reporter.Handle(Explore(new ExploreProgress.Planning(false)));
             reporter.Handle(Explore(new ExploreProgress.FindingReported(Late)));
-            Assert.Equal(
-                ["   × 1  Cart 32.00s ended at its limit", "   " + LateLine],
-                output.Lines.TakeLast(2)
-            );
+            Assert.Equal(["   × 1  Cart 32.00s ended at its limit", "   " + LateLine], output.Lines.TakeLast(2));
         }
 
         [Fact]

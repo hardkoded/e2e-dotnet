@@ -606,7 +606,10 @@ public sealed class TheExplorationBodyTests
                 [ActOutcome.Passed("ok")]
             )
         );
-        Assert.Matches("exploration is over", Assert.Throws<InvalidOperationException>(() => finished.AddFinding(late)).Message);
+        Assert.Matches(
+            "exploration is over",
+            Assert.Throws<InvalidOperationException>(() => finished.AddFinding(late)).Message
+        );
 
         var cancelled = new State("goal", Budgets);
         var error = await Assert.ThrowsAsync<AgentException>(() =>
@@ -619,7 +622,10 @@ public sealed class TheExplorationBodyTests
             )
         );
         Assert.Equal("CANCELLED", error.Code);
-        Assert.Matches("exploration is over", Assert.Throws<InvalidOperationException>(() => cancelled.AddFinding(late)).Message);
+        Assert.Matches(
+            "exploration is over",
+            Assert.Throws<InvalidOperationException>(() => cancelled.AddFinding(late)).Message
+        );
         Assert.Empty(cancelled.Findings);
     }
 

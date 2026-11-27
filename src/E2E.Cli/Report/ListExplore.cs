@@ -238,7 +238,11 @@ internal sealed class ExploreView
             + "  "
             + Format.Bounded(TextRules.Collapse(finding.Title))
             + location
-            + (_late.Contains(finding) ? _pc.Dim(" · step " + finding.Step?.ToString(CultureInfo.InvariantCulture)) : "");
+            + (
+                _late.Contains(finding)
+                    ? _pc.Dim(" · step " + finding.Step?.ToString(CultureInfo.InvariantCulture))
+                    : ""
+            );
     }
 
     /// <summary>
@@ -336,7 +340,9 @@ internal sealed class ExploreView
                 .Where(stepEvent => stepEvent.Name != FindingToolEvent)
                 .Select(stepEvent => (At: stepEvent.StartedAt, Row: ListSteps.EventLine(_pc, stepEvent, maxWidth)))
                 .Concat(
-                    _late.Concat(_open?.Findings ?? []).Select(finding => (At: finding.ReportedAt, Row: FindingLine(finding, "")))
+                    _late
+                        .Concat(_open?.Findings ?? [])
+                        .Select(finding => (At: finding.ReportedAt, Row: FindingLine(finding, "")))
                 )
                 .OrderBy(entry => entry.At)
                 .Select(entry => entry.Row),

@@ -156,13 +156,14 @@ public static class ExploreExecutor
 
                 // Evidence is worth keeping, never worth failing the finding for. It is saved first, so the finding is announced
                 // complete, evidence included. Not once the record is closed: the finding is refused, and the file would belong to none.
-                var artifactId = observation?.Pixels is { } pixels && !state.Closed
-                    ? await TryAsync(
-                            () => context.AttachScreenshotAsync(pixels, label, cancellationToken),
-                            cancellationToken
-                        )
-                        .ConfigureAwait(false)
-                    : null;
+                var artifactId =
+                    observation?.Pixels is { } pixels && !state.Closed
+                        ? await TryAsync(
+                                () => context.AttachScreenshotAsync(pixels, label, cancellationToken),
+                                cancellationToken
+                            )
+                            .ConfigureAwait(false)
+                        : null;
                 var finding = state.AddFinding(
                     report with
                     {
