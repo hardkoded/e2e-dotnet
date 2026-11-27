@@ -183,7 +183,7 @@ internal sealed class StepTraceSession
     {
         // Outside strict mode, a retry records like any step but never replays; the report says so instead of looking
         // like a step that ran with caching off.
-        // A screen that cannot be read is the executor's business: the step runs, nothing is replayed or recorded.
+        // A start screen that cannot be read is no start path: the capture is skipped, as upstream's captureStart does.
         _startedMs = NowMs();
         var read = _options.ReplayEligible ? ReadEntry() : new EntryRead(null, "retry");
         if (read.Entry is null)
