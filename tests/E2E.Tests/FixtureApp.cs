@@ -8,7 +8,7 @@ using System.Web;
 
 namespace E2E.Tests;
 
-/// <summary>The pages of upstream's <c>tests/helpers/fixture-app.ts</c> that the CDP, media, and scroll tests use.</summary>
+/// <summary>The pages of upstream's <c>tests/helpers/fixture-app.ts</c> that the CDP, media, clock, and scroll tests use.</summary>
 internal static class FixtureApp
 {
     private const string Login = """
@@ -53,6 +53,25 @@ internal static class FixtureApp
         </script>
         </head>
         <body><p>media</p></body>
+        </html>
+        """;
+
+    // Time as the page reads it: the instant it loaded, a timer due a second after load, and an element far below the fold for
+    // scrolling and viewport reads under a paused clock.
+    private const string Clock = """
+        <!doctype html>
+        <html>
+        <head><title>Fixture Clock</title></head>
+        <body style="margin:0">
+        <output id="loaded"></output>
+        <output id="timer">waiting</output>
+        <div style="height:3000px"></div>
+        <p id="footer">Footer</p>
+        <script>
+        document.getElementById('loaded').textContent = new Date().toISOString();
+        setTimeout(() => { document.getElementById('timer').textContent = 'fired'; }, 1000);
+        </script>
+        </body>
         </html>
         """;
 
@@ -125,7 +144,7 @@ internal static class FixtureApp
             """;
     }
 
-    /// <summary>Starts the fixture app: <c>/login</c>, <c>/form</c>, <c>/media</c>, and <c>/smooth-scroll</c>.</summary>
+    /// <summary>Starts the fixture app: <c>/login</c>, <c>/form</c>, <c>/media</c>, <c>/clock</c>, and <c>/smooth-scroll</c>.</summary>
     public static Task<TinySite> StartAsync()
     {
         return TinySite.StartAsync(context =>
@@ -135,6 +154,7 @@ internal static class FixtureApp
                 {
                     "/form" => Form,
                     "/media" => Media,
+                    "/clock" => Clock,
                     "/smooth-scroll" => SmoothScroll(context.Request.Url!),
                     _ => Login,
                 }

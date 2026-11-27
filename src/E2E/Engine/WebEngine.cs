@@ -616,7 +616,8 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
     {
         try
         {
-            var initScripts = await ReadInitScriptsAsync(options.ProjectRoot, cancellationToken).ConfigureAwait(false);
+            var documentSetup = await ReadInitScriptsAsync(options.ProjectRoot, cancellationToken)
+                .ConfigureAwait(false);
 
             // A provider or a CDP attach speaks CDP, so it takes Chromium's names.
             if (options.Permissions is { } permissions)
@@ -669,7 +670,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                         new PersistentConnect(persistent.CdpEndpoint, reconnect, usedContexts, _options.Browser),
                         options.ActionTimeout,
                         _options,
-                        initScripts,
+                        documentSetup,
                         context => SetUpContextAsync(context, origins, options, connect),
                         url => ConfiguredHeadersFor(url, origins),
                         SiteOf(app),
@@ -773,7 +774,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                     browser,
                     options.ActionTimeout,
                     _options,
-                    initScripts,
+                    documentSetup,
                     context => SetUpContextAsync(context, origins, options, connect),
                     url => ConfiguredHeadersFor(url, origins),
                     seams,
@@ -1301,9 +1302,12 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
 
     // The configured init scripts as page source, read before the browser
     // launches, so a missing file fails the attempt with nothing to close.
-    private async Task<List<string>> ReadInitScriptsAsync(string? projectRoot, CancellationToken cancellationToken)
+    private async Task<List<DocumentSetup>> ReadInitScriptsAsync(
+        string? projectRoot,
+        CancellationToken cancellationToken
+    )
     {
-        var sources = new List<string>();
+        var sources = new List<DocumentSetup>();
         var scripts = _options.InitScripts ?? [];
         for (var index = 0; index < scripts.Count; index++)
         {
@@ -1312,14 +1316,17 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                 string.IsNullOrEmpty(projectRoot) ? Directory.GetCurrentDirectory() : projectRoot
             );
             sources.Add(
-                await scripts[index]
-                    .ReadAsync(
-                        null,
-                        root,
-                        (message, cause) => new EngineException("INVALID_CONFIG", at + message, cause),
-                        cancellationToken
-                    )
-                    .ConfigureAwait(false)
+                new DocumentSetup(
+                    await scripts[index]
+                        .ReadAsync(
+                            null,
+                            root,
+                            (message, cause) => new EngineException("INVALID_CONFIG", at + message, cause),
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false),
+                    null
+                )
             );
         }
 
@@ -1796,8 +1803,13 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             Func<IBrowserRoute, Task> Handler
         )> _routes = [];
 
-        // The attempt's init scripts, configured then added, applied to each context the session opens.
-        private readonly List<string> _initScripts;
+        // What every document of the attempt runs before the page's own scripts, in the order it was added: the configured init scripts,
+        // then the test's init scripts and successful clock calls. Each context the attempt opens applies it, so a replacement context
+        // gives its documents the same order (upstream's documentSetup).
+        private readonly List<DocumentSetup> _documentSetup;
+
+        // Whether the attempt called browser.clock, even a call that failed after Playwright installed it (upstream's clockState).
+        private readonly ClockState _clockState = new();
         private IBrowserContext? _context;
 
         // Errors raised where nobody awaits them (a dialog handler, a route handler) wait here and fail the next step that enters the session.
@@ -1848,7 +1860,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             IBrowser browser,
             TimeSpan actionTimeout,
             WebEngineOptions options,
-            List<string> initScripts,
+            List<DocumentSetup> documentSetup,
             Func<IBrowserContext, Task> setUpContext,
             Func<string, IReadOnlyDictionary<string, string>?> configuredHeaders,
             SessionSeams seams,
@@ -1860,7 +1872,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             _lease = lease;
             _dialogs = new DialogRouter(_latch);
             _playwright = playwright;
-            _initScripts = initScripts;
+            _documentSetup = documentSetup;
             _browser = browser;
             _options = options;
             _setUpContext = setUpContext;
@@ -4169,9 +4181,84 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var context = RequireContext();
+                // Logged before the call, as upstream's surface.addInitScript does, so a clock call that is still running orders after it.
+                _documentSetup.Add(new DocumentSetup(source, null));
                 await context.AddInitScriptAsync(source).ConfigureAwait(false);
-                _initScripts.Add(source);
             });
+
+        /// <summary>
+        /// Runs one clock call on the current context and logs it for a context that replaces this one (upstream's <c>surface.clock</c>,
+        /// inside <c>runClock</c>'s guard). A <c>pauseAt</c> is compared with the page clock first: Playwright logs a call for the next
+        /// documents before it runs it, so a time it refused would still move them. The call is logged whether it succeeds or fails, and a
+        /// replacement context replays what a new document would. The attempt counts as using the clock from the start of the call:
+        /// Playwright installs the clock before a call can fail. The log is the one this attempt started with, so a call that resolves
+        /// after its step timed out never reaches the next attempt's.
+        /// </summary>
+        public Task ClockAsync(ClockCall call, CancellationToken cancellationToken)
+        {
+            var label = "browser.clock." + call.Name;
+            return GuardAsync(label, cancellationToken, async () =>
+            {
+                var budget = Budget(label, cancellationToken);
+                try
+                {
+                    if (
+                        call.Method == ClockMethod.PauseAt
+                        && call.Ms
+                            < (
+                                await budget.WithinAsync(ClockNowCoreAsync()).ConfigureAwait(false)
+                                ?? double.NegativeInfinity
+                            )
+                    )
+                    {
+                        throw WebClock.PausedInThePast(label);
+                    }
+
+                    var setup = _documentSetup;
+                    var clock = RequireContext().Clock;
+                    _clockState.Used = true;
+                    try
+                    {
+                        await budget.WithinAsync(WebClock.ApplyClockCallAsync(clock, call)).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        setup.Add(new DocumentSetup(null, call));
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    throw WebClock.TranslateClockError(ex, label, call.Method);
+                }
+            });
+        }
+
+        /// <summary>
+        /// The latest time a page clock of the current context reads, across every frame, or null when none has one yet. Playwright runs a
+        /// call in every frame and fails it when one frame refuses, so the latest decides (upstream's <c>surface.clockNow</c>).
+        /// </summary>
+        private async Task<double?> ClockNowCoreAsync()
+        {
+            var frames = RequireContext().Pages.SelectMany(page => page.Frames).ToArray();
+
+            // A frame that detaches or navigates while it is read has no clock to compare with.
+            var times = await Task.WhenAll(
+                    frames.Select(async frame =>
+                    {
+                        try
+                        {
+                            return await WebClock.ReadClockNowAsync(frame).ConfigureAwait(false);
+                        }
+                        catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+                        {
+                            return null;
+                        }
+                    })
+                )
+                .ConfigureAwait(false);
+            var read = times.Where(time => time is not null).Select(time => time!.Value).ToArray();
+            return read.Length == 0 ? null : read.Max();
+        }
 
         public Task KeyboardTypeAsync(string text, CancellationToken cancellationToken) =>
             GuardAsync("keyboard.type", cancellationToken, () =>
@@ -5291,9 +5378,17 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
         {
             await context.AddInitScriptAsync(PageScript.RecordClosedShadowRoots).ConfigureAwait(false);
             await context.AddInitScriptAsync(PageScript.ModalOrderInitScript).ConfigureAwait(false);
-            foreach (var script in _initScripts)
+            // A fresh context has no document yet, so a clock call only registers the clock's script and its log.
+            foreach (var setup in _documentSetup.ToArray())
             {
-                await context.AddInitScriptAsync(script).ConfigureAwait(false);
+                if (setup.Script is { } script)
+                {
+                    await context.AddInitScriptAsync(script).ConfigureAwait(false);
+                }
+                else
+                {
+                    await WebClock.ApplyClockCallAsync(context.Clock, setup.Clock!.Value).ConfigureAwait(false);
+                }
             }
 
             await _setUpContext(context).ConfigureAwait(false);
@@ -5327,7 +5422,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             PersistentConnect persistent,
             TimeSpan actionTimeout,
             WebEngineOptions options,
-            List<string> initScripts,
+            List<DocumentSetup> documentSetup,
             Func<IBrowserContext, Task> setUpContext,
             Func<string, IReadOnlyDictionary<string, string>?> configuredHeaders,
             string? site,
@@ -5368,7 +5463,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                 binding.Browser,
                 actionTimeout,
                 options,
-                initScripts,
+                documentSetup,
                 setUpContext,
                 configuredHeaders,
                 seams,
@@ -5541,6 +5636,13 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             _strict.Clear();
             try
             {
+                // The open documents keep their fake clock, but Playwright's clock script and state belonged to the old connection:
+                // replaying the calls would run their timers again, so the attempt fails instead.
+                if (_clockState.Used)
+                {
+                    throw RecoveryFailed("the page clock cannot be carried across a reconnect");
+                }
+
                 await VideoPageClosingAsync().ConfigureAwait(false);
                 var binding = await AttachWithinAsync(
                         _playwright,
@@ -6713,6 +6815,15 @@ internal sealed record LiveSurface(
     Func<IBrowserContext> Context,
     Func<string, string?, string, (string Relative, string Absolute)> ArtifactPath
 );
+
+/// <summary>One entry of an attempt's document setup: an init script, or a clock call (upstream's <c>DocumentSetup</c>).</summary>
+internal sealed record DocumentSetup(string? Script, ClockCall? Clock);
+
+/// <summary>Whether the attempt called <c>browser.clock</c>, even a call that failed after Playwright installed it (upstream's <c>clockState</c>).</summary>
+internal sealed class ClockState
+{
+    public volatile bool Used;
+}
 
 /// <summary>
 /// One web operation's budget, as upstream <c>withOperationDeadline</c>: one deadline

@@ -13,7 +13,7 @@ namespace E2E.Playground;
 /// test run. A port of upstream's <c>apps/testbed</c> with only the pages these tests use:
 /// the landing page, a plans page of copy with inline links and emphasis (unlisted in the nav), a todo list kept in localStorage, a checkout with one planted bug, a profile
 /// form, a sign-in form that sets a session cookie for the dashboard behind it, the workspace wizard, the swatches page that the screenshot tests compare,
-/// a page that loads users from <c>/api/users</c>, a pointer pad, a canvas with a drawn chart, a board with hover and drag (unlisted in the nav), the controls page, the browser fixture's own page, a counter for the speed floor, a scroll page of windowed rows (unlisted in the nav), and the
+/// a page that loads users from <c>/api/users</c>, a pointer pad, a canvas with a drawn chart, a board with hover and drag (unlisted in the nav), the controls page, the browser fixture's own page, a page that runs on the page's time for the clock, a counter for the speed floor, a scroll page of windowed rows (unlisted in the nav), and the
 /// about page navigation lands on. E2E.NUnit.Tests links this file for its browser fixture tests.
 /// </summary>
 internal static class Testbed
@@ -35,6 +35,7 @@ internal static class Testbed
         ("/canvas-form", "Canvas form"),
         ("/controls", "Controls"),
         ("/browser", "Browser"),
+        ("/clock", "Clock"),
         ("/speed", "Speed"),
         ("/about", "About"),
     ];
@@ -916,6 +917,49 @@ internal static class Testbed
                      new IntersectionObserver((entries) => {
                        footnoteState.textContent = entries[0].isIntersecting ? 'in view' : 'out of view';
                      }).observe(document.getElementById('footnote'));
+                   </script>
+            """
+        ),
+
+        // Everything on it runs on the page's time: today's date, a countdown on
+        // an interval, a session timeout half an hour out, and a progress bar
+        // drawn on animation frames. `browser.clock` makes each one deterministic.
+        ["/clock"] = (
+            "Clock",
+            """
+            <h1>Clock</h1>
+                   <output aria-label="Today"></output>
+                   <output aria-label="Offer"></output>
+                   <button id="claim">Claim offer</button>
+                   <output aria-label="Session">Signed in</output>
+                   <output aria-label="Progress">0%</output>
+                   <script>
+                     document.querySelector('output[aria-label="Today"]').textContent =
+                       new Date().toLocaleDateString('en-US', { dateStyle: 'long', timeZone: 'UTC' });
+                     const offer = document.querySelector('output[aria-label="Offer"]');
+                     const claim = document.getElementById('claim');
+                     let left = 10;
+                     const showOffer = () => {
+                       offer.textContent = left > 0 ? 'Offer ends in ' + left + 's' : 'Offer expired';
+                       claim.disabled = left === 0;
+                     };
+                     showOffer();
+                     const countdown = setInterval(() => {
+                       left -= 1;
+                       showOffer();
+                       if (left === 0) clearInterval(countdown);
+                     }, 1000);
+                     setTimeout(() => {
+                       document.querySelector('output[aria-label="Session"]').textContent = 'Session expired';
+                     }, 30 * 60 * 1000);
+                     const progress = document.querySelector('output[aria-label="Progress"]');
+                     const started = performance.now();
+                     const draw = (now) => {
+                       const share = Math.min(1, (now - started) / 1000);
+                       progress.textContent = Math.round(share * 100) + '%';
+                       if (share < 1) requestAnimationFrame(draw);
+                     };
+                     requestAnimationFrame(draw);
                    </script>
             """
         ),

@@ -780,6 +780,16 @@ misses.
   `App.OpenAsync` to load the page with it; a feature left out keeps its
   value. It sets every open tab and every tab opened after it. For every test,
   set `ColorScheme` and `ReducedMotion` on the engine.
+- `Clock`: Playwright's `Page.Clock` for every tab: `InstallAsync(new BrowserClockInstallOptions { Time })`,
+  `PauseAtAsync(time)`, `ResumeAsync()`, `RunForAsync(ticks)`, `FastForwardAsync(ticks)`,
+  `SetFixedTimeAsync(time)`, `SetSystemTimeAsync(time)`. A `time` is epoch milliseconds, a date
+  string, or a `DateTimeOffset`; `ticks` are milliseconds or `"ss"`, `"mm:ss"`, `"hh:mm:ss"`.
+  Install and pause before `App.OpenAsync`, then `RunForAsync` to fire the page's timers; only
+  the page's time moves, the test's timeouts and `Expect` polling keep real time. It survives
+  navigation, `App.RestartAsync`, and `App.ClearStateAsync`; a CDP recovery after the test used
+  it fails the attempt with `ENGINE_FAILURE`. A page timer that throws while the clock runs it
+  is `EVALUATE_FAILED`; an argument Playwright would refuse, or `PauseAtAsync` before the
+  clock's current time, is `INVALID_ARGUMENT`.
 - `Tabs()`, `WaitForPopupAsync(trigger, timeout?)`, `NewTabAsync()`: a tab the app
   opens (`target="_blank"`, `window.open`) opens in the background: the active tab stays
   where it was. `WaitForPopupAsync(() => trigger)` makes the tab the trigger opens active

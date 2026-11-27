@@ -409,11 +409,14 @@ internal static class PageScript
         }
         """;
 
-    // Resolves after the next rendered frame, or at once in a hidden document (upstream's nextRenderedFrame).
+    // Resolves after the next rendered frame, or at once in a hidden document (upstream's nextRenderedFrame). It runs in the page's main
+    // world, where Playwright's clock replaces the timers, so it takes the native ones the clock keeps: a paused clock would otherwise
+    // hold every scroll until its timeout.
     public const string NextRenderedFrame = """
         () => {
           if (document.visibilityState === "hidden") return Promise.resolve();
-          return new Promise((resolve) => requestAnimationFrame(() => window.setTimeout(resolve, 0)));
+          const native = window.__pwClock?.builtins ?? window;
+          return new Promise((resolve) => native.requestAnimationFrame(() => native.setTimeout(resolve, 0)));
         }
         """;
 
@@ -577,9 +580,15 @@ internal static class PageScript
               resolve({ intersects: ratio > 0, ratio });
             });
             observer.observe(element);
-            view.requestAnimationFrame(() => {});
+            // The native frame: under Playwright's clock, the page's own would queue a timer in the page's fake clock.
+            (view.__pwClock?.builtins ?? view).requestAnimationFrame(() => {});
           });
         }
+        """;
+
+    // Runs in a frame: the time its page clock reads, or undefined before the clock is installed there (upstream's readClockNow).
+    public const string ReadClockNow = """
+        () => globalThis.__pwClock?.controller.now()
         """;
 
     // The ref an iframe element carries, so the host can hang that frame's

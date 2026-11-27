@@ -96,6 +96,29 @@ Removes the cookies matching every filter in &lt;code class="paramref"&gt;option
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_Engine_IBrowserSession_ClockAsync_"></a>
+<a id="E2E_Engine_IBrowserSession_ClockAsync_E2E_Engine_ClockCall_System_Threading_CancellationToken_"></a>
+
+### ClockAsync(ClockCall, CancellationToken)
+
+
+```csharp
+Task ClockAsync(ClockCall call, CancellationToken cancellationToken)
+```
+
+
+Runs one `browser.clock` call on the attempt's context, for every tab and frame, and logs it for a context that replaces
+this one. A session that does not override it fails with `UNSUPPORTED_CAPABILITY`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `call` | [ClockCall](/api/E2E.Engine/ClockCall/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Engine_IBrowserSession_CloseTabAsync_"></a>
 <a id="E2E_Engine_IBrowserSession_CloseTabAsync_E2E_Engine_IAttemptTab_System_Threading_CancellationToken_"></a>
 
@@ -189,7 +212,7 @@ Task ForwardAsync(CancellationToken cancellationToken)
 <a id="E2E_Engine_IBrowserSession_GetCookiesAsync_"></a>
 <a id="E2E_Engine_IBrowserSession_GetCookiesAsync_System_Collections_Generic_IReadOnlyList_System_String__System_Threading_CancellationToken_"></a>
 
-### GetCookiesAsync(IReadOnlyList&lt;string&gt;?, CancellationToken)
+### `GetCookiesAsync(IReadOnlyList<string>?, CancellationToken)`
 
 
 ```csharp
@@ -197,7 +220,7 @@ Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(IReadOnlyList<string>? urls, 
 ```
 
 
-Returns every cookie of the browser, or with `urls` only those a request to one of them would carry; an empty list returns none.
+Returns every cookie of the browser, or with &lt;code class="paramref"&gt;urls&lt;/code&gt; only those a request to one of them would carry; an empty list returns none.
 
 **Parameters**
 

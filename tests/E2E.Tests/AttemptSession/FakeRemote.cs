@@ -53,6 +53,13 @@ internal sealed class FakeRemote
         contextFake.Members["get_Pages"] = _ => (IReadOnlyList<IPage>)Pages.ToList();
         contextFake.Members["NewPageAsync"] = _ => Task.FromResult(Pages[^1]);
         contextFake.Members["AddInitScriptAsync"] = _ => Task.FromResult(Registration);
+        var (clock, clockFake) = Fake<IClock>.New();
+        foreach (var call in new[] { "InstallAsync", "RunForAsync", "FastForwardAsync", "PauseAtAsync", "ResumeAsync" })
+        {
+            clockFake.Members[call] = _ => Task.CompletedTask;
+        }
+
+        contextFake.Members["get_Clock"] = _ => clock;
         contextFake.Members["add_Page"] = args =>
         {
             _appeared.Add((EventHandler<IPage>)args[0]!);

@@ -137,7 +137,7 @@ Planned gaps are on the roadmap, and Not yet gaps have no date. Not planned gaps
 | `--browser chrome`, `edge`, `electron`, `before:browser:launch` | `BrowserName.Chromium`, or attach to your own Chrome with `WebEngineOptions.Connect` |
 | `cypress open`, time-travel snapshots | `E2E_HEADLESS=0 dotnet test` with `E2E_DEBUG=1`. The port has no trace page, `--watch`, or `--step` |
 | `before()` and `after()` that drive the app, `describe.only` | UI setup in `[SetUp]` (NUnit) or `InitializeAsync` (xUnit), cleanup in `[TearDown]` or `DisposeAsync`; sign-in in an `[E2ESetup]` that saves a session; `[Explicit]` or a `--filter` on the test |
-| `cy.clock()`, `cy.tick()` | A fake-timers script loaded with `Browser.AddInitScriptAsync`, driven by `Browser.EvaluateAsync<T>` |
+| `cy.clock(now)`, `cy.tick(ms)` | `Browser.Clock.InstallAsync(new BrowserClockInstallOptions { Time = ... })`, then `Browser.Clock.PauseAtAsync()` a later time, which stops timers; `Browser.Clock.RunForAsync(ms)` |
 | `cy.request()` with the browser's cookies | Send the cookies from `Browser.CookiesAsync(url)` with `HttpClient` |
 
 ### Not yet

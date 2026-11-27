@@ -64,6 +64,7 @@ public sealed class Browser
         SoftFailures = softFailures;
         Keyboard = new BrowserKeyboard(this);
         Mouse = new BrowserMouse(this);
+        Clock = new BrowserClock(this);
     }
 
     /// <summary>One handle per tab, so the same tab is the same object for the attempt.</summary>
@@ -74,6 +75,13 @@ public sealed class Browser
 
     /// <summary>Direct pointer input from test code, independent of agent observations.</summary>
     public BrowserMouse Mouse { get; }
+
+    /// <summary>
+    /// Controls time in the attempt's pages, as Playwright's <c>page.clock</c> does: <c>Date</c>, timers, and <c>requestAnimationFrame</c>
+    /// in every tab and frame, the ones the app opens included. It covers the whole browser, survives navigation, <c>App.RestartAsync</c>,
+    /// and <c>App.ClearStateAsync</c>, and ends with the attempt.
+    /// </summary>
+    public BrowserClock Clock { get; }
 
     internal SoftFailures SoftFailures { get; }
 
@@ -1525,5 +1533,115 @@ public sealed class FrameScreen : Screen
         }
 
         return selector;
+    }
+}
+
+/// <summary>
+/// Controls time in the pages of the attempt, as Playwright's <c>page.clock</c> does: <c>Date</c>, <c>performance</c>, timers,
+/// <c>requestAnimationFrame</c>, and <c>requestIdleCallback</c> in every tab and frame, the ones the app opens included, from the call on.
+/// A navigation keeps the clock; nothing outside the page (the test's own timeouts, the harness's waits) follows it.
+/// </summary>
+public sealed class BrowserClock
+{
+    private readonly Browser _browser;
+
+    internal BrowserClock(Browser browser) => _browser = browser;
+
+    /// <summary>
+    /// Replaces the page's time functions with fake ones that start at <see cref="BrowserClockInstallOptions.Time"/> (default: now) and run on in real
+    /// time until <see cref="PauseAtAsync"/> or <see cref="SetFixedTimeAsync"/>. Every other method installs the clock first if needed, starting
+    /// at the Unix epoch, as Playwright's does.
+    /// </summary>
+    public Task InstallAsync(
+        BrowserClockInstallOptions? options = null,
+        CancellationToken cancellationToken = default
+    ) =>
+        _browser.RunStepAsync(StepKind.Resource, "browser.clock.install", WebClock.ClockInstallLabel(options), () =>
+            RunAsync(
+                () =>
+                    new ClockCall(
+                        ClockMethod.Install,
+                        options?.Time is { } time
+                            ? WebClock.ClockTimeValue("browser.clock.install", time)
+                            : DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                    ),
+                cancellationToken
+            )
+        );
+
+    /// <summary>Jumps the clock ahead by <paramref name="ticks"/>, firing each due timer at most once, as when a laptop wakes.</summary>
+    public Task FastForwardAsync(ClockTicks ticks, CancellationToken cancellationToken = default) =>
+        _browser.RunStepAsync(StepKind.Resource, "browser.clock.fastForward", WebClock.ClockTicksLabel(ticks), () =>
+            RunAsync(
+                () =>
+                    new ClockCall(
+                        ClockMethod.FastForward,
+                        WebClock.ClockTicksValue("browser.clock.fastForward", ticks)
+                    ),
+                cancellationToken
+            )
+        );
+
+    /// <summary>Advances the clock by <paramref name="ticks"/>, firing every timer due on the way.</summary>
+    public Task RunForAsync(ClockTicks ticks, CancellationToken cancellationToken = default) =>
+        _browser.RunStepAsync(StepKind.Resource, "browser.clock.runFor", WebClock.ClockTicksLabel(ticks), () =>
+            RunAsync(
+                () => new ClockCall(ClockMethod.RunFor, WebClock.ClockTicksValue("browser.clock.runFor", ticks)),
+                cancellationToken
+            )
+        );
+
+    /// <summary>Fast-forwards to <paramref name="time"/> and pauses there, which stops the page's timers: they fire only through <see cref="RunForAsync"/> and <see cref="FastForwardAsync"/>.</summary>
+    public Task PauseAtAsync(ClockTime time, CancellationToken cancellationToken = default) =>
+        _browser.RunStepAsync(StepKind.Resource, "browser.clock.pauseAt", WebClock.ClockTimeLabel(time), () =>
+            RunAsync(
+                () => new ClockCall(ClockMethod.PauseAt, WebClock.ClockTimeValue("browser.clock.pauseAt", time)),
+                cancellationToken
+            )
+        );
+
+    /// <summary>Lets a paused clock run on in real time.</summary>
+    public Task ResumeAsync(CancellationToken cancellationToken = default) =>
+        _browser.RunStepAsync(StepKind.Resource, "browser.clock.resume", "", () =>
+            RunAsync(() => new ClockCall(ClockMethod.Resume), cancellationToken)
+        );
+
+    /// <summary>Makes <c>Date.now()</c> and <c>new Date()</c> return <paramref name="time"/> from now on. It fixes only <c>Date</c>: unlike <see cref="PauseAtAsync"/>, it does not pause timers, which keep running.</summary>
+    public Task SetFixedTimeAsync(ClockTime time, CancellationToken cancellationToken = default) =>
+        _browser.RunStepAsync(StepKind.Resource, "browser.clock.setFixedTime", WebClock.ClockTimeLabel(time), () =>
+            RunAsync(
+                () =>
+                    new ClockCall(
+                        ClockMethod.SetFixedTime,
+                        WebClock.ClockTimeValue("browser.clock.setFixedTime", time)
+                    ),
+                cancellationToken
+            )
+        );
+
+    /// <summary>Sets the wall time to <paramref name="time"/> without firing a timer, as when the system clock changes.</summary>
+    public Task SetSystemTimeAsync(ClockTime time, CancellationToken cancellationToken = default) =>
+        _browser.RunStepAsync(StepKind.Resource, "browser.clock.setSystemTime", WebClock.ClockTimeLabel(time), () =>
+            RunAsync(
+                () =>
+                    new ClockCall(
+                        ClockMethod.SetSystemTime,
+                        WebClock.ClockTimeValue("browser.clock.setSystemTime", time)
+                    ),
+                cancellationToken
+            )
+        );
+
+    /// <summary>
+    /// Runs one checked clock call as the step's operation (upstream's <c>runClock</c>). Async, so an argument a check refuses rejects like
+    /// a failed call.
+    /// </summary>
+    private async Task RunAsync(Func<ClockCall> call, CancellationToken cancellationToken)
+    {
+        var checkedCall = call();
+        await _browser
+            .Require("clock." + checkedCall.Name)
+            .ClockAsync(checkedCall, _browser.Token(cancellationToken))
+            .ConfigureAwait(false);
     }
 }

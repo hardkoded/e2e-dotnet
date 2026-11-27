@@ -422,6 +422,45 @@ public sealed class AttemptSessionTests
     }
 
     [Fact]
+    public async Task Fails_recovery_without_reconnecting_once_the_attempt_moved_the_page_clock()
+    {
+        var browser = Remote("current");
+        var page = FakeTarget.Create("page");
+        browser.Pages.Add(page.Page);
+        _connections.Add(browser.Browser);
+        var reconnected = 0;
+        await using var first = await Engine(reconnect: _ =>
+            {
+                reconnected++;
+                return Task.FromResult<CdpTarget>("existing");
+            })
+            .StartAsync(Start(), None);
+        var clock = new Browser(
+            first,
+            "web",
+            Url,
+            Directory.GetCurrentDirectory(),
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromSeconds(1),
+            () => CancellationToken.None,
+            () => { },
+            new SoftFailures()
+        ).Clock;
+        await clock.RunForAsync(1);
+        browser.Disconnect();
+        const string Message = "CDP recovery failed: the page clock cannot be carried across a reconnect";
+        var failure = await Assert.ThrowsAsync<EngineException>(() => first.OpenAsync(Url, None));
+        Assert.Equal(("ENGINE_FAILURE", Message), (failure.Code, failure.Message));
+
+        // The failed recovery is the attempt's state: the next operation gets the same error, still without reconnecting.
+        var again = await Assert.ThrowsAsync<EngineException>(() => first.OpenAsync(Url, None));
+        Assert.Equal(("ENGINE_FAILURE", Message), (again.Code, again.Message));
+        Assert.Equal(0, reconnected);
+        Assert.Equal(1, _connects);
+        Assert.Empty(page.Gotos);
+    }
+
+    [Fact]
     public async Task Subtracts_endpoint_resolution_from_both_the_CDP_dial_and_dispatched_operation_budgets()
     {
         var original = Remote("current");
