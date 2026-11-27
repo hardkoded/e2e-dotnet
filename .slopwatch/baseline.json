@@ -239,10 +239,10 @@
       "baselinedAt": "2026-11-18T15:41:48.2139406+00:00"
     },
     {
-      "hash": "fa145b5824605097",
+      "hash": "0691774e17a05270",
       "ruleId": "SW003",
       "filePath": "src/E2E/Agent/StepCache.cs",
-      "lineNumber": 256,
+      "lineNumber": 258,
       "codeSnippet": "catch (Exception ex) when (ex is not OperationCanceledException)\n                {\n                    // The cache is disposable: the settlement decides what becomes of the entry.\n                }",
       "message": "Empty catch block swallows exceptions without handling",
       "baselinedAt": "2026-11-18T15:41:48.2139471+00:00"
