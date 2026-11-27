@@ -340,6 +340,68 @@ public sealed class EngineProtocolTests
         await remote.Dispose!(DisposeContext());
     }
 
+    // .NET-only: upstream encodes and sends in one synchronous turn, so a $/abort cannot overtake the request that first carries its id.
+    [Fact]
+    public async Task Keeps_a_server_side_abort_that_arrives_before_the_request_carrying_its_signal()
+    {
+        var seen = new ConcurrentQueue<bool>();
+        var engine = E2E.Engine.EngineManifest.DefineEngine(
+            Toy(toy =>
+                toy with
+                {
+                    Init = context =>
+                    {
+                        seen.Enqueue(context.Signal.IsCancellationRequested);
+                        return Task.CompletedTask;
+                    },
+                }
+            )
+        );
+        var toServer = new System.IO.Pipelines.Pipe();
+        var toClient = new System.IO.Pipelines.Pipe();
+        var serving = ProtocolServer.ServeEngineAsync(
+            engine,
+            new MessageStreams(toServer.Reader.AsStream(), toClient.Writer.AsStream())
+        );
+        try
+        {
+            using var client = new Connection(
+                new MessageStreams(toClient.Reader.AsStream(), toServer.Writer.AsStream())
+            );
+            await client.RequestAsync(
+                "initialize",
+                new JsonObject { ["protocolVersion"] = Protocol.EngineProtocolVersion }
+            );
+
+            client.Notify("$/abort", new JsonObject { ["id"] = 7 });
+            for (var call = 0; call < 2; call++)
+            {
+                await client.RequestAsync(
+                    "lifecycle/init",
+                    new JsonObject
+                    {
+                        ["runId"] = "run",
+                        ["targetName"] = "toy",
+                        ["workerSlot"] = 0,
+                        ["env"] = new JsonObject(),
+                        ["headed"] = false,
+                        ["signal"] = new JsonObject { ["id"] = 7 },
+                    }
+                );
+            }
+
+            Assert.Equal([true, true], seen.ToArray());
+            await client.RequestAsync("shutdown");
+            client.Notify("exit");
+            await serving.WaitAsync(TimeSpan.FromSeconds(10));
+        }
+        finally
+        {
+            await toServer.Writer.CompleteAsync();
+            await toClient.Writer.CompleteAsync();
+        }
+    }
+
     [Fact]
     public async Task Refuses_a_call_before_init_instead_of_opening_a_connection_on_its_own()
     {

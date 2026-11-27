@@ -50,6 +50,9 @@ public static class ProtocolServer
 
     private sealed class EngineServer
     {
+        /// <summary>The most early <c>$/abort</c>s kept for ids no request carried yet.</summary>
+        private const int MaxEarlyAborts = 1024;
+
         /// <summary>The longest a closing connection waits for the engine's cancellation callbacks.</summary>
         private static readonly TimeSpan CloseWait = TimeSpan.FromSeconds(5);
 
@@ -60,6 +63,10 @@ public static class ProtocolServer
         private readonly SemaphoreSlim _initializing = new(1, 1);
         private readonly object _gate = new();
         private readonly Dictionary<int, CancellationTokenSource> _signals = [];
+
+        /// <summary>Ids whose <c>$/abort</c> arrived before any request carried them. The client encodes a signal before it queues the request, so a token canceled in between sends its abort first.</summary>
+        private readonly HashSet<int> _earlyAborts = [];
+        private readonly Queue<int> _earlyAbortOrder = [];
 
         /// <summary>The <c>derived</c> option of each <c>resolveSecret</c> in flight, by the id the client asks back with.</summary>
         private readonly Dictionary<int, ResolveSecretOptions> _derivations = [];
@@ -96,6 +103,8 @@ public static class ProtocolServer
                             }
 
                             _signals.Clear();
+                            _earlyAborts.Clear();
+                            _earlyAbortOrder.Clear();
                             _connectionClosed = true;
                         }
 
@@ -125,6 +134,16 @@ public static class ProtocolServer
                                 if (_signals.Remove(abort.Id, out var source))
                                 {
                                     Abort(source);
+                                }
+                                else if (!_connectionClosed && _earlyAborts.Add(abort.Id))
+                                {
+                                    // Not referenced yet: keep the abort until the first request carrying the id arrives. An id no request
+                                    // ever carries (its signal ended with its attempt) is dropped once the newest entries fill the cap.
+                                    _earlyAbortOrder.Enqueue(abort.Id);
+                                    while (_earlyAbortOrder.Count > MaxEarlyAborts)
+                                    {
+                                        _earlyAborts.Remove(_earlyAbortOrder.Dequeue());
+                                    }
                                 }
                             }
                         },
@@ -699,6 +718,12 @@ public static class ProtocolServer
                 if (!_signals.TryGetValue(wire.Id, out var source))
                 {
                     source = new CancellationTokenSource();
+                    if (_earlyAborts.Remove(wire.Id))
+                    {
+                        // The client aborted it before this first reference: every later hook carrying the id sees the same canceled token.
+                        source.Cancel();
+                    }
+
                     _signals[wire.Id] = source;
                     _attempt?.Signals.Add(wire.Id);
                 }
