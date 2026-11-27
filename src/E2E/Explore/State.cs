@@ -8,6 +8,9 @@ using E2E.Internal;
 
 namespace E2E;
 
+/// <summary>The step a finding was reported in, read when the tool started (upstream's <c>{ step }</c>).</summary>
+internal readonly record struct ReportedIn(int? Step);
+
 /// <summary>A finding as the tool reports it. The state assigns its identity, position, and time.</summary>
 internal sealed record FindingInput(
     ReportExploreFindingKind Kind,
@@ -55,7 +58,8 @@ internal sealed class ExploreState(
     private readonly List<ExploreListener> _listeners = [];
     private ReportExploreEnded _ended = ReportExploreEnded.Aborted;
     private string? _summary;
-    private OpenStep? _open;
+    private OpenStepRecord? _open;
+    private bool _closed;
 
     public string Goal { get; } = goal;
 
@@ -147,7 +151,7 @@ internal sealed class ExploreState(
             }
 
             var now = _time.GetUtcNow();
-            _open = new OpenStep(
+            _open = new OpenStepRecord(
                 _steps.Count + 1,
                 Clip(_redactor.Redact(title), MaxTitleChars),
                 Clip(_redactor.Redact(instruction), MaxInstructionChars),
@@ -182,8 +186,35 @@ internal sealed class ExploreState(
         }
     }
 
-    /// <summary>Records one finding against the step in progress, with its evidence screenshot when one was kept.</summary>
-    public ReportExploreFinding AddFinding(FindingInput input)
+    /// <summary>The index of the step in progress, if one is open.</summary>
+    public int? OpenStep
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _open?.Index;
+            }
+        }
+    }
+
+    /// <summary>Whether the record takes no more findings.</summary>
+    public bool Closed
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _closed;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Records one finding against the step it was reported in, the step in progress unless given, with its evidence screenshot's
+    /// artifact id when one was kept. Refused once the record is closed, as the verdict is already given.
+    /// </summary>
+    public ReportExploreFinding AddFinding(FindingInput input, ReportedIn? reportedIn = null)
     {
         // Redacted before the lock, so a slow match never holds the listeners up.
         var title = _redactor.Redact(input.Title);
@@ -192,11 +223,16 @@ internal sealed class ExploreState(
         var reproduction = input.Reproduction.Take(MaxReproductionSteps).Select(_redactor.Redact).ToList();
         lock (_gate)
         {
+            if (_closed)
+            {
+                throw new InvalidOperationException("the exploration is over; no finding can be recorded");
+            }
+
             var now = _time.GetUtcNow();
             var finding = new ReportExploreFinding(
                 Guid.CreateVersion7(now).ToString(),
                 _findings.Count,
-                _open?.Index,
+                reportedIn is { } given ? given.Step : _open?.Index,
                 input.Kind,
                 input.Severity,
                 Clip(title, MaxTitleChars),
@@ -222,6 +258,15 @@ internal sealed class ExploreState(
             _ended = ended;
             _summary = string.IsNullOrWhiteSpace(summary) ? null : Clip(_redactor.Redact(summary), MaxSummaryChars);
             Notify(new ExploreProgress.Finished(ended, _summary));
+        }
+    }
+
+    /// <summary>Takes no more findings: the exploration is over, however it ended.</summary>
+    public void Close()
+    {
+        lock (_gate)
+        {
+            _closed = true;
         }
     }
 
@@ -300,5 +345,5 @@ internal sealed class ExploreState(
         }
     }
 
-    private sealed record OpenStep(int Index, string Title, string Instruction, DateTimeOffset StartedAt);
+    private sealed record OpenStepRecord(int Index, string Title, string Instruction, DateTimeOffset StartedAt);
 }

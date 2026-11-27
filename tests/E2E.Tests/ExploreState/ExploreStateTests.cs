@@ -126,6 +126,34 @@ public sealed class ExploreStateTests
     }
 
     [Fact]
+    public void Records_a_finding_against_the_step_it_was_reported_in_also_once_that_step_has_ended()
+    {
+        var state = new State("goal", new ExploreBudgets(2, TimeSpan.FromMinutes(5)));
+        var reportedIn = new ReportedIn(state.OpenStep);
+        state.BeginStep("Cart", "open the cart");
+        Assert.Equal(1, state.OpenStep);
+        var inStep = new ReportedIn(state.OpenStep);
+        state.EndStep(ReportExploreStepStatus.Exhausted);
+        Assert.Null(state.OpenStep);
+        state.BeginStep("Checkout", "pay");
+        var late = new FindingInput(ReportExploreFindingKind.Issue, 3, "Late", "e", "a", ["r"]);
+        var before = new FindingInput(ReportExploreFindingKind.Issue, 3, "Before", "e", "a", ["r"]);
+        Assert.Equal(1, state.AddFinding(late, inStep).Step);
+        Assert.Null(state.AddFinding(before, reportedIn).Step);
+    }
+
+    [Fact]
+    public void Refuses_a_finding_once_the_record_is_closed()
+    {
+        var state = new State("goal", new ExploreBudgets(2, TimeSpan.FromMinutes(5)));
+        state.End(ReportExploreEnded.Time);
+        state.Close();
+        var error = Assert.Throws<InvalidOperationException>(() => Finding(state));
+        Assert.Matches("exploration is over", error.Message);
+        Assert.Empty(state.Snapshot().Findings);
+    }
+
+    [Fact]
     public void Opens_a_step_as_the_report_will_record_it_so_the_charter_the_agent_runs_is_the_bounded_one()
     {
         var state = new State("goal", new ExploreBudgets(2, TimeSpan.FromMinutes(5)));

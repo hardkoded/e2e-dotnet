@@ -13,7 +13,7 @@ using Capture = E2E.Cli.Tests.ReportList.ListReporterKit.Capture;
 namespace E2E.Cli.Tests.ReportList;
 
 /// <summary>
-/// Upstream: packages/e2e/tests/unit/report-list.test.ts, describe('explore runs'). All 5 <c>it</c> are ported, each driving a
+/// Upstream: packages/e2e/tests/unit/report-list.test.ts, describe('explore runs'). All 5 <c>it</c> are ported (the 2 of the nested describe are in <c>AFindingThatArrivesAfterItsStepEnded</c>), each driving a
 /// <see cref="ListReporter"/> with the stream of run events, as upstream does. The golden is the fixture <c>list-explore.txt</c>.
 /// </summary>
 public sealed partial class ExploreRunsTests
