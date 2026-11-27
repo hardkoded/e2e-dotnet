@@ -246,6 +246,7 @@ Every row works today. For an API that is not here, check [What e2e doesn't have
 | `[Explicit]`, `[Category("smoke")]` | the same NUnit attributes; for xUnit, `[Fact(Explicit = true)]` and `[Trait("TestCategory", "smoke")]` |
 | `[Parallelizable(ParallelScope.Self)]` | a test class with `ParallelScope.Children` or `All` fails at setup unless it also has `[FixtureLifeCycle(LifeCycle.InstancePerTestCase)]`; xUnit runs classes in parallel |
 | `test.describe.configure({ mode: 'serial' })` (members share a page) | `[Serial]` on an NUnit test class: its members share one session, in the order of `[DependsOnTest]`, and a failure skips the rest. xUnit has no counterpart |
+| `test.describe.only()`, `test.only()` | no counterpart: the port has no `describe` groups or focus option. Run a subset with the runner's filter, such as `dotnet test --filter "FullyQualifiedName~Checkout"`, or mark the rest `[Explicit]`. `ONLY_IN_CI` is not raised |
 | `[Retry(n)]` | the same on NUnit: the first attempt can replay the cache, and a retry runs every agent step live. xUnit has no retry attribute |
 | `ContextOptions()` override | per target in the config, or `CreateEngine()` on the test class; `Browser.SetViewportAsync` at runtime |
 | a base class with fixtures | the same: a class that derives from `E2ETest` and adds protected members or helper methods |
