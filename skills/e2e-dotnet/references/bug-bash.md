@@ -232,6 +232,7 @@ and the failure it saw. Without subagents, verify one area after another.
        public async Task A_cart_line_counts_its_quantity()
        {
            var shopper = Credentials.User("bb-cart");
+           var dune = Screen.GetByRole("row").Filter(hasText: "Dune");
            await App.OpenAsync("/");
            await Agent.ActAsync("sign in with the given credentials", new ActOptions
            {
@@ -241,12 +242,14 @@ and the failure it saw. Without subagents, verify one area after another.
                    ["password"] = shopper.Password,
                },
            });
+           await Agent.ActAsync("empty the cart, then add \"Neuromancer\" to the cart");
            await Agent.ActAsync("add \"Dune\" to the cart");
-           await Agent.WaitForAsync("you are signed in and the cart holds \"Dune\"");
+           await Agent.WaitForAsync("you are signed in and the cart holds only \"Neuromancer\" then \"Dune\", each with quantity 1");
 
-           await Agent.ActAsync("set the quantity of \"Dune\" in the cart to 2");
+           await Agent.ActAsync("set the quantity of \"Dune\" in the cart to 2"); // the second line shown (lines stay in the order added), not the first
 
-           await Agent.AssertAsync("the cart line for \"Dune\" totals twice its unit price");
+           await Agent.AssertAsync("the cart line for \"Dune\" totals twice its unit price, and \"Neuromancer\" still has quantity 1");
+           await Expect.That(dune).ToContainTextAsync("$25.00"); // Dune is $12.50 a copy
        }
    }
    ```

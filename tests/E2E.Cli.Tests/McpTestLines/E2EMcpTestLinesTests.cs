@@ -131,11 +131,7 @@ public sealed class E2EMcpTestLinesTests : IAsyncLifetime
         var drafted = await _cli.CallAsync("test_lines");
         Assert.False(drafted.IsError, drafted.Text);
         Assert.DoesNotContain(Password, drafted.Text, StringComparison.Ordinal);
-        Assert.Contains(
-            "Paste it into a test method, and add an Expect after each step that should change the screen.",
-            drafted.Text,
-            StringComparison.Ordinal
-        );
+        Assert.Contains("Split these lines into tests, one behavior each", drafted.Text, StringComparison.Ordinal);
         string[] body =
         [
             .. drafted

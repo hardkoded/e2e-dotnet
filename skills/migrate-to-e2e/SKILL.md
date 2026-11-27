@@ -207,8 +207,8 @@ Then each test, one at a time:
   to the other.
 - Translate literally first, one awaited call per source step. Each source
   assertion maps to its own e2e assertion (`Expect.That(...)`). A wait that
-  fails on timeout becomes one more, so the e2e count is at least the
-  inventory's.
+  fails on timeout becomes one more e2e check. Raw counts stay diagnostic
+  only.
 - Then, before the first run, arrange the translated lines in the shape the
   e2e skill's `writing-tests` topic gives ("Structure"). Lines move, split
   tests copy the steps they need, and closing waits are added; no source
@@ -225,9 +225,21 @@ Then each test, one at a time:
   - A source assertion that only guarded a precondition (the dashboard
     showed before the real steps began) becomes the wait that closes the
     arrange block (`locator.WaitForAsync()`, `Agent.WaitForAsync`). It
-    still counts toward the assertion count, since it fails on timeout.
-  - Splitting adds tests, never removes a check: the e2e count across the
-    split tests is still at least the source's.
+    still counts toward the assertion count, since it fails on timeout; do
+    not add a redundant `Expect` on a saved boolean just to keep the raw
+    count up.
+  - Splitting adds tests, never removes or shifts a check: preserve each
+    distinct source assertion at the same observation point (prior state,
+    action, and check before any reload or navigation). If a source test
+    verifies state before a reload and again after it, split those into
+    separate tests (each recreating its real starting state) instead of
+    moving the pre-reload assertions after the reload. Never pad counts
+    with duplicate `Expect` lines or teardown assertions, and never stash a
+    one-shot read (`IsVisibleAsync`, `IsEnabledAsync`, `CountAsync`,
+    `InputValueAsync`, `TextContentAsync`, `GetAttributeAsync`) mid-flow in a
+    local variable just to assert it at the end: use retrying matchers
+    directly on the live screen, split the earlier phases into their own
+    tests, or use `Expect.Poll(...)` for computed checks.
 - A test the source ignores (`[Ignore]`, `[Fact(Skip = ...)]`) is ported in
   full and stays ignored, with the source's reason, so it can be turned back
   on in either suite. Its row says so; when the reason allows, run it
@@ -243,15 +255,32 @@ Then each test, one at a time:
   for, or an assertion with a timeout when a locator names that state or
   the config has no model. Never port the duration.
 - A per-platform branch becomes a target per platform, or an `if` on the
-  platform inside one test.
+  platform inside one test. For same-platform targets (such as Playwright's
+  `projects[].testMatch` splitting desktop, mobile viewport, or time zone
+  targets), mark each group with the framework's category or trait and run
+  each target with `E2E_TARGET=<name>` and that category filter. Never route
+  targets by skipping from the setup on a sniffed viewport width or time
+  zone: that launches every test on every target and turns a misconfigured
+  target into a green skip instead of a failure.
 - A workaround the source comments explain (a flaky `hideKeyboard`, a
   coordinate tap, a retry loop) is a workaround for the old runner. Try the
   plain step first; keep a workaround only when e2e needs it too, with its
   own comment saying why.
-- Where the guide lists a step under "What e2e doesn't have yet", use its
-  workaround. When there is none, the test stays in the old runner: mark
-  it `stays` with the reason, and offer to open an issue at
-  `hardkoded/e2e-dotnet` with the gap. Open it only when the user agrees.
+- Classify each test individually before rolling up its file (if only one
+  check inside a multi-behavior test needs an unportable capability, split
+  the portable behaviors into e2e first and keep only the unportable
+  behavior as `stays`). Where the guide lists a step that the test actually
+  runs under "What e2e doesn't have yet", evaluate its workaround first.
+  Mark a test `stays` only when that test's own steps or assertions require
+  a missing capability with no faithful workaround (cite the source line and
+  the guide row; a project option the test never asserts, or a restriction
+  introduced by your own wrapper script, is not an e2e gap). A port you
+  tried that failed without a confirmed missing-capability diagnosis is
+  `blocked`, not `stays`. Keep unported portable tests as `todo`, not
+  `stays`, and give a file with mixed statuses one row per test, and a test split into
+  a portable and an unportable behavior one row per behavior. Offer to
+  open an issue at `hardkoded/e2e-dotnet` with each genuine gap, once per
+  gap, and open it only when the user agrees.
 - Do not change app code. A test that needs a test id the app lacks gets
   `Agent.ActAsync` or a different locator; propose the app change to the
   user instead of making it. A defect check's planted bug (step 6) is the
@@ -280,9 +309,12 @@ A port is done when it is as strict as the source and passes every time.
 2. When the old suite can run here, run the source test on the same build.
    A failure both runners show is an app or environment bug: report it, do
    not port around it. A failure only e2e shows is the port's.
-3. Check strictness against the source: an e2e assertion for every source
-   assertion, so the count is at least the inventory's, and every end state
-   the source checked is checked. Never weaken an assertion, widen a timeout
+3. Check strictness against the source: verify every distinct starting
+   state, triggering action, and checked outcome at the same observation
+   point (treat raw assertion counts as a diagnostic check only; a check
+   moved past a reload or navigation, a duplicate `Expect` line, a stashed
+   one-shot read, or a fixture teardown assertion does not preserve parity
+   even if the count matches). Never weaken an assertion, widen a timeout
    without a reason, or drop a step to go green. A test that cannot pass
    honestly stays `blocked` with what failed.
 4. Read the failure output of any failing test before changing the test
@@ -326,7 +358,10 @@ Until the user retires a source test, both runners keep it.
 
 `MIGRATION.md`, beside the e2e test project, is the migration's state.
 Update it as you go, not at the end; an interrupted session must leave it
-true.
+true. Keep the exact header lines (`Source:`, `e2e:`, `Start dependencies:`,
+`Run old:`, `Run new:`, `Harness:`, `Defect check:`) and sections
+(`## Shared helpers`, `## Gaps`, `## Next`) so step 1 can resume cleanly in a
+later session.
 
 ```md
 # Migration to e2e
@@ -361,7 +396,8 @@ CheckoutTests.cs (needs `LoginPage`).
 ```
 
 One row per source file. A file whose tests end in different statuses gets
-one row per test, each with its own assertion count. A suite with hundreds
+one row per test (one per behavior for a test split into a ported and a
+`stays` part), each with its own assertion count. A suite with hundreds
 of tests keeps file rows: the table is read at the start of every session.
 
 Statuses: `todo`; `ported` (green in e2e, the source test still runs);
