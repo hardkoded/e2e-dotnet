@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+  xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+  x:Class="MobileBenchmark.ControlInventory"
+  Title="Control Inventory"
+>
+  <ScrollView>
+    <VerticalStackLayout Padding="24" Spacing="12">
+      <Label Text="Plain controls, every state exposed" AutomationId="inventory-header" />
+
+      <!-- The section tabs. This port has the Gestures section only. -->
+      <HorizontalStackLayout Spacing="8">
+        <Button
+          AutomationId="tab-gestures"
+          Text="Gestures"
+          SemanticProperties.Description="Gestures"
+          Clicked="OnGesturesTabClicked"
+        />
+      </HorizontalStackLayout>
+
+      <!-- Pointer surfaces: a long-press target and a double-tap target that echo the gesture. -->
+      <VerticalStackLayout x:Name="GesturesSection" Spacing="12" IsVisible="False">
+        <HorizontalStackLayout Spacing="8">
+          <Button
+            x:Name="HoldMe"
+            AutomationId="long-press-target"
+            Text="Hold me"
+            Pressed="OnHoldMePressed"
+            Released="OnHoldMeReleased"
+          />
+          <Button AutomationId="double-tap-target" Text="Double-tap me" Clicked="OnDoubleTapCandidate" />
+        </HorizontalStackLayout>
+        <Label x:Name="GestureStatus" AutomationId="gesture-status" Text="gesture: none" />
+        <Label x:Name="TapCount" AutomationId="tap-count" Text="0 taps" />
+      </VerticalStackLayout>
+    </VerticalStackLayout>
+  </ScrollView>
+</ContentPage>

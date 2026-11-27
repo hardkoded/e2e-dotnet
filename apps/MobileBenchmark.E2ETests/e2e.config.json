@@ -1,0 +1,15 @@
+{
+  "targets": [
+    {
+      "name": "ios-simulator",
+      "platform": "ios",
+      "app": {
+        "bundleId": "dev.e2e.benchmark",
+        "appPath": "../MobileBenchmark/bin/Debug/net11.0-ios/iossimulator-arm64/MobileBenchmark.app"
+      }
+    }
+  ],
+  "actionTimeout": 15000,
+  "assertionTimeout": 10000,
+  "cache": { "dir": ".e2e/cache" }
+}

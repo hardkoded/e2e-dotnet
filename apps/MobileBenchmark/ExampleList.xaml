@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+  xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+  x:Class="MobileBenchmark.ExampleList"
+  Title="Benchmark Examples"
+>
+  <ScrollView>
+    <!-- The home list. Every scenario is a row on screen, so a suite reaches one with a tap and no scrolling. The row is found by its label, "<name>. " and the description. -->
+    <VerticalStackLayout Padding="12" Spacing="8">
+      <Button
+        AutomationId="Control Inventory"
+        Text="Control Inventory"
+        SemanticProperties.Description="Control Inventory. The deterministic contract surface: plain controls with every state exposed, one exercise per runner verb. Not a hard surface."
+        Clicked="OnControlInventoryClicked"
+      />
+    </VerticalStackLayout>
+  </ScrollView>
+</ContentPage>
