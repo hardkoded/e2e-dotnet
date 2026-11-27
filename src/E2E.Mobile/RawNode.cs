@@ -35,6 +35,9 @@ public sealed record RawNode
 
     public string? Value { get; init; }
 
+    /// <summary>The Android node's text. An empty string is a described field with no text; null is a node that reports none.</summary>
+    public string? Text { get; init; }
+
     /// <summary>The Android content description when it is not already the label.</summary>
     public string? ContentDescription { get; init; }
 

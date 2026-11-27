@@ -211,10 +211,13 @@ public static partial class SnapshotProjection
         "view-group",
     ];
 
+    /// <summary>An element type without the <c>XCUIElementType</c> prefix a WebDriver-backed iOS snapshot may carry.</summary>
+    private static string ElementType(string type) => XcuiElementTypePrefix().Replace(type, "");
+
     /// <summary>One element-type spelling for <c>NavigationBar</c>, <c>XCUIElementTypeNavigationBar</c>, <c>navigation-bar</c>, and <c>android.widget.NavigationBar</c> alike.</summary>
     private static string NormalizeKind(string type)
     {
-        var simple = XcuiElementTypePrefix().Replace(type[(type.LastIndexOf('.') + 1)..], "");
+        var simple = ElementType(type[(type.LastIndexOf('.') + 1)..]);
         simple = WordBoundary().Replace(simple, "$1-$2");
         return Separators().Replace(simple, "-").ToLowerInvariant();
     }
@@ -384,6 +387,7 @@ public static partial class SnapshotProjection
             var showsValue = !(
                 secure || string.IsNullOrEmpty(value) || (android && !editable && value == source.Label)
             );
+            var placeholder = folded?.Placeholder ?? NonEmpty(source.Placeholder);
             var node = new SemanticNode
             {
                 Ref = id,
@@ -410,7 +414,8 @@ public static partial class SnapshotProjection
                     CheckedReported = checkedState is not null,
                     Expanded = expanded == true,
                 },
-                Placeholder = folded?.Placeholder ?? NonEmpty(source.Placeholder),
+                Placeholder = placeholder,
+                Attributes = NodeAttributes(source, android, identifier, placeholder),
 
                 // The accessibility identifier (iOS) or resource id (Android) is the node's test id.
                 TestId = identifier,
@@ -915,6 +920,41 @@ public static partial class SnapshotProjection
             || (
                 node.Children.Count > 0 && node.Children.All(child => child.Role == "text" && child.Children.Count == 0)
             );
+    }
+
+    /// <summary>
+    /// Upstream's <c>nodeAttributes</c>: what <c>getAttribute</c> reads on a device node, under the names an Appium suite asks for.
+    /// <c>label</c> is the accessibility label: on iOS the label, on Android the content description, else the node's text. An Android
+    /// field showing only its hint has no <c>text</c> and gets no <c>label</c>; an empty described field has <c>text: ""</c> and keeps
+    /// <c>label</c> and <c>content-desc</c>. <c>resource-id</c> is the test id. <c>class</c> is the Android class, or the iOS element type
+    /// without its <c>XCUIElementType</c> prefix. <c>content-desc</c> is Android only. Empty when the node carries none of them.
+    /// </summary>
+    private static IReadOnlyDictionary<string, string> NodeAttributes(
+        RawNode source,
+        bool android,
+        string? identifier,
+        string? placeholder
+    )
+    {
+        var description = NonEmpty(source.ContentDescription);
+        var descriptionOnly = source.Text == "" ? NonEmpty(source.Label) : null;
+        var contentDescription = android ? (description ?? descriptionOnly) : null;
+        var ownText = source.HintShowing == true ? null : NonEmpty(source.Label);
+        var attributes = new Dictionary<string, string>(StringComparer.Ordinal);
+        Add("label", android ? (contentDescription ?? ownText) : NonEmpty(source.Label));
+        Add("resource-id", identifier);
+        Add("class", NonEmpty(source.Type is null ? null : ElementType(source.Type)));
+        Add("content-desc", contentDescription);
+        Add("placeholder", placeholder);
+        return attributes;
+
+        void Add(string name, string? value)
+        {
+            if (value is not null)
+            {
+                attributes[name] = value;
+            }
+        }
     }
 
     /// <summary>The string itself, or null for an absent or empty one.</summary>

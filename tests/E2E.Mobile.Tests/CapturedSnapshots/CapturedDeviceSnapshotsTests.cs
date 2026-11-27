@@ -18,6 +18,13 @@ namespace E2E.Mobile.Tests.CapturedSnapshots;
 /// </summary>
 public sealed class CapturedDeviceSnapshotsTests
 {
+    /// <summary>
+    /// Attributes the tree leaves out: <c>resource-id</c> restates the test id and <c>class</c> is the raw type on every node, which neither
+    /// the model's text nor a locator reads. <c>label</c> is left out too: Android repeats its content description or visible text, and iOS
+    /// repeats its label in the rendered name or text. <c>DeviceNodeAttributesTests</c> covers them.
+    /// </summary>
+    private static readonly HashSet<string> RestatedAttributes = ["label", "resource-id", "class"];
+
     private static readonly string Root = Path.Combine(AppContext.BaseDirectory, "Fixtures", "snapshots");
 
     private static readonly string SourceRoot = SourceFixtures();
@@ -222,9 +229,12 @@ public sealed class CapturedDeviceSnapshotsTests
             parts.Add($"#{node.TestId}");
         }
 
-        if (node.Placeholder is not null)
+        foreach (var (key, value) in node.Attributes.OrderBy(pair => pair.Key, StringComparer.Ordinal))
         {
-            parts.Add($"placeholder={JsonText.Quote(node.Placeholder)}");
+            if (!RestatedAttributes.Contains(key))
+            {
+                parts.Add($"{key}={JsonText.Quote(value)}");
+            }
         }
 
         output.Add($"{new string(' ', depth * 2)}{string.Join(' ', parts)}");

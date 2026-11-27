@@ -69,7 +69,9 @@ public sealed class SnapshotProjectionTests
         Assert.Equal("password", secure.Node.InputPurpose);
         Assert.Equal(S(("disabled", true), ("hidden", true)), ByName("Hidden").States);
         Assert.Equal("ABOUT", ByName("About").Node.TestId);
-        Assert.Null(ByName("About").Node.Placeholder);
+        Assert.Equal("About", ByName("About").Node.Attributes["label"]);
+        Assert.Equal("ABOUT", ByName("About").Node.Attributes["resource-id"]);
+        Assert.DoesNotContain("placeholder", ByName("About").Node.Attributes.Keys);
         Assert.Equal("id=ABOUT", ByName("About").Selector);
         Assert.Null(ByName("Search").Selector);
         Assert.Equal(new BoundingBox(0, 47, 390, 44), ByName("Back").Node.Rect);
@@ -689,7 +691,7 @@ public sealed class SnapshotProjectionTests
         Assert.Equal("text", total.Node.Role);
         Assert.Equal("Total", total.Node.Name);
         Assert.Equal("Total", total.Node.Text);
-        Assert.Null(total.Node.Placeholder);
+        Assert.DoesNotContain("placeholder", total.Node.Attributes.Keys);
     }
 
     [Fact]
@@ -895,6 +897,9 @@ public sealed class SnapshotProjectionTests
         Assert.Equal("Ada Lovelace", empty.Index[1].Node.Placeholder);
         Assert.Empty(empty.Index[1].Node.Children);
 
+        // getAttribute('label') is the device's own label, as Appium reads it, not the folded name.
+        Assert.Equal("Name, Ada Lovelace", empty.Index[1].Node.Attributes["label"]);
+
         // Typed text drops the placeholder from the label and is the value.
         var typed = Field("Name", [], value: "Grace");
         Assert.Equal("Name", typed.Index[1].Node.Name);
@@ -916,7 +921,7 @@ public sealed class SnapshotProjectionTests
         {
             var kept = Field(label, children, type, editable, value).Index[1].Node;
             Assert.Equal(label, kept.Name);
-            Assert.Null(kept.Placeholder);
+            Assert.DoesNotContain("placeholder", kept.Attributes.Keys);
             Assert.Equal(children.Length, kept.Children.Count);
         }
     }
