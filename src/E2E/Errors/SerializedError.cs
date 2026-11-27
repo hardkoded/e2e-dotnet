@@ -55,6 +55,7 @@ internal static class ErrorSerializer
             ),
             TestException test => ("test", test.Code, test.Message, false),
             ConfigurationException configuration => ("configuration", configuration.Code, configuration.Message, false),
+            FixtureUseException fixtureUse => ("configuration", fixtureUse.Code, fixtureUse.Message, false),
             EngineException { Mapped: false } engine when IsEngineErrorCode(engine.Code) => ClassifyEngineError(engine),
             EngineException engine => ("infrastructure", engine.Code, engine.Message, engine.Retryable),
             E2EException other => ("test", other.Code, other.Message, false),

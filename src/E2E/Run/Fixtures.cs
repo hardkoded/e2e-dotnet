@@ -522,7 +522,7 @@ internal static class CoreFixtures
 /// The built-in fixtures of a target (upstream's <c>BuiltInFixtures</c> and <c>builtInFixtures</c>, <c>run/fixtures.ts</c>): the core ones and the ones its
 /// engine contributes. The one place that knows their names, their scopes, and which of them need an attempt.
 /// </summary>
-internal sealed class BuiltInFixtures
+internal sealed class BuiltInFixtures : IBuiltInScopes
 {
     /// <summary>Fixtures other runners hand out, each pointed at the e2e way of doing the same thing (upstream's <c>FOREIGN_FIXTURE_HINTS</c>).</summary>
     private static readonly Dictionary<string, string> ForeignFixtureHints = new()
@@ -547,8 +547,14 @@ internal sealed class BuiltInFixtures
         Names = [.. CoreFixtures.Table.Keys.Concat(_contributed).Concat(target.FixtureScopes.Keys).Distinct()];
     }
 
+    /// <summary>
+    /// The built-in fixtures as a <c>test.extend()</c> call can know them, before any target is (upstream's <c>DECLARED_BUILT_INS</c>): the core ones whose scope no
+    /// engine changes. Every other name is <c>unresolved</c>, since an engine may contribute it, so none is missing.
+    /// </summary>
+    public static IBuiltInScopes Declared { get; } = new DeclaredBuiltInScopes();
+
     /// <summary>The target the fixtures are of, for an error to name.</summary>
-    public string TargetName => _target.Name;
+    public string? TargetName => _target.Name;
 
     /// <summary>Every built-in fixture name: the core ones, the engine's, then the ones only other targets have.</summary>
     public IReadOnlyList<string> Names { get; }
@@ -591,4 +597,50 @@ internal sealed class BuiltInFixtures
             : Suggestions.DidYouMean(name, available);
         return $"target \"{_target.Name}\" has no \"{name}\" fixture; available: {string.Join(", ", available)} ({contributed}){hint}";
     }
+}
+
+/// <summary>
+/// What the fixture planner reads of the built-in fixtures (upstream's <c>Omit&lt;BuiltInFixtures, 'attemptless'&gt;</c>, <c>collect/fixture-plan.ts</c>):
+/// the target's, or, while a <c>test.extend()</c> call is checked, the ones known before any target is (<see cref="BuiltInFixtures.Declared"/>).
+/// .NET-only: C# has no <c>Omit</c>.
+/// </summary>
+internal interface IBuiltInScopes
+{
+    /// <summary>The target the fixtures are of, for an error to name; null before any target is known.</summary>
+    string? TargetName { get; }
+
+    /// <summary>Every built-in fixture name.</summary>
+    IReadOnlyList<string> Names { get; }
+
+    /// <summary>How long <paramref name="name"/> lives, <c>unresolved</c> where an engine decides, null for a name no target has.</summary>
+    string? Scope(string name);
+
+    /// <summary>Whether reading <paramref name="name"/> requires an engine attempt.</summary>
+    bool NeedsAttempt(string name);
+
+    /// <summary>Why <paramref name="name"/> is no built-in fixture, beside the fixtures <paramref name="available"/>.</summary>
+    string Missing(string name, IReadOnlyList<string> available);
+}
+
+/// <summary>The scope a fixture the engine decides has before a target is known (upstream's <c>unresolved</c>, <c>collect/fixture-plan.ts</c>).</summary>
+internal static class UnresolvedScope
+{
+    public const string Value = "unresolved";
+}
+
+internal sealed class DeclaredBuiltInScopes : IBuiltInScopes
+{
+    public string? TargetName => null;
+
+    public IReadOnlyList<string> Names { get; } = [.. CoreFixtures.Table.Keys];
+
+    public string? Scope(string name)
+    {
+        var scope = CoreFixtures.Get(name)?.Scope ?? CoreFixtureScope.Engine;
+        return scope == CoreFixtureScope.Engine ? UnresolvedScope.Value : scope;
+    }
+
+    public bool NeedsAttempt(string name) => CoreFixtures.NeedsAttempt(name);
+
+    public string Missing(string name, IReadOnlyList<string> available) => $"no fixture is called \"{name}\"";
 }
