@@ -109,6 +109,8 @@ public static class DeviceCommands
                 return new DeviceCommand("hardware-button", Take(flags, "button"), flags);
             case DeviceMethods.CommandHome:
                 return new DeviceCommand("home", [], flags);
+            case DeviceMethods.CommandLockScreen:
+                return new DeviceCommand("lock-screen", Take(flags, "action"), flags);
             case DeviceMethods.CommandOrientation:
                 return new DeviceCommand("orientation", Take(flags, "orientation"), flags);
             case DeviceMethods.CommandFold:
