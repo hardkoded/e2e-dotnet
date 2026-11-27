@@ -187,20 +187,23 @@ Task ForwardAsync(CancellationToken cancellationToken)
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Engine_IBrowserSession_GetCookiesAsync_"></a>
-<a id="E2E_Engine_IBrowserSession_GetCookiesAsync_System_Threading_CancellationToken_"></a>
+<a id="E2E_Engine_IBrowserSession_GetCookiesAsync_System_Collections_Generic_IReadOnlyList_System_String__System_Threading_CancellationToken_"></a>
 
-### GetCookiesAsync(CancellationToken)
+### GetCookiesAsync(IReadOnlyList&lt;string&gt;?, CancellationToken)
 
 
 ```csharp
-Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(CancellationToken cancellationToken)
+Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(IReadOnlyList<string>? urls, CancellationToken cancellationToken)
 ```
 
+
+Returns every cookie of the browser, or with `urls` only those a request to one of them would carry; an empty list returns none.
 
 **Parameters**
 
 | Name | Type | Description |
 | --- | --- | --- |
+| `urls` | [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;IReadOnlyList&lt;BrowserCookie&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
@@ -748,27 +751,53 @@ The wait takes the first tab the app opens after it starts. A trigger that throw
 
 **Returns:** [Task&lt;IAttemptTab&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-<a id="E2E_Engine_IBrowserSession_WaitForResponseAsync_"></a>
-<a id="E2E_Engine_IBrowserSession_WaitForResponseAsync_System_Func_System_String_System_String_System_Boolean__System_TimeSpan_System_Threading_CancellationToken_"></a>
+<a id="E2E_Engine_IBrowserSession_WaitForRequestAsync_"></a>
+<a id="E2E_Engine_IBrowserSession_WaitForRequestAsync_System_Func_E2E_Engine_WebRequest_System_Threading_Tasks_Task_System_Boolean___System_TimeSpan_System_Threading_CancellationToken_"></a>
 
-### `WaitForResponseAsync(Func<string, string, bool>, TimeSpan, CancellationToken)`
+### `WaitForRequestAsync(Func<WebRequest, Task<bool>>, TimeSpan, CancellationToken)`
 
 
 ```csharp
-Task<BrowserResponse> WaitForResponseAsync(Func<string, string, bool> matches, TimeSpan timeout, CancellationToken cancellationToken)
+Task<WebRequest> WaitForRequestAsync(Func<WebRequest, Task<bool>> matches, TimeSpan timeout, CancellationToken cancellationToken)
 ```
 
 
-Waits up to &lt;code class="paramref"&gt;timeout&lt;/code&gt; for a response whose URL and request method &lt;code class="paramref"&gt;matches&lt;/code&gt;
-accepts. The timeout bounds the match only: the body read starts once the
-response is known and goes on in [Body](/api/E2E.Engine/BrowserResponse/#E2E_Engine_BrowserResponse_Body). A session
-that does not override it fails with `UNSUPPORTED_CAPABILITY`.
+Waits up to &lt;code class="paramref"&gt;timeout&lt;/code&gt; for a request &lt;code class="paramref"&gt;matches&lt;/code&gt; accepts, as
+`WaitForResponseAsync` does for a response: it resolves when the page sends the request, before any
+response arrives. A session that does not override it fails with `UNSUPPORTED_CAPABILITY`.
 
 **Parameters**
 
 | Name | Type | Description |
 | --- | --- | --- |
-| `matches` | [Func&lt;string, string, bool&gt;](https://learn.microsoft.com/dotnet/api/system.func-3) |  |
+| `matches` | [Func&lt;WebRequest, Task&lt;bool&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-2) |  |
+| `timeout` | [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;WebRequest&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_Engine_IBrowserSession_WaitForResponseAsync_"></a>
+<a id="E2E_Engine_IBrowserSession_WaitForResponseAsync_System_Func_E2E_Engine_BrowserResponse_System_Threading_Tasks_Task_System_Boolean___System_TimeSpan_System_Threading_CancellationToken_"></a>
+
+### `WaitForResponseAsync(Func<BrowserResponse, Task<bool>>, TimeSpan, CancellationToken)`
+
+
+```csharp
+Task<BrowserResponse> WaitForResponseAsync(Func<BrowserResponse, Task<bool>> matches, TimeSpan timeout, CancellationToken cancellationToken)
+```
+
+
+Waits up to &lt;code class="paramref"&gt;timeout&lt;/code&gt; for a response &lt;code class="paramref"&gt;matches&lt;/code&gt; accepts, on the active tab (on the
+first page the context opens, before any page exists). &lt;code class="paramref"&gt;matches&lt;/code&gt; runs per response until it returns
+`true`; what it throws fails the wait with that error, untranslated. The timeout bounds the match only: the body
+read starts once the response is known and goes on in [Body](/api/E2E.Engine/BrowserResponse/#E2E_Engine_BrowserResponse_Body). A session that does not
+override it fails with `UNSUPPORTED_CAPABILITY`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `matches` | [Func&lt;BrowserResponse, Task&lt;bool&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-2) |  |
 | `timeout` | [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 

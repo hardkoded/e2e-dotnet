@@ -356,6 +356,7 @@ the MAUI DevFlow engine) fails the start with `UNSUPPORTED_ARTIFACT`.
 | `E2E_TRACE=on` | Keep a trace page for a passing attempt too |
 | `CI=1 dotnet test` | Reproduce CI-only behavior (`read-only` cache) |
 | `Browser.WaitForResponseAsync` | Check what the app's API answered |
+| `Browser.WaitForRequestAsync` | Check what the page sent, before any response |
 | `E2E_DEBUG=1 dotnet test` | Phase timings and a table of agent steps per test, and each agent step's transcript |
 | `E2E_AI_TRACE=1 dotnet test`, then `npx unbox-ai runs .e2e/ai-trace-<pid>.json` | What the model saw and called |
 

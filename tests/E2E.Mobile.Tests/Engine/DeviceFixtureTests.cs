@@ -75,7 +75,7 @@ public sealed class DeviceFixtureTests
     }
 
     [Fact]
-    public async Task Counts_a_back_home_alert_keyboard_rotation_or_fold_as_an_action_so_a_control_that_arrives_with_it_waits_out_the_transition_budget()
+    public async Task Partial_Counts_a_back_home_lock_unlock_alert_keyboard_rotation_or_fold_as_an_action_so_a_control_that_arrives_with_it_waits_out_the_transition_budget()
     {
         var h = Harness.Create(options => options with { TransitionMilliseconds = 120 });
         var session = await OpenAttempt(h);
@@ -85,6 +85,8 @@ public sealed class DeviceFixtureTests
         [
             () => device.BackAsync(),
             () => device.HomeAsync(),
+            () => device.LockAsync(),
+            () => device.UnlockAsync(),
             () => device.AlertAsync(AlertAction.Accept),
             () => device.DismissKeyboardAsync(),
             () => device.SetOrientationAsync(DeviceOrientation.LandscapeLeft),
@@ -226,7 +228,7 @@ public sealed class DeviceFixtureTests
     }
 
     [Fact]
-    public async Task Issues_one_settings_or_system_command_per_method()
+    public async Task Partial_Issues_one_settings_or_system_command_per_method()
     {
         var h = Harness.Create();
         var session = await OpenAttempt(h);
@@ -257,6 +259,8 @@ public sealed class DeviceFixtureTests
         Assert.Equal(new ForegroundApp("Settings", "com.apple.Preferences"), await device.ForegroundAppAsync());
         await device.HomeAsync();
         await device.BackAsync();
+        await device.LockAsync();
+        await device.UnlockAsync();
         await device.AlertAsync(AlertAction.Accept);
         await device.DismissKeyboardAsync();
         Assert.Equal("pasted", await device.ClipboardAsync());
@@ -285,6 +289,8 @@ public sealed class DeviceFixtureTests
             ("command.appState", "{}"),
             ("command.home", """{"platform":"ios"}"""),
             ("command.back", """{"settle":true,"settleQuietMs":150}"""),
+            ("command.lockScreen", """{"platform":"ios","action":"lock"}"""),
+            ("command.lockScreen", """{"platform":"ios","action":"unlock"}"""),
             ("command.alert", """{"platform":"ios","action":"accept"}"""),
             ("command.keyboard", """{"action":"dismiss"}"""),
             ("command.clipboard", """{"platform":"ios","action":"read"}"""),
@@ -1094,6 +1100,111 @@ public sealed class DeviceFixtureTests
         var refused = await Assert.ThrowsAsync<EngineException>(() => androidSession.Device.ClearKeychainAsync());
         Assert.Equal("UNSUPPORTED_CAPABILITY", refused.Code);
         Assert.Equal(count, android.Fake.Calls.Count);
+    }
+
+    [Fact]
+    public async Task Locks_and_unlocks_the_selected_device_through_agent_devices_one_lock_screen_command()
+    {
+        var android = Harness.Create(
+            options => options with { Platform = MobilePlatform.Android, Device = "emulator-5554" },
+            true,
+            app => app with { BundleId = "com.example.app" }
+        );
+        var session = await OpenAttempt(android);
+        android.Fake.Respond(DeviceMethods.CommandLockScreen, args => new JsonObject
+        {
+            ["action"] = "lock-screen",
+            ["state"] = args?["action"]?.GetValue<string>() == "lock" ? "locked" : "unlocked",
+            ["message"] = "done",
+        });
+        var before = android.Fake.Calls.Count;
+        await session.Device.LockAsync();
+        await session.Device.UnlockAsync();
+        JsonAssert.Calls(
+            android.Fake.Calls,
+            before,
+            ("command.lockScreen", """{"platform":"android","serial":"emulator-5554","action":"lock"}"""),
+            ("command.lockScreen", """{"platform":"android","serial":"emulator-5554","action":"unlock"}""")
+        );
+    }
+
+    [Fact]
+    public async Task Maps_agent_devices_lock_screen_refusals_to_UNSUPPORTED_CAPABILITY_with_a_message_that_names_the_cause_and_the_way_out()
+    {
+        // agent-device 0.21.43's own refusals, as its daemon and the iOS runner raise them.
+        (bool Android, bool Lock, string Message, string Reason, string Hint, string Cause)[] refusals =
+        [
+            (
+                false,
+                true,
+                "Runtime operation lock-screen is unavailable",
+                "unsupported-device-kind",
+                "lock-screen is supported on iPhone and iPad simulators only.",
+                "lock-screen is supported on iPhone and iPad simulators only."
+            ),
+            (
+                true,
+                true,
+                "The screen lock of Pixel 9 is set to None, so there is no lock screen to show",
+                "lock-screen-disabled",
+                "Set a screen lock other than None in Settings > Security > Screen lock (Swipe needs no credential), then retry.",
+                "set to None"
+            ),
+            (
+                true,
+                false,
+                "The screen lock of Pixel 9 asks for a credential (pin), which lock-screen unlock does not enter",
+                "lock-screen-secure",
+                "unlock never enters a credential. Unlock the device by hand, or remove its screen lock in Settings > Security, then retry.",
+                "asks for a credential (pin)"
+            ),
+            (
+                false,
+                false,
+                "The simulator asks for a passcode, which lock-screen unlock does not enter",
+                "lock-screen-secure",
+                "Enter the passcode by hand, or turn it off in Settings > Face ID & Passcode, then retry.",
+                "asks for a passcode"
+            ),
+        ];
+        foreach (var refusal in refusals)
+        {
+            var h = refusal.Android ? Android("com.example.app") : Harness.Create();
+            var session = await OpenAttempt(h);
+            h.Fake.Respond(DeviceMethods.CommandLockScreen, _ => throw new AgentDeviceError(
+                    "UNSUPPORTED_OPERATION",
+                    refusal.Message,
+                    new Dictionary<string, object?>
+                    {
+                        ["reason"] = refusal.Reason,
+                        ["dispatched"] = "no",
+                        ["hint"] = refusal.Hint,
+                    }
+                ));
+            var failure = await Assert.ThrowsAsync<EngineException>(() =>
+                refusal.Lock ? session.Device.LockAsync() : session.Device.UnlockAsync()
+            );
+            Assert.Equal("UNSUPPORTED_CAPABILITY", failure.Code);
+            Assert.Contains(refusal.Cause, failure.Message);
+            Assert.Contains($"Hint: {refusal.Hint}", failure.Message);
+        }
+    }
+
+    [Fact]
+    public async Task Reports_a_lock_state_the_device_never_confirmed_as_ENGINE_FAILURE_with_agent_devices_message()
+    {
+        var h = Android("com.example.app");
+        var session = await OpenAttempt(h);
+        h.Fake.Respond(DeviceMethods.CommandLockScreen, _ =>
+            throw new AgentDeviceError(
+                "COMMAND_FAILED",
+                "Pixel 9 still reports the keyguard hidden",
+                new Dictionary<string, object?> { ["reason"] = "lock-screen-unverified", ["dispatched"] = "unknown" }
+            )
+        );
+        var failure = await Assert.ThrowsAsync<EngineException>(() => session.Device.LockAsync());
+        Assert.Equal("ENGINE_FAILURE", failure.Code);
+        Assert.Contains("still reports the keyguard hidden", failure.Message);
     }
 
     [Fact]

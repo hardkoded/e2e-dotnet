@@ -15,6 +15,7 @@ namespace E2E.Mobile;
 /// <item><term>cancellation</term><description>CANCELLED</description></item>
 /// <item><term>SESSION_NOT_FOUND, or a session-or-device-selector refusal</term><description>INVALID_STATE</description></item>
 /// <item><term>UNSUPPORTED_OPERATION, NOT_IMPLEMENTED, UNSUPPORTED_PLATFORM, or "not supported on this device" under any code</term><description>UNSUPPORTED_CAPABILITY</description></item>
+/// <item><term>a daemon with no runtime for the command (<c>details.reason</c>)</term><description>UNSUPPORTED_CAPABILITY</description></item>
 /// <item><term>a stale-ref refusal, by <c>details.reason</c> (action paths only)</term><description>NODE_STALE (retryable)</description></item>
 /// <item><term><c>target_still_moving</c> with <c>details.dispatched: no</c></term><description>NODE_STALE (retryable)</description></item>
 /// <item><term>a covered or keyboard-occluded target, <c>dispatched: no</c></term><description>NOT_ACTIONABLE, with the hint</description></item>
@@ -60,6 +61,13 @@ public static partial class DeviceErrors
     private const string AmbiguousMatchCode = "AMBIGUOUS_MATCH";
 
     private const string AmbiguousMatchHint = "Set MobileOptions.Device to a device id, or boot exactly one device.";
+
+    /// <summary>
+    /// The <c>details.reason</c> an agent-device daemon fails a command with when it has no runtime for it: a daemon
+    /// older than the command, such as one a device provider pinned to an earlier version. The daemon reports it as
+    /// <c>COMMAND_FAILED</c>, but nothing was sent and the backend cannot do it.
+    /// </summary>
+    private const string RuntimeMissingReason = "generic-route-runtime-missing";
 
     private static readonly HashSet<string> UnsupportedCodes =
     [
@@ -194,7 +202,11 @@ public static partial class DeviceErrors
             return new EngineException(EngineErrorCodes.InvalidState, text, retryable: false, cause);
         }
 
-        if (UnsupportedCodes.Contains(normalized.Code) || Unsupported().IsMatch(normalized.Message))
+        if (
+            UnsupportedCodes.Contains(normalized.Code)
+            || Unsupported().IsMatch(normalized.Message)
+            || Details(cause).GetValueOrDefault("reason") is RuntimeMissingReason
+        )
         {
             return new EngineException(EngineErrorCodes.UnsupportedCapability, text, retryable: false, cause);
         }

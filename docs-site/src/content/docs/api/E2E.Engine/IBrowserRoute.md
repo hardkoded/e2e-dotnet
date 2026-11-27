@@ -33,11 +33,11 @@ has already validated each decision and takes at most one.
 
 
 ```csharp
-WebRouteRequest Request { get; }
+WebRequest Request { get; }
 ```
 
 
-**Value:** [WebRouteRequest](/api/E2E.Engine/WebRouteRequest/)
+**Value:** [WebRequest](/api/E2E.Engine/WebRequest/)
 
 ## Methods
 

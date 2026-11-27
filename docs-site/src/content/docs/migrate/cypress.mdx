@@ -132,13 +132,13 @@ Planned gaps are on the roadmap, and Not yet gaps have no date. Not planned gaps
 | `have.class`, `have.css`, `have.prop`, `be.empty` | `Expect.That(Browser).ToHaveClassAsync(locator, new Regex("..."))`, `Expect.That(locator).ToHaveTextAsync("")`; else read the value with `Browser.EvaluateAsync<T>` |
 | `.trigger()`, `cy.scrollTo()` | `HoverAsync()`, `DragToAsync()`, `ScrollIntoViewAsync()`; for other synthetic events use `Browser.EvaluateAsync<T>` |
 | `cy.intercept({ headers })` and other header matchers | Check `route.Request.Headers` in the handler, else call `route.FallbackAsync()` |
-| `cy.wait('@alias')`, `.its('request.body')`, `@alias.all` | Start `Browser.WaitForResponseAsync(pattern)` before the action; read the request in a `Browser.RouteAsync` handler |
+| `cy.wait('@alias')`, `.its('request.body')`, `@alias.all` | Start `Browser.WaitForResponseAsync` or `Browser.WaitForRequestAsync` before the action with a pattern or predicate, then parse the raw `PostData` string on `response.Request` or the returned `WebRequest`. For `@alias.all`, record each request in a `Browser.RouteAsync` handler |
 | `Cypress.on('uncaught:exception')` | An app error doesn't fail a test. To fail on one, collect `window.onerror` in `Browser.AddInitScriptAsync`, then assert the list is empty with `Browser.EvaluateAsync<T>` |
 | `--browser chrome`, `edge`, `electron`, `before:browser:launch` | `BrowserName.Chromium`, or attach to your own Chrome with `WebEngineOptions.Connect` |
 | `cypress open`, time-travel snapshots | `E2E_HEADLESS=0 dotnet test` with `E2E_DEBUG=1`. The port has no trace page, `--watch`, or `--step` |
 | `before()` and `after()` that drive the app, `describe.only` | UI setup in `[SetUp]` (NUnit) or `InitializeAsync` (xUnit), cleanup in `[TearDown]` or `DisposeAsync`; sign-in in an `[E2ESetup]` that saves a session; `[Explicit]` or a `--filter` on the test |
 | `cy.clock(now)`, `cy.tick(ms)` | `Browser.Clock.InstallAsync(new BrowserClockInstallOptions { Time = ... })`, then `Browser.Clock.PauseAtAsync()` a later time, which stops timers; `Browser.Clock.RunForAsync(ms)` |
-| `cy.request()` with the browser's cookies | Send the cookies from `Browser.CookiesAsync()` with `HttpClient` |
+| `cy.request()` with the browser's cookies | Send the cookies from `Browser.CookiesAsync(url)` with `HttpClient` |
 
 ### Not yet
 

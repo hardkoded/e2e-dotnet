@@ -165,7 +165,7 @@ await raw.Client.CallAsync(DeviceMethods.SettingsUpdate, raw.Selection.ToArgs(
     ("setting", JsonValue.Create("text-size")),
     ("state", JsonValue.Create("accessibility-extra-extra-extra-large"))), CancellationToken.None);
 await App.OpenAsync();
-await Expect(Screen.GetByRole("button", "Checkout")).ToBeVisibleAsync();
+await Expect.That(Screen.GetByRole("button", "Checkout")).ToBeVisibleAsync();
 ```
 
 `ToArgs` takes extra `(name, JsonValue)` pairs after the device selection. `text-size` works on iOS simulators and Android; `large` is the default on both. `setting: "animations"` with `state: "off"` or `"on"` is Android only and fails on iOS. On Android it sets the window, transition, and animator scales to 0 or 1. Both settings outlast the test, so put them back in a teardown. The next test's `App.OpenAsync()` relaunches the app, so restoring the setting is enough. In NUnit, a `[TearDown]` runs before the base class's, so the session is still open. Restore a changed `animations` setting the same way, with `state: "on"`, on Android. This example is NUnit. Read `Device` in the teardown only when the test opened the app, since the session exists only after that:
@@ -417,6 +417,31 @@ Start it after `App.OpenAsync()`. A recording started after `Device.CloseAppAsyn
 `Device.DismissKeyboardAsync()` presses the keyboard's own dismiss key where it has one (Android, iPad). An iPhone keyboard has none, so it drags a short way, horizontal first and vertical second, from the clear point nearest the centre of the screen. A control the captured accessibility tree leaves out, such as pressable text, can still be hit. A screen with no clear point above the keyboard, a keyboard reported up with no frame and no keyboard element on screen (so no point is known to be above it), or a keyboard that outlives both drags, fails with `UNSUPPORTED_CAPABILITY`; the message names the alternatives: the app's own Done or close control, or pressing Enter on the field.
 
 `Device.IsKeyboardShownAsync()` returns whether the soft keyboard is on screen. It answers from what agent-device reports for the keyboard (a visibility probe, a measured or derived frame, or proof that there is none), else from the keyboard or a key drawn on screen in the accessibility tree; the suggestion strip alone, as with a hardware keyboard, does not count. Only agent-device's proof answers `false`. A capture that cannot answer fails: `ENGINE_FAILURE` while the keyboard is moving or the tree is incomplete, `UNSUPPORTED_CAPABILITY` when agent-device did not prove the keyboard absent and the tree lists none. It reads the screen as it is now, so after an action that opens or closes the keyboard, poll it with `Expect.Poll`. It changes nothing on the device. Full details are in the [mobile skill reference](https://github.com/hardkoded/e2e-dotnet/blob/main/skills/e2e-dotnet/references/mobile.md).
+
+## Lock and unlock the screen
+
+`Device.LockAsync()` locks the screen and completes once the device reports it locked: the sleep key on an Android phone or tablet, the lock button on an iPhone or iPad simulator. `Device.UnlockAsync()` unlocks it and completes once the device reports it unlocked. Both are recorded steps (`device.lock`, `device.unlock`) and count as actions for `MobileOptions.TransitionMilliseconds`.
+
+```csharp
+try
+{
+    await Device.LockAsync();
+}
+finally
+{
+    await Device.UnlockAsync();
+}
+await Expect.That(Screen.GetByText("Welcome back")).ToBeVisibleAsync();
+```
+
+To lock the screen for a time, as Appium's `lock(seconds)` does, wait between the two calls.
+
+- `LockAsync` leaves a screen that is already locked locked. A lock that asks for a PIN, pattern, password, or passcode is locked too, but `UnlockAsync` refuses it, so use Swipe on Android and no passcode on iOS.
+- `UnlockAsync` never enters a credential. Nothing brings an app to the front afterwards: check the screen you expect next. A display that is off turns on even when the screen is not locked. On an iPhone simulator with an always-on display, such as the iPhone 17 Pro, the unlock can leave the display off, and on iOS 26.5 the text a later fill types does not reach the app.
+- Both are `UNSUPPORTED_CAPABILITY` on a device agent-device cannot lock: a physical iPhone or iPad, an Android TV or Apple TV, or a device a provider drives through a backend with no lock command (including an agent-device daemon older than the command). `LockAsync` is also `UNSUPPORTED_CAPABILITY` on an Android device whose screen lock is set to None, on Android 16 or newer; set Swipe in Settings > Security.
+- On Android 11 to 15 with the screen lock set to None, `LockAsync` fails with `ENGINE_FAILURE` after about 5 seconds and leaves the display off. On Android 10 or older a lock or unlock that would change the state fails with `ENGINE_FAILURE` before any key is sent.
+- With a PIN, pattern, or password and "Power button instantly locks" off, the keyguard waits for "Lock after screen timeout", up to one minute, which outlasts the default action timeout: the step fails with `ACTION_FAILED`.
+- The engine never unlocks the device for you. A test that fails while the screen is locked leaves it locked for the next test, so unlock in a `finally` block or a teardown. Both run on the app session: after `Device.CloseAppAsync()` they fail with `APP_NOT_OPEN` until `OpenAppAsync` opens an app, so unlock before you close the app.
 
 ## Hosted devices
 

@@ -1081,7 +1081,7 @@ public sealed class BrowserRouteAndWaitForResponseDecisionsTests
         });
 
     public static TheoryData<string> MethodMembers =>
-        new() { "browser.route", "browser.unroute", "browser.waitForResponse" };
+        new() { "browser.route", "browser.unroute", "browser.waitForResponse", "browser.waitForRequest" };
 
     [Theory]
     [MemberData(nameof(MethodMembers))]
@@ -1093,12 +1093,18 @@ public sealed class BrowserRouteAndWaitForResponseDecisionsTests
                 {
                     "browser.route" => routes.Browser.RouteAsync(pattern, _ => Task.CompletedTask),
                     "browser.unroute" => routes.Browser.UnrouteAsync(pattern),
-                    _ => routes.Browser.WaitForResponseAsync(pattern),
+                    "browser.waitForResponse" => routes.Browser.WaitForResponseAsync(pattern),
+                    _ => routes.Browser.WaitForRequestAsync(pattern),
                 };
 
             (RouteMatcher Pattern, string Message)[] cases =
             [
-                (new RouteMatcher(), "must be a string, RegExp, or { method, url }; got an object"),
+                (
+                    new RouteMatcher(),
+                    api.StartsWith("browser.waitFor", StringComparison.Ordinal)
+                        ? "must be a string, RegExp, { method, url }, or a predicate function; got an object"
+                        : "must be a string, RegExp, or { method, url }; got an object"
+                ),
                 (new RouteMatcher { Method = "POST" }, "requires url"),
                 (new RouteMatcher { Url = "**/api/orders" }, "requires method"),
                 (new RouteMatcher { Method = "", Url = "**/api/orders" }, "got \"\""),

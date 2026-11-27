@@ -137,7 +137,7 @@ Public types in the `E2E.Engine` namespace.
 | [WebFixtures](/api/E2E.Engine/WebFixtures/) | What a session on a WebEngine holds beside Screen: the Browser fixture, and App with its BaseUrl always set. Read it from Fixtures. Upstream's WebFixtures (web/fixtures.ts). |
 | [WebInitScript](/api/E2E.Engine/WebInitScript/) | A script every document runs before the page's own, in every tab and frame: JavaScript source, a file of it, or a function source the page calls. A string converts to source. |
 | [WebMedia](/api/E2E.Engine/WebMedia/) | User preferences a page reads through @media rules and matchMedia, as Playwright's emulateMedia sets them. A feature left null keeps the browser's own value, or the one an earlier call set. |
-| [WebRouteRequest](/api/E2E.Engine/WebRouteRequest/) | The request a route intercepted. |
+| [WebRequest](/api/E2E.Engine/WebRequest/) | A request the page made: what a route handler reads as Request and WaitForRequestAsync returns. |
 | [WebScreencastOptions](/api/E2E.Engine/WebScreencastOptions/) | How the engine's own screencast of the page records an attempt that records video: the frame size and the JPEG quality of the frames it encodes. Which attempts record is the config's video, not an engine option. Upstream's WebScreencastOptions. |
 | [WebViewport](/api/E2E.Engine/WebViewport/) | A page size in CSS pixels. |
 

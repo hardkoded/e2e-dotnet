@@ -3502,83 +3502,222 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
         }
 
         public Task<BrowserResponse> WaitForResponseAsync(
-            Func<string, string, bool> matches,
+            Func<BrowserResponse, Task<bool>> matches,
             TimeSpan timeout,
             CancellationToken cancellationToken
         ) => GuardAsync("waitForResponse", cancellationToken, async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                IResponse response;
                 try
                 {
                     // Before the first page exists, the wait listens on the context, which needs no page and
                     // starts listening in this call, so a navigation started right after it cannot get ahead.
-                    response = await (
-                        _page is { IsClosed: false }
-                            ? Page.WaitForResponseAsync(
-                                candidate => matches(candidate.Url, candidate.Request.Method),
-                                new PageWaitForResponseOptions { Timeout = (float)timeout.TotalMilliseconds }
+                    var viewed = new Dictionary<IResponse, BrowserResponse>(ReferenceEqualityComparer.Instance);
+                    var context = _page is { IsClosed: false } ? null! : RequireContext();
+                    var response = await (
+                        _page is { IsClosed: false } page
+                            ? WaitForNetworkAsync<IResponse>(
+                                "Response",
+                                listener => page.Response += listener,
+                                listener => page.Response -= listener,
+                                candidate => matches(ViewOf(candidate)),
+                                timeout,
+                                cancellationToken
                             )
-                            : WaitForContextResponseAsync(matches, timeout, cancellationToken)
+                            : WaitForNetworkAsync<IResponse>(
+                                "Response",
+                                listener => context.Response += listener,
+                                listener => context.Response -= listener,
+                                candidate => matches(ViewOf(candidate)),
+                                timeout,
+                                cancellationToken
+                            )
                     ).ConfigureAwait(false);
+
+                    // Started now, while the browser still holds the body, and awaited
+                    // only by the caller's body read on a budget of its own: the timeout
+                    // bounds the match, never a body still streaming in behind headers
+                    // that already arrived.
+                    var view = ViewOf(response);
+                    view.StartBody?.Invoke();
+                    return view;
+
+                    // The view a predicate saw is the one the wait returns, so a body read it started goes on.
+                    BrowserResponse ViewOf(IResponse candidate)
+                    {
+                        lock (viewed)
+                        {
+                            if (!viewed.TryGetValue(candidate, out var view))
+                            {
+                                view = ResponseView(candidate);
+                                viewed[candidate] = view;
+                            }
+
+                            return view;
+                        }
+                    }
                 }
                 catch (Exception ex) when (WebErrors.IsPlaywright(ex))
                 {
                     throw WebErrors.Translate(ex, "waitForResponse");
                 }
-
-                // Started now, while the browser still holds the body, and awaited
-                // only by the caller's body read on a budget of its own: the timeout
-                // bounds the match, never a body still streaming in behind headers
-                // that already arrived.
-                var bytes = ReadResponseBodyAsync("waitForResponse", response.BodyAsync, () =>
-                    response.Request.Failure
-                );
-                return new BrowserResponse
-                {
-                    Url = response.Url,
-                    Status = response.Status,
-                    Headers = response.Headers,
-                    Body = AsText(bytes),
-                    BodyBytes = bytes,
-                };
             });
 
-        /// <summary>Waits for a response on any page of the context. It listens from the call on, so no page has to exist yet.</summary>
-        private Task<IResponse> WaitForContextResponseAsync(
-            Func<string, string, bool> matches,
+        public Task<WebRequest> WaitForRequestAsync(
+            Func<WebRequest, Task<bool>> matches,
+            TimeSpan timeout,
+            CancellationToken cancellationToken
+        ) => GuardAsync("waitForRequest", cancellationToken, async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    var viewed = new Dictionary<IRequest, WebRequest>(ReferenceEqualityComparer.Instance);
+                    var context = _page is { IsClosed: false } ? null! : RequireContext();
+                    var request = await (
+                        _page is { IsClosed: false } page
+                            ? WaitForNetworkAsync<IRequest>(
+                                "Request",
+                                listener => page.Request += listener,
+                                listener => page.Request -= listener,
+                                candidate => matches(ViewOf(candidate)),
+                                timeout,
+                                cancellationToken
+                            )
+                            : WaitForNetworkAsync<IRequest>(
+                                "Request",
+                                listener => context.Request += listener,
+                                listener => context.Request -= listener,
+                                candidate => matches(ViewOf(candidate)),
+                                timeout,
+                                cancellationToken
+                            )
+                    ).ConfigureAwait(false);
+                    return ViewOf(request);
+
+                    WebRequest ViewOf(IRequest candidate)
+                    {
+                        lock (viewed)
+                        {
+                            if (!viewed.TryGetValue(candidate, out var view))
+                            {
+                                view = RequestView(candidate);
+                                viewed[candidate] = view;
+                            }
+
+                            return view;
+                        }
+                    }
+                }
+                catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+                {
+                    throw WebErrors.Translate(ex, "waitForRequest");
+                }
+            });
+
+        /// <summary>The <see cref="WebRequest"/> over a Playwright request: one reading for route handlers and <c>WaitForRequestAsync</c>, so the two cannot drift (upstream's <c>webRequest</c>).</summary>
+        internal static WebRequest RequestView(IRequest request) =>
+            new()
+            {
+                Url = request.Url,
+                Method = request.Method,
+                Headers = request.Headers,
+                PostData = request.PostData,
+            };
+
+        /// <summary>
+        /// The <see cref="BrowserResponse"/> over a response a wait saw. Its body read starts when first asked for, through
+        /// <see cref="BrowserResponse.StartBody"/>, so a predicate that never reads it does not pay for the read.
+        /// </summary>
+        private static BrowserResponse ResponseView(IResponse response)
+        {
+            var read = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var started = 0;
+            return new BrowserResponse
+            {
+                Url = response.Url,
+                Status = response.Status,
+                Headers = response.Headers,
+                Request = RequestView(response.Request),
+                Body = AsText(read.Task),
+                BodyBytes = read.Task,
+                StartBody = () =>
+                {
+                    if (Interlocked.Exchange(ref started, 1) == 0)
+                    {
+                        ReadResponseBodyAsync("waitForResponse", response.BodyAsync, () => response.Request.Failure)
+                            .ContinueWith(
+                                done =>
+                                {
+                                    if (done.IsFaulted)
+                                    {
+                                        read.TrySetException(done.Exception!.InnerExceptions);
+                                    }
+                                    else if (done.IsCanceled)
+                                    {
+                                        read.TrySetCanceled();
+                                    }
+                                    else
+                                    {
+                                        read.TrySetResult(done.Result);
+                                    }
+                                },
+                                CancellationToken.None,
+                                TaskContinuationOptions.ExecuteSynchronously,
+                                TaskScheduler.Default
+                            );
+                    }
+                },
+            };
+        }
+
+        /// <summary>
+        /// Waits for the first <typeparamref name="T"/> a network event reports that <paramref name="matches"/> accepts (upstream
+        /// hands the predicate to Playwright's waiter, whose .NET predicate cannot be async). The listener is attached in this call and
+        /// detached when the wait ends. What the predicate throws ends the wait, untranslated; a predicate that fails after the wait
+        /// ended cannot replace its outcome. .NET-only: Playwright for .NET has no asynchronous predicate overload.
+        /// </summary>
+        private static async Task<T> WaitForNetworkAsync<T>(
+            string eventName,
+            Action<EventHandler<T>> subscribe,
+            Action<EventHandler<T>> unsubscribe,
+            Func<T, Task<bool>> matches,
             TimeSpan timeout,
             CancellationToken cancellationToken
         )
         {
-            var context = RequireContext();
-            var found = new TaskCompletionSource<IResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
-            EventHandler<IResponse> listener = (_, candidate) =>
-            {
-                if (matches(candidate.Url, candidate.Request.Method))
-                {
-                    found.TrySetResult(candidate);
-                }
-            };
-            context.Response += listener;
-            return Wait();
-
-            async Task<IResponse> Wait()
+            var found = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+            async Task EvaluateAsync(T candidate)
             {
                 try
                 {
-                    return await found.Task.WaitAsync(timeout, cancellationToken).ConfigureAwait(false);
+                    if (!found.Task.IsCompleted && await matches(candidate).ConfigureAwait(false))
+                    {
+                        found.TrySetResult(candidate);
+                    }
                 }
-                catch (TimeoutException)
+                catch (Exception ex)
                 {
-                    throw new TimeoutException(
-                        $"Timeout {timeout.TotalMilliseconds}ms exceeded while waiting for event \"Response\""
-                    );
+                    found.TrySetException(ex);
                 }
-                finally
-                {
-                    context.Response -= listener;
-                }
+            }
+
+            // Run inline, in event order: a synchronous predicate finishes before the next event, so it is never called after the match.
+            EventHandler<T> listener = (_, candidate) => _ = EvaluateAsync(candidate);
+            subscribe(listener);
+            try
+            {
+                return await found.Task.WaitAsync(timeout, cancellationToken).ConfigureAwait(false);
+            }
+            catch (TimeoutException)
+            {
+                throw new TimeoutException(
+                    $"Timeout {timeout.TotalMilliseconds}ms exceeded while waiting for event \"{eventName}\""
+                );
+            }
+            finally
+            {
+                unsubscribe(listener);
             }
         }
 
@@ -3863,11 +4002,16 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             }
         }
 
-        public Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(CancellationToken cancellationToken) =>
-            GuardAsync<IReadOnlyList<BrowserCookie>>("cookies", cancellationToken, async () =>
+        public Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(
+            IReadOnlyList<string>? urls,
+            CancellationToken cancellationToken
+        ) => GuardAsync<IReadOnlyList<BrowserCookie>>("cookies", cancellationToken, async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var cookies = await RequireContext().CookiesAsync().ConfigureAwait(false);
+                // The driver reads an empty list as no filter; a list that came out empty must not widen to every site's cookies.
+                var cookies = urls is { Count: 0 }
+                    ? []
+                    : await RequireContext().CookiesAsync(urls ?? []).ConfigureAwait(false);
                 return cookies
                     .Select(cookie => new BrowserCookie
                     {
@@ -6274,17 +6418,10 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             _configuredHeaders = configuredHeaders;
             _fetch = fetch;
             _noteAbort = noteAbort;
-            var request = route.Request;
-            Request = new WebRouteRequest
-            {
-                Url = request.Url,
-                Method = request.Method,
-                Headers = request.Headers,
-                PostData = request.PostData,
-            };
+            Request = WebSession.RequestView(route.Request);
         }
 
-        public WebRouteRequest Request { get; }
+        public WebRequest Request { get; }
 
         /// <summary>Set the moment a decision starts, before it reaches Playwright.</summary>
         public bool Decided { get; private set; }

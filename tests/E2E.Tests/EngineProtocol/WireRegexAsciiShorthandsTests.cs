@@ -77,4 +77,33 @@ public sealed class WireRegexAsciiShorthandsTests
         Assert.DoesNotMatch(sticky, "\u0661");
         Assert.Matches(sticky, "1");
     }
+
+    [Theory]
+    [InlineData(@"^[a-zA-Z0-9_]+$", "\u212A", false)]
+    [InlineData(@"^[a-zA-Z0-9_]+$", "kK", true)]
+    [InlineData(@"^\w+$", "\u212A", false)]
+    [InlineData(@"^\w+$", "\u017F", false)]
+    [InlineData(@"^[^\w]$", "\u212A", true)]
+    [InlineData(@"^\W$", "\u212A", true)]
+    [InlineData(@"^k$", "\u212A", false)]
+    [InlineData(@"^s$", "\u017F", false)]
+    [InlineData(@"^k$", "K", true)]
+    [InlineData(@"^[^a]$", "\u212A", true)]
+    [InlineData(@"^[^k]$", "K", false)]
+    [InlineData(@"^\D$", "\u212A", true)]
+    [InlineData(@"\bk\b", "a \u212A", false)]
+    [InlineData(@"^[\s\S]+$", "a\u212Ab", true)]
+    [InlineData(@"^[\u212A]$", "\u212A", true)]
+    [InlineData(@"^\cK$", "\u000b", true)]
+    [InlineData(@"(?<kk>s)\k<kk>", "SS", true)]
+    public void Matches_like_JavaScript_for_the_i_flag(string source, string input, bool expected)
+    {
+        var node = new JsonObject
+        {
+            ["kind"] = "regexp",
+            ["source"] = source,
+            ["flags"] = "i",
+        };
+        Assert.Equal(expected, WireCodec.DecodeTextPattern(node).Match.Pattern!.IsMatch(input));
+    }
 }

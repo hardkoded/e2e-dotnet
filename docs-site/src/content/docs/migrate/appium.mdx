@@ -284,7 +284,8 @@ Planned rows are on the roadmap, and Not yet rows have no date. Not planned rows
 | --- | --- |
 | `driver.getLogs('logcat')`, `'syslog'`, `'crashlog'` | Run `adb logcat` or `xcrun simctl spawn <udid> log stream` from a `[SetUp]` with `System.Diagnostics.Process` |
 | `queryAppState(id)` | Partial: `Device.IsAppInstalledAsync(id)` for installed, `Device.ForegroundAppAsync()` for the app in front. Running in the background has no equivalent |
-| `driver.lock()`, `unlock()`, power and volume buttons | `DeviceMethods.CommandHardwareButton` through `Device.UnstableRaw` with `button` set to `"power"`, `"volume-up"`, or `"volume-down"`; on iOS only the volume keys, on a physical device, not a simulator. Not on TestMu |
+| `driver.lock()`, `driver.unlock()`, `mobile: lock`, `mobile: unlock` | `Device.LockAsync()`, `Device.UnlockAsync()`; Android 11 or newer, or an iOS simulator. For `lock(seconds)`, wait between the two. `Device.UnlockAsync()` enters no PIN or passcode |
+| power and volume buttons | `DeviceMethods.CommandHardwareButton` through `Device.UnstableRaw` with `button` set to `"power"`, `"volume-up"`, or `"volume-down"`; on iOS only the volume keys, on a physical device, not a simulator. Not on TestMu |
 | `driver.openNotifications()`, `mobile: pushNotification` | `Screen.SwipeAsync(new SwipePathOptions { From = ..., To = ... })` from the top edge; `xcrun simctl push` from .NET |
 | `driver.pushFile()`, `pullFile()`, `pullFolder()` | `adb push`, `adb pull`, or `xcrun simctl addmedia` from .NET; local devices only |
 | `driver.getAlertText()` | `Screen.GetByRole("alert").TextContentAsync()` on iOS, `GetByText` on Android |
@@ -297,7 +298,7 @@ Planned rows are on the roadmap, and Not yet rows have no date. Not planned rows
 | `appium:autoAcceptAlerts`, `appium:autoDismissAlerts` | Set `app.permissions`, or call `Device.AlertAsync(AlertAction.Accept)` |
 | Webview contexts: `getContexts()`, `switchContext()`, CSS selectors, `execute(js)` | Query the webview's accessibility nodes with `GetByText` and `GetByRole` |
 | Mobile web: `browserName: 'Safari'` or `'Chrome'` | A `WebEngine` target with a phone `WebEngineOptions.Viewport`, layout only |
-| `appium:unlockType`, `unlockKey` | Keep the device unlocked |
+| `appium:unlockType`, `unlockKey` | Keep the device unlocked. `Device.UnlockAsync()` enters no PIN or passcode |
 | `driver.getPageSource()` as XML | No XML export. `Screen.TreeAsync()` returns the tree as text, and `DeviceMethods.CaptureSnapshot` through `Device.UnstableRaw` returns its nodes. Keep XML consumers in Appium |
 | `mobile: pinchOpenGesture`, `mobile: pinch`, `performActions()` with several fingers or waypoints | Single gestures. The raw client takes no pinch or gesture call. Keep the test in Appium |
 | `mobile: shell`, `getPerformanceData()` | Run `adb` or `simctl` from .NET with `Device.DeviceId`; local devices only |
