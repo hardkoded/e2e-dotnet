@@ -20,6 +20,7 @@ Public types in the `E2E.Engine` namespace.
 | [AppLogRoute](/api/E2E.Engine/AppLogRoute/) | Upstream's AppLogRoute (engine/session.ts): where the engine's app log goes. The engine reports from startAttempt on, before any step records; what arrives before a sink is set waits, up to a bound per kind, and each kind has its own quota so chatter never crowds out an error. |
 | [AppNavigationEvent](/api/E2E.Engine/AppNavigationEvent/) | A line saying where the app went (upstream's navigated). |
 | [BoundingBox](/api/E2E.Engine/BoundingBox/) | A viewport-relative rectangle in CSS pixels. |
+| [BrowserClockInstallOptions](/api/E2E.Engine/BrowserClockInstallOptions/) | The options of Browser.Clock.InstallAsync. |
 | [BrowserCookie](/api/E2E.Engine/BrowserCookie/) | A browser cookie. When setting one, give either Url, or Domain with an optional Path, never both. |
 | [BrowserDownload](/api/E2E.Engine/BrowserDownload/) | A download the browser saved as an artifact of the attempt (upstream's waitForDownload result, { path, absolutePath, suggestedFilename }). |
 | [BrowserDownloadContext](/api/E2E.Engine/BrowserDownloadContext/) | Handed to ReadAsync, once per file. |
@@ -144,6 +145,8 @@ Public types in the `E2E.Engine` namespace.
 
 | Type | Summary |
 | --- | --- |
+| [ClockTicks](/api/E2E.Engine/ClockTicks/) | A span of time for Browser.Clock (upstream's ClockTicks): milliseconds, or an 'ss', 'mm:ss', or 'hh:mm:ss' string. A fraction of a millisecond is dropped. |
+| [ClockTime](/api/E2E.Engine/ClockTime/) | A point in time for Browser.Clock (upstream's ClockTime): epoch milliseconds, a string a Date parses, or a DateTimeOffset. A fraction of a millisecond is dropped. |
 | [Point](/api/E2E.Engine/Point/) | A point of the viewport, in the space Rect is in and PerformAtAsync dispatches in. Upstream's ViewportPoint. |
 
 ## Interfaces

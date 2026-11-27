@@ -231,6 +231,7 @@ Every row works today. For an API that is not here, check [What e2e doesn't have
 | `Page.EvaluateAsync(fn, arg)` | `Browser.EvaluateAsync<T>(expression, arg)`; JSON in and out, no handles |
 | `Page.AddInitScriptAsync(script)`, `Context.AddInitScriptAsync()` | `Browser.AddInitScriptAsync(source)`, or `WebEngineOptions.InitScripts` for every test |
 | `Page.EmulateMediaAsync(new() { ColorScheme, ReducedMotion })` | `Browser.EmulateMediaAsync(new WebMedia { ... })`, for every open tab and every tab opened after it; `Media`, `ForcedColors`, and `Contrast` are not supported |
+| `Page.Clock.InstallAsync()`, `PauseAtAsync()`, `RunForAsync()`, `FastForwardAsync()`, `ResumeAsync()`, `SetFixedTimeAsync()`, `SetSystemTimeAsync()` | `Browser.Clock`, the same methods and arguments (`InstallAsync` takes a `BrowserClockInstallOptions`); it covers every tab, like `Context.Clock` |
 | `Context.AddCookiesAsync()`, `Context.CookiesAsync()` | `Browser.SetCookiesAsync()`, `Browser.CookiesAsync()` |
 | `Context.ClearCookiesAsync(options)` | `Browser.ClearCookiesAsync(new CookieFilter { ... })` |
 
@@ -321,7 +322,7 @@ Planned is on the roadmap. Not yet has no date. Not planned is left out on purpo
 | `Playwright.Devices["iPhone 15"]`, `IsMobile`, `HasTouch`, `DeviceScaleFactor` | `WebEngineOptions.Viewport` and `UserAgent`; a mobile target for real touch |
 | `Page.WaitForURLAsync(glob)`, `Page.WaitForFunctionAsync(fn)`, `Page.ViewportSize` | A `Regex`; `Expect.Poll(() => Browser.EvaluateAsync<bool>(expression)).ToBeAsync(true)`; `Browser.EvaluateAsync<T>("() => ({ width: innerWidth, height: innerHeight })")` |
 | `Page.WaitForRequestAsync()`, `request.PostDataJSON()`, `response.Ok`, `response.Request`, `route.AbortAsync(errorCode)` | `Browser.WaitForResponseAsync(pattern)`, then check `Status` in the test. For requests, a `Browser.RouteAsync` handler that records `route.Request`, then calls `FallbackAsync()`; parse `route.Request.PostData` yourself |
-| `Page.Console +=`, `Page.PageError +=`, `Page.Clock` | A `Browser.AddInitScriptAsync` that records to a `window` array, or that stubs `Date`; assert on what the page shows |
+| `Page.Console +=`, `Page.PageError +=` | A `Browser.AddInitScriptAsync` that records to a `window` array; assert on what the page shows |
 | `Context.SetOfflineAsync()`, `SetGeolocationAsync()`, `Geolocation`, `Offline` | A route that aborts every request; a `Browser.AddInitScriptAsync` stub; `app.permissions` on the target for the permission |
 | `IgnoreHTTPSErrors`, `BypassCSP`, `Proxy`, `LaunchOptions` | Serve the app over `http`; start the browser yourself and attach with `WebEngineOptions.Connect` |
 | `Playwright.APIRequest`, the `Request` fixture | `HttpClient` |

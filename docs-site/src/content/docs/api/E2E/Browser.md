@@ -36,6 +36,23 @@ session that implements [IBrowserSession](/api/E2E.Engine/IBrowserSession/), suc
 
 ## Properties
 
+<a id="E2E_Browser_Clock_"></a>
+<a id="E2E_Browser_Clock"></a>
+
+### Clock
+
+
+```csharp
+public BrowserClock Clock { get; }
+```
+
+
+Controls time in the attempt's pages, as Playwright's `page.clock` does: `Date`, timers, and `requestAnimationFrame`
+in every tab and frame, the ones the app opens included. It covers the whole browser, survives navigation, `App.RestartAsync`,
+and `App.ClearStateAsync`, and ends with the attempt.
+
+**Value:** [BrowserClock](/api/E2E/BrowserClock/)
+
 <a id="E2E_Browser_Keyboard_"></a>
 <a id="E2E_Browser_Keyboard"></a>
 

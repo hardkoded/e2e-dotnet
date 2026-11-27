@@ -190,6 +190,15 @@ public interface IBrowserSession : IEngineSession
         );
 
     /// <summary>
+    /// Runs one <c>browser.clock</c> call on the attempt's context, for every tab and frame, and logs it for a context that replaces
+    /// this one. A session that does not override it fails with <c>UNSUPPORTED_CAPABILITY</c>.
+    /// </summary>
+    internal Task ClockAsync(ClockCall call, CancellationToken cancellationToken) =>
+        Task.FromException(
+            new EngineException("UNSUPPORTED_CAPABILITY", "browser.clock is not supported by this engine.")
+        );
+
+    /// <summary>
     /// Emulates media features on every open tab and every tab opened after them, for the rest of the attempt;
     /// a feature <paramref name="media"/> leaves out keeps its value. A session that does not override it fails
     /// with <c>UNSUPPORTED_CAPABILITY</c>.

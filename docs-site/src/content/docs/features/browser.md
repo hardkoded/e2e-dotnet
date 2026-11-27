@@ -27,6 +27,20 @@ The agent doesn't see inert content, so it never aims at a control that takes no
 
 Locators still find inert content, and `ToBeVisibleAsync` still passes, as in Playwright.
 
+## Control time
+
+`Browser.Clock` sets the time the page reads and runs its timers on your command, as Playwright's `Page.Clock` does. Install it before the page opens, then pause it:
+
+```csharp
+await Browser.Clock.InstallAsync(new BrowserClockInstallOptions { Time = new DateTimeOffset(2024, 2, 2, 8, 0, 0, TimeSpan.Zero) });
+await Browser.Clock.PauseAtAsync(new DateTimeOffset(2024, 2, 2, 9, 0, 0, TimeSpan.Zero));
+await App.OpenAsync("/offer");
+await Browser.Clock.RunForAsync("00:10"); // fires every timer due in 10 seconds
+await Expect.That(Screen.GetByText("Offer expired")).ToBeVisibleAsync();
+```
+
+The clock covers every tab and holds for the rest of the test. Your test's own timeouts and waits keep real time. A time is epoch milliseconds, a date string, or a `DateTimeOffset`; ticks are milliseconds, or `"ss"`, `"mm:ss"`, or `"hh:mm:ss"`. Playwright for .NET takes whole milliseconds and a time from year 1 to 9999: a fraction of a millisecond is dropped, and a time outside that range is `INVALID_ARGUMENT`. See [`BrowserClock`](/api/E2E/BrowserClock/).
+
 ## Recovering a CDP transport
 
 `WebConnectOptions.ReconnectEndpoint` opts into recovery of the same remote browser after its CDP transport disconnects. This mode uses the browser's persistent default context, because Chrome deletes ordinary Playwright contexts when their transport detaches.
@@ -47,6 +61,8 @@ In this mode, `CdpEndpoint` provisions a fresh, dedicated browser at every attem
 After a disconnect, the next operation calls `ReconnectEndpoint` once, bounded by the action timeout and its cancellation token. This resolver must return the existing browser's endpoint. The engine verifies the default context id and the active tab's target id; a URL match is not enough to pick a replacement tab. The attempt's other tabs are found by their target ids, and one that is gone is dropped. Recovery also requires the page's frames to keep the closed shadow root hook, which a document that navigated while disconnected lost. A different browser, a missing active tab, or a resolver that runs out of time fails the attempt, and every later operation fails the same way. Recovery never repeats an operation that was already dispatched. Route handlers and init scripts, configured and added, are reattached, and each document still runs every init script once. After a reconnect, `PerformAsync`, the agent's key press, and the viewport swipe fail with `NODE_STALE` until the screen is observed again; the `Browser` keyboard and mouse keep working. An observed node's element handle is made from the observation's in-page array the first time an action reaches for it, and a ref still names the element the walk read, not whatever sits at that position later; an element that is gone, a document replaced since the walk, a newer observation, an app restart, or a state reset makes the ref a retryable `NODE_STALE`.
 
 Either resolver can return a `CdpTarget` (`new CdpTarget { Endpoint = ..., Headers = ... }`) to authenticate the CDP handshake; a string converts to one without headers. These headers are separate from `WebEngineOptions.Headers`, which sends headers to the app. A failed connection that carried handshake headers reports only that the connection failed, never the headers.
+
+A recovery after the attempt used [`Browser.Clock`](#control-time) fails the attempt with `ENGINE_FAILURE`: the open pages keep their clock, but the reconnected browser cannot restore it.
 
 Persistent recovery does not support `Headers`, `BasicAuth`, `UserAgent`, `Locale`, or `TimezoneId` (`INVALID_CONFIG`), or `App.ClearStateAsync` (`UNSUPPORTED_CAPABILITY`). `App.RestartAsync` remains available. `ColorScheme` and `ReducedMotion` work in this mode: the engine sets them on each page it opens. Omit `ReconnectEndpoint` to keep a new, isolated context per attempt.
 
