@@ -96,6 +96,22 @@ public sealed class WireRegexAsciiShorthandsTests
     [InlineData(@"^[\u212A]$", "\u212A", true)]
     [InlineData(@"^\cK$", "\u000b", true)]
     [InlineData(@"(?<kk>s)\k<kk>", "SS", true)]
+    [InlineData("^\u00e5$", "\u212B", false)]
+    [InlineData("^\u00c5$", "\u212B", false)]
+    [InlineData("^\u00e5$", "\u00c5", true)]
+    [InlineData(@"^\u00e5$", "\u212B", false)]
+    [InlineData(@"^\u212B$", "\u00e5", false)]
+    [InlineData(@"^\u212B$", "\u212B", true)]
+    [InlineData("^\u03c9$", "\u2126", false)]
+    [InlineData("^\u03c9$", "\u03a9", true)]
+    [InlineData("^[\u00e5]$", "\u212B", false)]
+    [InlineData("^[\u00e5]$", "\u00c5", true)]
+    [InlineData("^[\u2126]$", "\u03c9", false)]
+    [InlineData("^[\u2126]$", "\u2126", true)]
+    [InlineData("^[\u212A]$", "k", false)]
+    [InlineData("^[\u017F]$", "s", false)]
+    [InlineData("^[\u017F]$", "S", false)]
+    [InlineData("^[a-z]$", "\u212A", false)]
     public void Matches_like_JavaScript_for_the_i_flag(string source, string input, bool expected)
     {
         var node = new JsonObject

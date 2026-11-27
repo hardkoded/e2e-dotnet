@@ -18,7 +18,7 @@ namespace E2E.Engine.Protocol;
 internal static class WireCodec
 {
     private const string AsciiWord = "a-zA-Z0-9_";
-    private static readonly string[] FoldedCharacters = ["\u212A", "\u017F"];
+    private static readonly Lazy<CaseFolds> Folds = new(CaseFolds.Build);
 
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(5);
 
@@ -165,8 +165,8 @@ internal static class WireCodec
     /// <summary>
     /// JavaScript's <c>\d</c>, <c>\w</c> and <c>\b</c> are ASCII only; .NET's match Unicode digits and letters. <c>RegexOptions.ECMAScript</c>
     /// cannot be combined with <c>s</c>, so the shorthands are rewritten to ASCII classes, inside character classes too. With
-    /// <paramref name="ignoreCase"/> it also keeps .NET's case folding from matching U+212A and U+017F as <c>k</c> and <c>s</c>, which
-    /// JavaScript's non-unicode <c>i</c> flag does not; other folds .NET has beyond JavaScript's (for example U+212B with U+00E5) are not handled.
+    /// <paramref name="ignoreCase"/> it also keeps .NET's case folding to ECMAScript's <c>Canonicalize</c>: .NET folds U+212A with k, U+017F
+    /// with s, U+212B with U+00E5 and U+2126 with U+03C9, which JavaScript's non-unicode <c>i</c> flag does not (see <see cref="CaseFolds"/>).
     /// </summary>
     private static string ToAsciiShorthands(string source, bool ignoreCase)
     {
@@ -186,10 +186,10 @@ internal static class WireCodec
                 result.Append(source, i, end - i + 1);
                 i = end;
             }
-            else if (ignoreCase && c is 'k' or 'K' or 's' or 'S')
+            else if (ignoreCase && Folds.Value.Group(c) is { } literalGroup)
             {
-                // .NET folds U+212A (Kelvin sign) to k and U+017F (long s) to s; JavaScript's non-unicode `i` flag does not.
-                result.Append(c is 'k' or 'K' ? "(?-i:[kK])" : "(?-i:[sS])");
+                // A letter .NET folds beyond JavaScript's `i` flag: match exactly the characters that share its Canonicalize value.
+                result.Append("(?-i:[").Append(literalGroup).Append("])");
             }
             else if (c == '\\' && i + 1 < source.Length)
             {
@@ -208,6 +208,18 @@ internal static class WireCodec
                 {
                     // A control escape: its letter is not pattern text.
                     result.Append("\\c").Append(source[++i]);
+                    continue;
+                }
+
+                if (
+                    ignoreCase
+                    && EscapedCharacter(source, i) is { } escaped
+                    && Folds.Value.Group(escaped.Value) is { } escapedGroup
+                )
+                {
+                    // `\u212B` or `\xE5` spells a letter the same way a literal does.
+                    result.Append("(?-i:[").Append(escapedGroup).Append("])");
+                    i += escaped.Length - 1;
                     continue;
                 }
 
@@ -324,26 +336,60 @@ internal static class WireCodec
             return rewritten;
         }
 
-        // .NET's case folding puts U+212A and U+017F in a class that holds k or s; JavaScript's does not. Compare each with what the class
-        // matches case-sensitively, which is what JavaScript matches.
+        // .NET's case folding differs from ECMAScript's Canonicalize for a few characters. Compare what the class matches with .NET's
+        // folding against what it matches case-sensitively, widened by Canonicalize, which is what JavaScript matches.
         var exact = new Regex(rewritten, RegexOptions.None, RegexTimeout);
+        var folded = new Regex(rewritten, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, RegexTimeout);
         var excluded = new StringBuilder();
         var included = new StringBuilder();
-        foreach (var folded in FoldedCharacters)
+        foreach (var character in Folds.Value.Affected)
         {
-            var matches = exact.IsMatch(folded);
-            if (!matches)
+            var text = character.ToString();
+
+            // JavaScript canonicalizes both sides before it compares; a negated class is the complement of that, so every peer must pass.
+            var matchesInJavaScript = negated
+                ? Folds.Value.Peers(character).All(peer => exact.IsMatch(peer.ToString()))
+                : Folds.Value.Peers(character).Any(peer => exact.IsMatch(peer.ToString()));
+
+            var matchesInDotNet = folded.IsMatch(text);
+            if (matchesInDotNet && !matchesInJavaScript)
             {
-                excluded.Append(folded);
+                excluded.Append(EscapeForClass(character));
             }
-            else
+            else if (matchesInJavaScript && !matchesInDotNet)
             {
-                included.Append(folded);
+                included.Append(EscapeForClass(character));
             }
         }
 
         var result = excluded.Length > 0 ? $"(?-i:(?![{excluded}])){rewritten}" : rewritten;
         return included.Length > 0 ? $"(?:{result}|(?-i:[{included}]))" : $"(?:{result})";
+    }
+
+    private static string EscapeForClass(char c) => $"\\u{(int)c:X4}";
+
+    /// <summary>A <c>\uXXXX</c> or <c>\xXX</c> escape whose letter (<c>u</c> or <c>x</c>) is at <paramref name="letter"/>.</summary>
+    private static (char Value, int Length)? EscapedCharacter(string source, int letter)
+    {
+        var digits = source[letter] switch
+        {
+            'u' => 4,
+            'x' => 2,
+            _ => 0,
+        };
+        if (digits == 0 || letter + digits >= source.Length)
+        {
+            return null;
+        }
+
+        return int.TryParse(
+            source.AsSpan(letter + 1, digits),
+            System.Globalization.NumberStyles.AllowHexSpecifier,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var code
+        )
+            ? ((char)code, digits + 1)
+            : null;
     }
 
     private static bool IsGroupNameStart(string source, int i) =>
@@ -370,6 +416,79 @@ internal static class WireCodec
         {
             yield return $"[{set}]";
         }
+    }
+
+    /// <summary>
+    /// ECMAScript <c>Canonicalize</c> for a non-unicode <c>i</c> regular expression: the character's upper case, unless that maps a non-ASCII
+    /// character to ASCII. .NET's <c>IgnoreCase | CultureInvariant</c> folds more: U+212A with k, U+017F with s, U+212B with U+00E5, U+2126 with
+    /// U+03C9 and so on. This finds every character whose fold differs, so the decoder can pin them. Characters whose upper case is several
+    /// characters in JavaScript (U+1FB3) have a single-character mapping in .NET and are not told apart.
+    /// </summary>
+    private sealed class CaseFolds
+    {
+        private readonly Dictionary<char, List<char>> _groups;
+
+        private CaseFolds(HashSet<char> affected, Dictionary<char, List<char>> groups)
+        {
+            Affected = affected;
+            _groups = groups;
+        }
+
+        /// <summary>The characters whose .NET fold can differ from JavaScript's.</summary>
+        internal IReadOnlyCollection<char> Affected { get; }
+
+        internal static CaseFolds Build()
+        {
+            var affected = new HashSet<char>();
+            for (var code = 0; code <= char.MaxValue; code++)
+            {
+                var c = (char)code;
+                var lower = char.ToLowerInvariant(c);
+                if (lower != c && Canonicalize(lower) != Canonicalize(c))
+                {
+                    affected.Add(c);
+                    affected.Add(lower);
+                    affected.Add(char.ToUpperInvariant(lower));
+                }
+            }
+
+            var keys = new HashSet<char>();
+            foreach (var c in affected)
+            {
+                keys.Add(Canonicalize(c));
+            }
+
+            var groups = new Dictionary<char, List<char>>();
+            for (var code = 0; code <= char.MaxValue; code++)
+            {
+                var c = (char)code;
+                var key = Canonicalize(c);
+                if (!keys.Contains(key))
+                {
+                    continue;
+                }
+
+                if (!groups.TryGetValue(key, out var group))
+                {
+                    groups[key] = group = [];
+                }
+
+                group.Add(c);
+            }
+
+            return new CaseFolds(affected, groups);
+        }
+
+        internal static char Canonicalize(char c)
+        {
+            var upper = char.ToUpperInvariant(c);
+            return c >= 128 && upper < 128 ? c : upper;
+        }
+
+        /// <summary>The characters JavaScript matches as <paramref name="c"/>, as class text, or <see langword="null"/> when .NET folds <paramref name="c"/> like JavaScript.</summary>
+        internal string? Group(char c) => Affected.Contains(c) ? string.Concat(Peers(c).Select(EscapeForClass)) : null;
+
+        internal IEnumerable<char> Peers(char c) => _groups[Canonicalize(c)];
     }
 
     // --- locator expressions ---------------------------------------------------------------------------------------
