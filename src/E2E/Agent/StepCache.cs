@@ -174,7 +174,7 @@ internal sealed class StepTraceSession
     public void Record(RecordedAction action) => _recorder.Record(action);
 
     /// <summary>
-    /// Opens the step: reads the cache entry, captures the start screen, then attempts a zero-turn replay of a hit. Returns
+    /// Opens the step: reads the cache entry, captures the start screen when this step may write or has a hit to replay, then attempts a zero-turn replay of a hit. Returns
     /// the self-finalized verdict on a full replay whose postcondition holds; null dispatches the executor, after a miss
     /// from the top, or after a divergence mid-step with <see cref="ReplayedPrefix"/> set. Every failure to replay is a
     /// miss, never an error; only runtime hard stops propagate, and under strict mode a stale recording.
@@ -183,17 +183,18 @@ internal sealed class StepTraceSession
     {
         // Outside strict mode, a retry records like any step but never replays; the report says so instead of looking
         // like a step that ran with caching off.
-        // A screen that cannot be read is the executor's business: the step runs, nothing is replayed or recorded.
+        // A start screen that cannot be read is no start path: the capture is skipped, as upstream's captureStart does.
         _startedMs = NowMs();
-        _start = await ProbeAsync(SettleMode.HeldStill).ConfigureAwait(false);
-        if (_start is null)
-        {
-            return null;
-        }
-
         var read = _options.ReplayEligible ? ReadEntry() : new EntryRead(null, "retry");
         if (read.Entry is null)
         {
+            // A miss that records nothing reads nothing from the start screen, so it captures none: the executor's own first
+            // look is the step's only one, as with the cache off.
+            if (_options.Write)
+            {
+                await CaptureStartAsync().ConfigureAwait(false);
+            }
+
             _info = Missed(read.Reason!, 0);
             if (!Pending.ReadFailed)
             {
@@ -385,11 +386,16 @@ internal sealed class StepTraceSession
         );
     }
 
+    // Upstream's captureStart: the start screen, captured before any action and held still, since a baseline and a replay's first
+    // relocation both need a settled screen, and it serves the executor's first look.
+    private async Task CaptureStartAsync() => _start = await ProbeAsync(SettleMode.HeldStill).ConfigureAwait(false);
+
     // Replays one hit: decides it against the start route, runs the recorded actions, then checks the postcondition. Actions
     // that all ran prove the clicks happened; only the postcondition proves the save took. A flow whose destination changed,
     // or whose effect is not on screen again, hands off like any other divergence.
     private async Task<StepVerdict?> ReplayEntryAsync(CacheEntry entry)
     {
+        await CaptureStartAsync().ConfigureAwait(false);
         Pending.RecordedActions = entry.Actions.Count;
         _recordedBy = CacheEntry.ReadRecordedBy(entry.RecordedBy);
         if (Decide.DecideTraceReplay(entry, _start is null ? null : ScreenPath(_start)) is { Reason: { } missReason })
