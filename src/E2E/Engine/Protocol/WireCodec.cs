@@ -146,7 +146,16 @@ internal static class WireCodec
                     };
                 }
 
-                return (TextMatch.FromRegex(new Regex(ToAsciiShorthands(source), options, RegexTimeout)), true);
+                return (
+                    TextMatch.FromRegex(
+                        new Regex(
+                            ToAsciiShorthands(source, (options & RegexOptions.IgnoreCase) != 0),
+                            options,
+                            RegexTimeout
+                        )
+                    ),
+                    true
+                );
             default:
                 throw new JsonException($"unknown text pattern \"{Required(node, "kind")}\"");
         }
@@ -156,7 +165,7 @@ internal static class WireCodec
     /// JavaScript's <c>\d</c>, <c>\w</c> and <c>\b</c> are ASCII only; .NET's match Unicode digits and letters. <c>RegexOptions.ECMAScript</c>
     /// cannot be combined with <c>s</c>, so the shorthands are rewritten to ASCII classes, inside character classes too.
     /// </summary>
-    private static string ToAsciiShorthands(string source)
+    private static string ToAsciiShorthands(string source, bool ignoreCase)
     {
         var result = new StringBuilder(source.Length);
         for (var i = 0; i < source.Length; i++)
@@ -164,20 +173,46 @@ internal static class WireCodec
             var c = source[i];
             if (c == '[')
             {
-                result.Append(RewriteClass(source, ref i));
+                result.Append(RewriteClass(source, ref i, ignoreCase));
+            }
+            else if (ignoreCase && IsGroupNameStart(source, i))
+            {
+                // A group name is not pattern text: copy it through its `>`.
+                var end = source.IndexOf('>', i);
+                end = end < 0 ? source.Length - 1 : end;
+                result.Append(source, i, end - i + 1);
+                i = end;
+            }
+            else if (ignoreCase && c is 'k' or 'K' or 's' or 'S')
+            {
+                // .NET folds U+212A (Kelvin sign) to k and U+017F (long s) to s; JavaScript's non-unicode `i` flag does not.
+                result.Append(c is 'k' or 'K' ? "(?-i:[kK])" : "(?-i:[sS])");
             }
             else if (c == '\\' && i + 1 < source.Length)
             {
                 var next = source[++i];
+                if (ignoreCase && next == 'k' && i + 1 < source.Length && source[i + 1] == '<')
+                {
+                    // A named backreference: copy its name through the `>`.
+                    var end = source.IndexOf('>', i);
+                    end = end < 0 ? source.Length - 1 : end;
+                    result.Append("\\").Append(source, i, end - i + 1);
+                    i = end;
+                    continue;
+                }
+
+                // With `i`, the word class must not fold: Kelvin sign would join [a-z] through k.
+                var word = ignoreCase ? $"(?-i:[{AsciiWord}])" : $"[{AsciiWord}]";
+                var notWord = ignoreCase ? $"(?-i:[^{AsciiWord}])" : $"[^{AsciiWord}]";
                 result.Append(
                     next switch
                     {
                         'd' => "[0-9]",
-                        'w' => $"[{AsciiWord}]",
+                        'w' => word,
                         'D' => "[^0-9]",
-                        'W' => $"[^{AsciiWord}]",
-                        'b' => $"(?:(?<=[{AsciiWord}])(?![{AsciiWord}])|(?<![{AsciiWord}])(?=[{AsciiWord}]))",
-                        'B' => $"(?:(?<=[{AsciiWord}])(?=[{AsciiWord}])|(?<![{AsciiWord}])(?![{AsciiWord}]))",
+                        'W' => notWord,
+                        'b' => $"(?:(?<={word})(?!{word})|(?<!{word})(?={word}))",
+                        'B' => $"(?:(?<={word})(?={word})|(?<!{word})(?!{word}))",
                         _ => $"\\{next}",
                     }
                 );
@@ -195,7 +230,7 @@ internal static class WireCodec
     /// Rewrites one JavaScript character class starting at <paramref name="i"/> (the <c>[</c>) and leaves <paramref name="i"/> on its closing
     /// <c>]</c>. A negated shorthand (<c>\D</c>, <c>\W</c>) cannot sit in a .NET class as ASCII, so the class becomes an alternation.
     /// </summary>
-    private static string RewriteClass(string source, ref int i)
+    private static string RewriteClass(string source, ref int i, bool ignoreCase)
     {
         var negated = i + 1 < source.Length && source[i + 1] == '^';
         var j = i + (negated ? 2 : 1);
@@ -274,8 +309,29 @@ internal static class WireCodec
             (true, _, _) =>
                 $"(?:{(notDigit ? "(?=[0-9])" : "")}{(notWord ? $"(?=[{AsciiWord}])" : "")}{(set.Length == 0 ? @"[\s\S]" : $"[^{set}]")})",
         };
-        return rewritten;
+        if (!ignoreCase)
+        {
+            return rewritten;
+        }
+
+        // .NET's case folding puts U+212A and U+017F in a class that holds k or s; JavaScript's does not.
+        const string Folded = "\\u212A\\u017F";
+        return (negated, notDigit || notWord) switch
+        {
+            (false, false) => $"(?:(?-i:(?![{Folded}])){rewritten})",
+            (false, true) => $"(?:{rewritten}|(?-i:[{Folded}]))",
+            (true, false) => $"(?:{rewritten}|(?-i:[{Folded}]))",
+            (true, true) => $"(?:(?-i:(?![{Folded}])){rewritten})",
+        };
     }
+
+    private static bool IsGroupNameStart(string source, int i) =>
+        source[i] == '('
+        && i + 2 < source.Length
+        && source[i + 1] == '?'
+        && source[i + 2] == '<'
+        && i + 3 < source.Length
+        && source[i + 3] is not '=' and not '!';
 
     private static IEnumerable<string> Alternatives(string set, bool notDigit, bool notWord)
     {
