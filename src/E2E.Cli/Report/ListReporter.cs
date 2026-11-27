@@ -216,6 +216,9 @@ internal sealed partial class ListReporter
                 break;
             case RunErrorEvent error:
                 _errors.Add(ErrorOf(error.Error));
+                // A setup step that fails ends as a run error, with no `finished`.
+                _inFlight = null;
+                _window.Redraw();
                 break;
             case RunInterruptedEvent interrupted:
                 RunInterrupted(interrupted);
@@ -734,10 +737,29 @@ internal sealed partial class ListReporter
         }
 
         var progress = step.Progress;
+        // A stream without identity has one step open at a time, as before identity existed.
+        var stepId = progress.Identity?.StepId ?? string.Empty;
+        var open = running.Open.GetValueOrDefault(stepId);
         switch (progress.Phase)
         {
             case Reports.StepProgressPhase.Start:
-                running.Current = new CurrentStep(
+            {
+                var attemptId = progress.Identity?.AttemptId;
+                var attemptIndex = progress.Identity?.AttemptIndex;
+                if (attemptIndex < running.AttemptIndex)
+                {
+                    break;
+                }
+
+                if (attemptId != running.AttemptId)
+                {
+                    running.Open.Clear();
+                    running.AttemptId = attemptId;
+                    running.AttemptIndex = attemptIndex;
+                }
+
+                running.Open.Remove(stepId);
+                running.Open[stepId] = new CurrentStep(
                     progress.Api,
                     progress.Label ?? string.Empty,
                     progress.Kind ?? Reports.StepKind.Agent,
@@ -745,6 +767,7 @@ internal sealed partial class ListReporter
                 );
                 _window.Redraw();
                 break;
+            }
             case Reports.StepProgressPhase.Event:
             {
                 if (progress.Event is { } counted)
@@ -752,7 +775,7 @@ internal sealed partial class ListReporter
                     _explore?.Action(counted);
                 }
 
-                if (running.Current is not { } current)
+                if (open is not { } current)
                 {
                     break;
                 }
@@ -775,7 +798,7 @@ internal sealed partial class ListReporter
             }
 
             case Reports.StepProgressPhase.Activity:
-                if (running.Current is { } announcing)
+                if (open is { } announcing)
                 {
                     announcing.Activity = progress.Activity;
                     _window.Redraw();
@@ -783,7 +806,7 @@ internal sealed partial class ListReporter
 
                 break;
             case Reports.StepProgressPhase.Replay:
-                if (running.Current is { } replaying)
+                if (open is { } replaying)
                 {
                     replaying.Replaying = progress.Active;
                     _window.Redraw();
@@ -792,7 +815,7 @@ internal sealed partial class ListReporter
                 break;
             case Reports.StepProgressPhase.End:
             {
-                running.Current = null;
+                running.Open.Remove(stepId);
                 if (progress.Kind != Reports.StepKind.Agent)
                 {
                     _window.Redraw();

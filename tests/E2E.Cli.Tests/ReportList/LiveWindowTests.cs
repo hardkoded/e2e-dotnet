@@ -40,6 +40,127 @@ public sealed partial class LiveWindowTests
         );
 
     [Fact]
+    public void Keeps_an_agent_step_running_after_a_step_nested_in_it_ends_and_routes_each_step_its_own_progress()
+    {
+        var output = new LiveCapture();
+        var reporter = Live(output);
+        reporter.Handle(RunStarted());
+        reporter.Handle(Plan(("tests/case.e2e.ts", 1)));
+        reporter.Handle(TestStarted("t1", "pays", "chromium"));
+        void Feed(string stepId, StepProgress progress) =>
+            reporter.Handle(
+                Step(
+                    "t1",
+                    progress with
+                    {
+                        Identity = new StepProgressIdentity("a1", 0, stepId, int.Parse(stepId[1..])),
+                    }
+                )
+            );
+        string Shown() => Frame(output.Chunks[^1]);
+        Feed(
+            "s0",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Start,
+                Kind = StepKind.Agent,
+                Api = "agent.act",
+                Label = "pay",
+            }
+        );
+
+        // An onAction hook takes a screenshot while the act runs.
+        Feed(
+            "s1",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Start,
+                Kind = StepKind.Locator,
+                Api = "screen.screenshot",
+                Label = "after tap",
+            }
+        );
+        Assert.Contains("screen.screenshot \"after tap\"", Shown(), StringComparison.Ordinal);
+        Feed(
+            "s0",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Activity,
+                Api = "agent.act",
+                Activity = StepActivity.Observe,
+            }
+        );
+        Feed(
+            "s1",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.End,
+                Kind = StepKind.Locator,
+                Api = "screen.screenshot",
+                Label = "after tap",
+                Status = StepStatus.Passed,
+                DurationMs = 5,
+                ModelCalls = 0,
+            }
+        );
+        Assert.Contains("agent.act \"pay\"", Shown(), StringComparison.Ordinal);
+        Assert.Contains("Observing", Shown(), StringComparison.Ordinal);
+        Feed(
+            "s0",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Activity,
+                Api = "agent.act",
+                Activity = StepActivity.Action,
+            }
+        );
+        Feed(
+            "s0",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Event,
+                Api = "agent.act",
+                Event = new StepEvent
+                {
+                    Kind = StepEventKind.Engine,
+                    Name = "tool:tap",
+                    Detail = "tap button \"Pay\"",
+                    StartedAt = DateTimeOffset.UnixEpoch,
+                    DurationMs = 27,
+                    Status = StepEventStatus.Passed,
+                },
+            }
+        );
+        Feed(
+            "s0",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Activity,
+                Api = "agent.act",
+                Activity = StepActivity.Action,
+            }
+        );
+        Assert.Contains("agent.act \"pay\"", Shown(), StringComparison.Ordinal);
+        Assert.Contains("tap button \"Pay\"", Shown(), StringComparison.Ordinal);
+        Assert.Contains("Acting", Shown(), StringComparison.Ordinal);
+        Assert.DoesNotContain("screen.screenshot", Shown(), StringComparison.Ordinal);
+        Feed(
+            "s0",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.End,
+                Kind = StepKind.Agent,
+                Api = "agent.act",
+                Label = "pay",
+                Status = StepStatus.Passed,
+                DurationMs = 900,
+                ModelCalls = 1,
+            }
+        );
+        Assert.DoesNotContain("Acting", Shown(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Shows_a_running_file_and_test_on_start_and_erases_the_window_before_a_result_prints()
     {
         var output = new LiveCapture();
