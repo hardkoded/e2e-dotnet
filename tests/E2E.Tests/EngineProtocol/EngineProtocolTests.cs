@@ -787,7 +787,7 @@ public sealed class EngineProtocolTests
         await remote.Dispose!(DisposeContext());
     }
 
-    // .NET-only: upstream's SemanticNode carries these fields on the wire, so its `it` for resolveLocators needs no test of its own.
+    // .NET-only: upstream's SemanticNode carries these fields on the wire, but no upstream `it` checks that resolveLocators matches them.
     [Fact]
     public async Task Answers_testId_text_and_placeholder_queries_on_the_client_from_the_nodes_fields()
     {

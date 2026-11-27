@@ -38,7 +38,7 @@ the nodes `Locate` returns, never in an observation, and never on a secure field
 
 
 ```csharp
-public EngineNodeStates(bool? Checked = null, bool? Disabled = null, bool? Selected = null, bool? Expanded = null, bool? Pressed = null, bool? Focused = null, bool? Hidden = null, bool? Secure = null, bool? Readonly = null, bool? Empty = null)
+public EngineNodeStates(bool? Secure = null, bool? Hidden = null, bool? Checked = null, bool? Disabled = null, bool? Selected = null, bool? Expanded = null, bool? Pressed = null, bool? Focused = null, bool? Readonly = null, bool? Empty = null)
 ```
 
 
@@ -50,14 +50,14 @@ the nodes `Locate` returns, never in an observation, and never on a secure field
 
 | Name | Type | Description |
 | --- | --- | --- |
+| `Secure` | [bool?](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
+| `Hidden` | [bool?](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 | `Checked` | [bool?](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 | `Disabled` | [bool?](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 | `Selected` | [bool?](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 | `Expanded` | [bool?](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 | `Pressed` | [bool?](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 | `Focused` | [bool?](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
-| `Hidden` | [bool?](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
-| `Secure` | [bool?](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 | `Readonly` | [bool?](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 | `Empty` | [bool?](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 

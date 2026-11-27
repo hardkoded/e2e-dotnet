@@ -325,6 +325,7 @@ public static partial class ProtocolClient
                     {
                         Checked = states?.Checked ?? false,
                         CheckedReported = states?.Checked is not null,
+                        CheckedAbsent = states?.Checked is null,
                         Disabled = states?.Disabled ?? false,
                         Expanded = states?.Expanded ?? false,
                         ExpandedAbsent = states?.Expanded is null,
@@ -334,6 +335,7 @@ public static partial class ProtocolClient
                         Readonly = states?.Readonly,
                         Selected = states?.Selected ?? false,
                         Pressed = states?.Pressed ?? false,
+                        PressedAbsent = states?.Pressed is null,
                     },
                     Attributes = node.Attributes ?? new Dictionary<string, string>(StringComparer.Ordinal),
                     Rect = node.Rect,

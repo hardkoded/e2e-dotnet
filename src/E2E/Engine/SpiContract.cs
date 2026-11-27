@@ -76,14 +76,14 @@ public sealed record ViewportIntersection(bool Intersects, double? Ratio = null)
 /// the nodes <c>Locate</c> returns, never in an observation, and never on a secure field.
 /// </summary>
 public sealed record EngineNodeStates(
+    bool? Secure = null,
+    bool? Hidden = null,
     bool? Checked = null,
     bool? Disabled = null,
     bool? Selected = null,
     bool? Expanded = null,
     bool? Pressed = null,
     bool? Focused = null,
-    bool? Hidden = null,
-    bool? Secure = null,
     bool? Readonly = null,
     bool? Empty = null
 );
@@ -105,7 +105,7 @@ public sealed record EngineNodeStates(
 /// <param name="Level">Heading level of a heading node; absent elsewhere.</param>
 /// <param name="Attributes">Platform attributes, what <c>getAttribute</c> reads. The <c>placeholder</c> query reads <c>placeholder</c> from here.</param>
 /// <param name="Rect">The node's box in the top-level viewport's CSS pixels.</param>
-/// <param name="Origin">The point an offset into the node is measured from, in <paramref name="Rect"/>'s space, when it is not its top-left corner.</param>
+/// <param name="Origin">The point an offset into the node is measured from, in <c>Rect</c>'s space, when it is not its top-left corner.</param>
 /// <param name="Selector">Platform selector that addresses this node within its own document, when the platform has one.</param>
 /// <param name="FramePath">Enclosing nested-document chain as selectors of each boundary node, outermost first.</param>
 public sealed record EngineNode(

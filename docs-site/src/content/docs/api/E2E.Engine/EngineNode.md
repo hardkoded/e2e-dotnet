@@ -61,7 +61,7 @@ already has a [SemanticNode](/api/E2E.Engine/SemanticNode/), which carries the p
 | `Level` | [int?](https://learn.microsoft.com/dotnet/api/system.int32) | Heading level of a heading node; absent elsewhere. |
 | `Attributes` | [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2) | Platform attributes, what `getAttribute` reads. The `placeholder` query reads `placeholder` from here. |
 | `Rect` | [BoundingBox](/api/E2E.Engine/BoundingBox/) | The node's box in the top-level viewport's CSS pixels. |
-| `Origin` | `Point?` | The point an offset into the node is measured from, in &lt;code class="paramref"&gt;Rect&lt;/code&gt;'s space, when it is not its top-left corner. |
+| `Origin` | `Point?` | The point an offset into the node is measured from, in `Rect`'s space, when it is not its top-left corner. |
 | `Selector` | [string](https://learn.microsoft.com/dotnet/api/system.string) | Platform selector that addresses this node within its own document, when the platform has one. |
 | `FramePath` | [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1) | Enclosing nested-document chain as selectors of each boundary node, outermost first. |
 
@@ -168,7 +168,7 @@ public Point? Origin { get; init; }
 ```
 
 
-The point an offset into the node is measured from, in &lt;code class="paramref"&gt;Rect&lt;/code&gt;'s space, when it is not its top-left corner.
+The point an offset into the node is measured from, in `Rect`'s space, when it is not its top-left corner.
 
 **Value:** `Point?`
 
