@@ -421,6 +421,39 @@ public sealed class StepTraceSessionTests
         Assert.Equal([Key], context.Deleted);
     }
 
+    [Fact]
+    public async Task Evicts_when_the_repair_after_an_end_mismatch_is_a_scroll_folded_into_the_replayed_one()
+    {
+        var context = EntryContext(
+            actions:
+            [
+                new RecordedAction
+                {
+                    Kind = "scroll",
+                    Summary = "scroll down",
+                    Direction = "down",
+                },
+            ],
+            startPath: "/customers",
+            endPath: "/customers",
+            endAnchors: [SavedAnchor]
+        );
+        var host = MakeHost(["/customers"]);
+        var session = MakeSession(context, host);
+        await session.BeginAsync();
+        Assert.Equal(ReplayHandOffReason.EndMismatch, session.ReplayedPrefix?.StopReason);
+
+        // The executor scrolls on the same way: the recording folds it into the replayed scroll, so the action count stays
+        // flat, but the executor acted.
+        var recordedBefore = host.Recorder.RecordedCount;
+        host.Recorder.RecordScroll(new RecordedAction { Kind = "scroll", Direction = "down" });
+        Assert.Equal(recordedBefore, host.Recorder.RecordedCount);
+        await session.ConcludeAsync(StepOutcome.Passed);
+
+        Assert.Null(session.Pending.Entry);
+        Assert.Equal([Key], context.Deleted);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
