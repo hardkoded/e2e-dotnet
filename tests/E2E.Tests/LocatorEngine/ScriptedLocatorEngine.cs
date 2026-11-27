@@ -176,7 +176,10 @@ internal sealed class ScriptedLocatorEngine
 
     /// <summary>A read that fails with a retryable <c>NODE_STALE</c>, as a ref superseded between the resolve and the read does.</summary>
     public static Func<SemanticNode, Task<SemanticNode>> ReadStale { get; } =
-        _ => Task.FromException<SemanticNode>(new EngineException(EngineErrorCodes.NodeStale, "stale", retryable: false));
+        _ =>
+            Task.FromException<SemanticNode>(
+                new EngineException(EngineErrorCodes.NodeStale, "stale", retryable: false)
+            );
 
     /// <summary>A read that answers the node as located.</summary>
     public static Func<SemanticNode, Task<SemanticNode>> ReadNode { get; } = Task.FromResult;
