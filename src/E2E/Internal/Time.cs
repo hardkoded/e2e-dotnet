@@ -395,7 +395,7 @@ public static class Time
             readAt = clock.GetUtcNow();
             if (negated && deadline.Expired(readAt))
             {
-                if (Holds(readAt))
+                if (Holds(readAt < deadline.EndsAt ? readAt : deadline.EndsAt))
                 {
                     return;
                 }
