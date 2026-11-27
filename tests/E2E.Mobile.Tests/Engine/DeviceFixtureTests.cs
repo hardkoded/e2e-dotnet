@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using E2E.Engine;
 using static E2E.Mobile.Tests.Screens;
@@ -134,19 +135,23 @@ public sealed class DeviceFixtureTests
     [Fact]
     public async Task Installs_a_build_from_a_test_replacing_by_default_and_removing_first_on_reinstall()
     {
-        var h = Harness.Create();
+        // The harness's project root, /project, is not on disk: boot it on a temp directory that holds the build.
+        using var project = new TempBuilds();
+        project.Create("b/App.app");
+        var build = project.Full("b/App.app");
+        var h = Harness.Create(projectRoot: project.Root);
         var session = await OpenAttempt(h);
         h.Fake.Respond(DeviceMethods.AppsInstall, _ => new JsonObject
         {
-            ["app"] = "./b/App.app",
-            ["appPath"] = "/b/App.app",
+            ["app"] = build,
+            ["appPath"] = build,
             ["platform"] = "ios",
             ["bundleId"] = "com.example.app",
         });
         h.Fake.Respond(DeviceMethods.AppsReinstall, args => new JsonObject
         {
             ["app"] = args?["app"]?.DeepClone(),
-            ["appPath"] = "/b/App.app",
+            ["appPath"] = build,
             ["platform"] = "ios",
         });
         var device = session.Device;
@@ -157,27 +162,73 @@ public sealed class DeviceFixtureTests
         );
         Assert.Equal(
             new InstalledApp("Settings"),
-            await device.InstallAppAsync("/b/App.app", new InstallAppOptions { Reinstall = true })
+            await device.InstallAppAsync(build, new InstallAppOptions { Reinstall = true })
         );
         Assert.Equal(
             new InstalledApp("com.other"),
-            await device.InstallAppAsync("/b/App.app", new InstallAppOptions { App = "com.other", Reinstall = true })
+            await device.InstallAppAsync(build, new InstallAppOptions { App = "com.other", Reinstall = true })
         );
         JsonAssert.Calls(
             h.Fake.Calls,
             before,
-            ("apps.install", """{"platform":"ios","appPath":"/project/b/App.app"}"""),
-            ("apps.reinstall", """{"platform":"ios","app":"Settings","appPath":"/b/App.app"}"""),
-            ("apps.reinstall", """{"platform":"ios","app":"com.other","appPath":"/b/App.app"}""")
+            ("apps.install", JsonSerializer.Serialize(new { platform = "ios", appPath = build })),
+            (
+                "apps.reinstall",
+                JsonSerializer.Serialize(
+                    new
+                    {
+                        platform = "ios",
+                        app = "Settings",
+                        appPath = build,
+                    }
+                )
+            ),
+            (
+                "apps.reinstall",
+                JsonSerializer.Serialize(
+                    new
+                    {
+                        platform = "ios",
+                        app = "com.other",
+                        appPath = build,
+                    }
+                )
+            )
         );
 
         var free = Harness.Create(pinned: false);
         var freeSession = await OpenAttempt(free);
         var refused = await Assert.ThrowsAsync<EngineException>(() =>
-            freeSession.Device.InstallAppAsync("/b/App.app", new InstallAppOptions { Reinstall = true })
+            freeSession.Device.InstallAppAsync(build, new InstallAppOptions { Reinstall = true })
         );
         Assert.Equal("INVALID_STATE", refused.Code);
         Assert.Equal(["devices.boot"], free.Fake.Methods());
+    }
+
+    [Fact]
+    public async Task Refuses_a_build_path_with_nothing_at_it_as_INVALID_ARGUMENT_before_any_device_command()
+    {
+        var h = Harness.Create(app: app => app with { AppPath = "../elsewhere/Missing.app" });
+        var session = await OpenAttempt(h);
+        var device = session.Device;
+        var before = h.Fake.Calls.Count;
+        foreach (var missing in new[] { "../missing/App.app", "/missing/App.app" })
+        {
+            var refused = await Assert.ThrowsAsync<TestException>(() => device.InstallAppAsync(missing));
+            Assert.Equal("INVALID_ARGUMENT", refused.Code);
+            Assert.Equal(
+                $"device.installApp({JsonSerializer.Serialize(missing)}): no build at {Path.GetFullPath(missing, Harness.ProjectRoot)}; the path resolves against the project root",
+                refused.Message
+            );
+            var again = await Assert.ThrowsAsync<TestException>(() =>
+                device.InstallAppAsync(missing, new InstallAppOptions { Reinstall = true })
+            );
+            Assert.Equal("INVALID_ARGUMENT", again.Code);
+        }
+
+        var empty = await Assert.ThrowsAsync<TestException>(() => device.InstallAppAsync(""));
+        Assert.Equal("INVALID_ARGUMENT", empty.Code);
+        Assert.Equal([], h.Fake.Calls.Skip(before).ToList());
     }
 
     [Fact]
@@ -295,6 +346,44 @@ public sealed class DeviceFixtureTests
             ("command.keyboard", """{"action":"dismiss"}"""),
             ("command.clipboard", """{"platform":"ios","action":"read"}"""),
             ("command.clipboard", """{"platform":"ios","action":"write","text":"x"}""")
+        );
+    }
+
+    [Fact]
+    public async Task Refuses_coordinates_out_of_range_or_not_finite_as_INVALID_ARGUMENT_before_any_device_command()
+    {
+        var h = Harness.Create(
+            options => options with { Platform = MobilePlatform.Android },
+            app: app => app with { BundleId = "com.android.settings" }
+        );
+        var session = await OpenAttempt(h);
+        var device = session.Device;
+        var before = h.Fake.Calls.Count;
+        (Coordinates Coordinates, string Message)[] refused =
+        [
+            (new Coordinates(152.5, 21.01), "latitude must be a finite number from -90 to 90, got 152.5"),
+            (new Coordinates(-90.5, 21.01), "latitude must be a finite number from -90 to 90, got -90.5"),
+            (new Coordinates(double.NaN, 21.01), "latitude must be a finite number from -90 to 90, got NaN"),
+            (new Coordinates(52.23, 181), "longitude must be a finite number from -180 to 180, got 181"),
+            (
+                new Coordinates(52.23, double.PositiveInfinity),
+                "longitude must be a finite number from -180 to 180, got Infinity"
+            ),
+        ];
+        foreach (var (coordinates, message) in refused)
+        {
+            var failure = await Assert.ThrowsAsync<TestException>(() => device.SetLocationAsync(coordinates));
+            Assert.Equal("INVALID_ARGUMENT", failure.Code);
+            Assert.Equal($"device.setLocation: {message}", failure.Message);
+        }
+
+        Assert.Equal([], h.Fake.Calls.Skip(before).ToList());
+
+        // The edges themselves are valid.
+        await device.SetLocationAsync(new Coordinates(-90, 180));
+        JsonAssert.Args(
+            """{"platform":"android","setting":"location","state":"set","latitude":-90,"longitude":180}""",
+            h.Fake.LastArgs("settings.update")
         );
     }
 

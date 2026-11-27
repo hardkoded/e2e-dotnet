@@ -25,9 +25,11 @@ internal sealed class Harness
         List<TimeSpan> delays,
         MobileApp app,
         FakeClock clock,
-        DelayHook hook
+        DelayHook hook,
+        string root
     )
     {
+        Root = root;
         Clock = clock;
         Waits = hook;
         Engine = engine;
@@ -37,6 +39,9 @@ internal sealed class Harness
         Delays = delays;
         App = app;
     }
+
+    /// <summary>The project root this harness boots with: <see cref="ProjectRoot"/>, unless a test passed a real directory.</summary>
+    public string Root { get; }
 
     public MobileEngine Engine { get; }
 
@@ -63,7 +68,8 @@ internal sealed class Harness
     public static Harness Create(
         Func<MobileOptions, MobileOptions>? configure = null,
         bool pinned = true,
-        Func<MobileApp, MobileApp>? app = null
+        Func<MobileApp, MobileApp>? app = null,
+        string? projectRoot = null
     )
     {
         var fake = new FakeDeviceClient();
@@ -114,7 +120,17 @@ internal sealed class Harness
             },
             Clock = clock,
         };
-        return new Harness(engine, fake, sessions, connections, delays, options.App, clock, hook);
+        return new Harness(
+            engine,
+            fake,
+            sessions,
+            connections,
+            delays,
+            options.App,
+            clock,
+            hook,
+            projectRoot ?? ProjectRoot
+        );
     }
 
     /// <summary>Starts the worker of one slot, as its init does, with the environment the runner left.</summary>
@@ -136,7 +152,7 @@ internal sealed class Harness
                 TargetName = targetName,
                 HostId = hostId,
                 WorkerSlot = workerSlot,
-                ProjectRoot = ProjectRoot,
+                ProjectRoot = Root,
                 Env = env ?? new Dictionary<string, string?>(),
                 ArtifactsDir = artifactsDir,
                 ActionTimeout = actionTimeout ?? E2EDefaults.ActionTimeout,
@@ -157,7 +173,7 @@ internal sealed class Harness
             RunId = "run-1",
             TargetName = targetName,
             HostId = hostId,
-            ProjectRoot = ProjectRoot,
+            ProjectRoot = Root,
             Slots = slots,
             Env = env ?? new Dictionary<string, string?>(),
             App = App,

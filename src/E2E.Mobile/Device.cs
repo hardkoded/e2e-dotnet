@@ -244,12 +244,48 @@ public sealed class Device
             () => _session.SetPermissionAsync(permission, state, cancellationToken)
         );
 
-    /// <summary>Sets the simulated location, switching location services on first on Android.</summary>
+    /// <summary>
+    /// Sets the simulated location, switching location services on first on Android. A latitude outside -90 to 90, a
+    /// longitude outside -180 to 180, or either one not a finite number is <c>INVALID_ARGUMENT</c>, before any device
+    /// command.
+    /// </summary>
     public Task SetLocationAsync(Coordinates coordinates, CancellationToken cancellationToken = default) =>
         RunAsync("device.setLocation", "", () => SetLocationCoreAsync(coordinates, cancellationToken));
 
+    /// <summary>Throws <c>INVALID_ARGUMENT</c> naming the coordinate of <c>device.setLocation</c> that is out of range.</summary>
+    private static void RequireCoordinates(Coordinates coordinates)
+    {
+        Coordinate(coordinates.Latitude, "latitude", 90);
+        Coordinate(coordinates.Longitude, "longitude", 180);
+    }
+
+    /// <summary>One coordinate within ±<paramref name="limit"/>, or <c>INVALID_ARGUMENT</c> showing what was given.</summary>
+    private static void Coordinate(double value, string name, int limit)
+    {
+        if (double.IsFinite(value) && Math.Abs(value) <= limit)
+        {
+            return;
+        }
+
+        throw new TestException(
+            "INVALID_ARGUMENT",
+            $"device.setLocation: {name} must be a finite number from -{limit} to {limit}, got {FormatNumber(value)}"
+        );
+    }
+
+    private static string FormatNumber(double value) =>
+        double.IsNaN(value) ? "NaN"
+        : double.IsPositiveInfinity(value) ? "Infinity"
+        : double.IsNegativeInfinity(value) ? "-Infinity"
+        : value
+            .ToString("R", System.Globalization.CultureInfo.InvariantCulture)
+            .Replace("E+", "e+")
+            .Replace("E-", "e-");
+
     private async Task SetLocationCoreAsync(Coordinates coordinates, CancellationToken cancellationToken)
     {
+        RequireCoordinates(coordinates);
+
         // Android reads a fix only while location services are on, and ClearLocation switched them off for good on the
         // emulator (the setting outlives the app). iOS has no such switch.
         if (_session.Options.Platform == MobilePlatform.Android)
@@ -401,7 +437,8 @@ public sealed class Device
     /// to the identity to <see cref="OpenAppAsync"/> it by, which becomes the app <c>app.open()</c> launches when the
     /// target's build is installed and no bundle id is pinned. Fails with <c>INVALID_STATE</c> (a test's fixture reports it as <c>APP_NOT_OPEN</c>) when no path is passed and the target has no
     /// <c>AppPath</c>, or when <see cref="InstallAppOptions.Reinstall"/> is set with no <see cref="InstallAppOptions.App"/> and no app
-    /// pinned (no <c>BundleId</c>, build not installed yet).
+    /// pinned (no <c>BundleId</c>, build not installed yet). Fails with <c>INVALID_ARGUMENT</c> when a path was passed and
+    /// nothing exists at it on the machine running e2e, resolved against the project root, before any device command.
     /// </summary>
     public Task<InstalledApp> InstallAppAsync(
         string? appPath = null,

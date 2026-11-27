@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using E2E.Engine;
@@ -385,7 +386,8 @@ public sealed partial class DeviceSession
     /// <summary>
     /// Installs a build on the session's device. <see cref="InstallAppOptions.Reinstall"/> removes the app named by
     /// <see cref="InstallAppOptions.App"/> (else the pinned app) first, so the build starts with no data. A plain
-    /// install replaces the binary and keeps its data. Without a path the target's <c>AppPath</c> is installed.
+    /// install replaces the binary and keeps its data. Without a path the target's <c>AppPath</c> is installed. A path
+    /// passed in with nothing at it is <c>INVALID_ARGUMENT</c>, before any device command.
     /// </summary>
     public async Task<InstalledApp> InstallAppAsync(
         string? appPath = null,
@@ -400,6 +402,20 @@ public sealed partial class DeviceSession
                 "installApp needs a build: pass a path, or name one with the target's app.appPath"
             );
         var resolved = Path.GetFullPath(build, _projectRoot);
+
+        // A path the test passed is the test's own mistake when nothing is there; agent-device would refuse it as a
+        // device failure (exit 3).
+        if (
+            appPath is not null
+            && (appPath.Trim().Length == 0 || !(File.Exists(resolved) || Directory.Exists(resolved)))
+        )
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                $"device.installApp({JsonSerializer.Serialize(appPath)}): no build at {resolved}; the path resolves against the project root"
+            );
+        }
+
         var engineBuild =
             appPath is null || (_app.AppPath is not null && resolved == Path.GetFullPath(_app.AppPath, _projectRoot));
         var app = options.App ?? (engineBuild ? _app.BundleId : null) ?? (options.Reinstall ? PinnedApp : null);
