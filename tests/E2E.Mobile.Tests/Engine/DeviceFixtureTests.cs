@@ -1113,14 +1113,18 @@ public sealed class DeviceFixtureTests
         string name
     )
     {
-        var h = Android("com.example.app");
+        var h = Harness.Create(
+            options => options with { Platform = MobilePlatform.Android, Device = "emulator-5554" },
+            true,
+            app => app with { BundleId = "com.example.app" }
+        );
         var session = await OpenAttempt(h);
         var before = h.Fake.Calls.Count;
         await session.Device.PressButtonAsync(button);
         JsonAssert.Calls(
             h.Fake.Calls,
             before,
-            ("command.hardwareButton", $$"""{"platform":"android","button":"{{name}}"}""")
+            ("command.hardwareButton", $$"""{"platform":"android","serial":"emulator-5554","button":"{{name}}"}""")
         );
     }
 
