@@ -65,6 +65,12 @@ public sealed class NodeStates
     public bool Selected { get; init; }
 
     public bool Pressed { get; init; }
+
+    /// <summary>The node has no checked state. A role query for <c>Checked</c> of either value skips it. Set for a node a protocol engine sends with no <c>checked</c> flag (.NET-only; upstream reads the state as nullable).</summary>
+    public bool CheckedAbsent { get; init; }
+
+    /// <summary>The node has no pressed state. A role query for <c>Pressed</c> of either value skips it. Set for a node a protocol engine sends with no <c>pressed</c> flag (.NET-only; upstream reads the state as nullable).</summary>
+    public bool PressedAbsent { get; init; }
 }
 
 /// <summary>A viewport-relative rectangle in CSS pixels.</summary>

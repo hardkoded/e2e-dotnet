@@ -40,6 +40,21 @@ public bool Checked { get; init; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
+<a id="E2E_Engine_NodeStates_CheckedAbsent_"></a>
+<a id="E2E_Engine_NodeStates_CheckedAbsent"></a>
+
+### CheckedAbsent
+
+
+```csharp
+public bool CheckedAbsent { get; init; }
+```
+
+
+The node has no checked state. A role query for `Checked` of either value skips it. Set for a node a protocol engine sends with no `checked` flag (.NET-only; upstream reads the state as nullable).
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_NodeStates_CheckedReported_"></a>
 <a id="E2E_Engine_NodeStates_CheckedReported"></a>
 
@@ -166,6 +181,21 @@ The node is a checkbox or a button in the mixed state. A role query for `Checked
 public bool Pressed { get; init; }
 ```
 
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+<a id="E2E_Engine_NodeStates_PressedAbsent_"></a>
+<a id="E2E_Engine_NodeStates_PressedAbsent"></a>
+
+### PressedAbsent
+
+
+```csharp
+public bool PressedAbsent { get; init; }
+```
+
+
+The node has no pressed state. A role query for `Pressed` of either value skips it. Set for a node a protocol engine sends with no `pressed` flag (.NET-only; upstream reads the state as nullable).
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 

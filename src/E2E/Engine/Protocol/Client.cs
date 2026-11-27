@@ -308,11 +308,40 @@ public static partial class ProtocolClient
             SemanticNode Convert(EngineNode node)
             {
                 index[node.Ref.Id] = node;
+                var states = node.States;
                 return new SemanticNode
                 {
                     Ref = node.Ref.Id,
                     Role = node.Role,
                     Name = node.Name,
+                    Text = node.Text,
+                    Value = node.Value,
+                    Selection = node.Selection,
+                    TestId = node.TestId,
+                    Placeholder = node.Attributes?.GetValueOrDefault("placeholder"),
+                    InputPurpose = node.InputPurpose,
+                    Level = node.Level,
+                    States = new NodeStates
+                    {
+                        Checked = states?.Checked ?? false,
+                        CheckedReported = states?.Checked is not null,
+                        CheckedAbsent = states?.Checked is null,
+                        Disabled = states?.Disabled ?? false,
+                        Expanded = states?.Expanded ?? false,
+                        ExpandedAbsent = states?.Expanded is null,
+                        Focused = states?.Focused ?? false,
+                        Hidden = states?.Hidden ?? false,
+                        Secure = states?.Secure ?? false,
+                        Readonly = states?.Readonly,
+                        Selected = states?.Selected ?? false,
+                        Pressed = states?.Pressed ?? false,
+                        PressedAbsent = states?.Pressed is null,
+                    },
+                    Attributes = node.Attributes ?? new Dictionary<string, string>(StringComparer.Ordinal),
+                    Rect = node.Rect,
+                    Origin = node.Origin,
+                    Selector = node.Selector,
+                    FramePath = node.FramePath,
                     Children = [.. (node.Children ?? []).Select(Convert)],
                 };
             }

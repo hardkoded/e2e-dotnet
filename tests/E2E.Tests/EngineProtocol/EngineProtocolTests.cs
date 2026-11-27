@@ -787,6 +787,58 @@ public sealed class EngineProtocolTests
         await remote.Dispose!(DisposeContext());
     }
 
+    // .NET-only: upstream's SemanticNode carries these fields on the wire, but no upstream `it` checks that resolveLocators matches them.
+    [Fact]
+    public async Task Answers_testId_text_and_placeholder_queries_on_the_client_from_the_nodes_fields()
+    {
+        var tree = new EngineNode(
+            new NodeRef("root", ""),
+            "root",
+            null,
+            [
+                new EngineNode(
+                    new NodeRef("n1", ""),
+                    "textbox",
+                    "Email",
+                    TestId: "email",
+                    Attributes: new Dictionary<string, string> { ["placeholder"] = "you@example.com" }
+                ),
+                new EngineNode(new NodeRef("n2", ""), "paragraph", null, Text: "Welcome back"),
+            ]
+        );
+        var (_, remote) = Of(
+            Toy(toy =>
+                toy with
+                {
+                    Observe = (_, _) =>
+                        Task.FromResult(new EngineSnapshot(tree, new ViewportSize { Width = 1280, Height = 720 })),
+                }
+            ),
+            options => options with { ResolveLocators = true }
+        );
+        await remote.Init!(InitInfo());
+
+        async Task<string[]> Ids(string kind, string value) =>
+            [
+                .. (
+                    await remote.Locate!(
+                        LocatorExpression.For(
+                            kind,
+                            TextMatch.FromString(value),
+                            new TextMatchOptions { Exact = true },
+                            "value"
+                        ),
+                        Operation()
+                    )
+                ).Select(match => match.Ref.Id),
+            ];
+
+        Assert.Equal(["n1"], await Ids("testid", "email"));
+        Assert.Equal(["n1"], await Ids("placeholder", "you@example.com"));
+        Assert.Equal(["n2"], await Ids("text", "Welcome back"));
+        await remote.Dispose!(DisposeContext());
+    }
+
     [Fact]
     public async Task Refuses_a_server_whose_manifest_differs_from_the_declared_one()
     {

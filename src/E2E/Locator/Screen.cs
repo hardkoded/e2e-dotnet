@@ -2445,11 +2445,11 @@ internal static class LocatorResolver
         }
 
         var states = node.States;
-        return StateIs(query.Checked, states.Checked, states.Mixed)
+        return StateIs(query.Checked, states.Checked, states.Mixed || states.CheckedAbsent)
             && StateIs(query.Disabled, states.Disabled)
             && StateIs(query.Selected, states.Selected)
             && StateIs(query.Expanded, states.Expanded, states.ExpandedAbsent)
-            && StateIs(query.Pressed, states.Pressed, states.Mixed)
+            && StateIs(query.Pressed, states.Pressed, states.Mixed || states.PressedAbsent)
             && (query.Level is null || node.Level == query.Level);
     }
 

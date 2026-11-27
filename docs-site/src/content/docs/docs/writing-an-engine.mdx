@@ -265,7 +265,7 @@ var kiosk = ProtocolClient.ConnectEngine(
 );
 ```
 
-`ConnectEngineOptions` also takes `InitializationOptions` (JSON the server's factory receives), `Secrets` (the handles the server may resolve), `Fixtures` and `ValidateApp` (they run on the client), `ResolveLocators` (answers `Locate` on the client over the server's observation, for a server without `engine/locate`), and `Session` (hooks this process answers instead of the server's).
+`ConnectEngineOptions` also takes `InitializationOptions` (JSON the server's factory receives), `Secrets` (the handles the server may resolve), `Fixtures` and `ValidateApp` (they run on the client), `ResolveLocators` (answers `Locate` on the client over the server's observation, for a server without `engine/locate`, so the server only has to produce a tree; the tree's nodes carry `Text`, `Value`, `TestId`, `Attributes` and `States` for the `testId`, text, placeholder and display-value queries to match), and `Session` (hooks this process answers instead of the server's).
 
 A handle opens one connection per role: a `run` connection per target from `Prepare` to `Finish`, a `worker` connection from `Init` to `Dispose`, and a `doctor` connection for `Doctor`'s one call. A second `Init` before the first `Dispose` opens another worker connection: calls go to the newest, and `Dispose` ends the oldest. A call before `Init` throws `INVALID_STATE`. A server's failure comes back as the exception the engine member threw: an `EngineException` or a harness error keeps its code, category, and retryability, and anything else is a plain `Exception` with the server's stack in `Exception.Data["e2e.remoteStack"]`.
 
