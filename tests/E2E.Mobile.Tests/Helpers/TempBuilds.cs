@@ -21,12 +21,5 @@ internal sealed class TempBuilds : IDisposable
 
     public string Full(string relative) => Path.Combine(Root, relative);
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(Root, true);
-        }
-        catch (IOException) { }
-    }
+    public void Dispose() => Directory.Delete(Root, true);
 }
