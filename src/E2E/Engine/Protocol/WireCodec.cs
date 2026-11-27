@@ -18,6 +18,7 @@ namespace E2E.Engine.Protocol;
 internal static class WireCodec
 {
     private const string AsciiWord = "a-zA-Z0-9_";
+    private static readonly string[] FoldedCharacters = ["\u212A", "\u017F"];
 
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(5);
 
@@ -163,7 +164,9 @@ internal static class WireCodec
 
     /// <summary>
     /// JavaScript's <c>\d</c>, <c>\w</c> and <c>\b</c> are ASCII only; .NET's match Unicode digits and letters. <c>RegexOptions.ECMAScript</c>
-    /// cannot be combined with <c>s</c>, so the shorthands are rewritten to ASCII classes, inside character classes too.
+    /// cannot be combined with <c>s</c>, so the shorthands are rewritten to ASCII classes, inside character classes too. With
+    /// <paramref name="ignoreCase"/> it also keeps .NET's case folding from matching U+212A and U+017F as <c>k</c> and <c>s</c>, which
+    /// JavaScript's non-unicode <c>i</c> flag does not; other folds .NET has beyond JavaScript's (for example U+212B with U+00E5) are not handled.
     /// </summary>
     private static string ToAsciiShorthands(string source, bool ignoreCase)
     {
@@ -198,6 +201,13 @@ internal static class WireCodec
                     end = end < 0 ? source.Length - 1 : end;
                     result.Append("\\").Append(source, i, end - i + 1);
                     i = end;
+                    continue;
+                }
+
+                if (ignoreCase && next == 'c' && i + 1 < source.Length && char.IsAsciiLetter(source[i + 1]))
+                {
+                    // A control escape: its letter is not pattern text.
+                    result.Append("\\c").Append(source[++i]);
                     continue;
                 }
 
@@ -314,15 +324,26 @@ internal static class WireCodec
             return rewritten;
         }
 
-        // .NET's case folding puts U+212A and U+017F in a class that holds k or s; JavaScript's does not.
-        const string Folded = "\\u212A\\u017F";
-        return (negated, notDigit || notWord) switch
+        // .NET's case folding puts U+212A and U+017F in a class that holds k or s; JavaScript's does not. Compare each with what the class
+        // matches case-sensitively, which is what JavaScript matches.
+        var exact = new Regex(rewritten, RegexOptions.None, RegexTimeout);
+        var excluded = new StringBuilder();
+        var included = new StringBuilder();
+        foreach (var folded in FoldedCharacters)
         {
-            (false, false) => $"(?:(?-i:(?![{Folded}])){rewritten})",
-            (false, true) => $"(?:{rewritten}|(?-i:[{Folded}]))",
-            (true, false) => $"(?:{rewritten}|(?-i:[{Folded}]))",
-            (true, true) => $"(?:(?-i:(?![{Folded}])){rewritten})",
-        };
+            var matches = exact.IsMatch(folded);
+            if (!matches)
+            {
+                excluded.Append(folded);
+            }
+            else
+            {
+                included.Append(folded);
+            }
+        }
+
+        var result = excluded.Length > 0 ? $"(?-i:(?![{excluded}])){rewritten}" : rewritten;
+        return included.Length > 0 ? $"(?:{result}|(?-i:[{included}]))" : $"(?:{result})";
     }
 
     private static bool IsGroupNameStart(string source, int i) =>

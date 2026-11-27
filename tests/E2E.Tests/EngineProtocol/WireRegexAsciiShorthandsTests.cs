@@ -92,6 +92,9 @@ public sealed class WireRegexAsciiShorthandsTests
     [InlineData(@"^[^k]$", "K", false)]
     [InlineData(@"^\D$", "\u212A", true)]
     [InlineData(@"\bk\b", "a \u212A", false)]
+    [InlineData(@"^[\s\S]+$", "a\u212Ab", true)]
+    [InlineData(@"^[\u212A]$", "\u212A", true)]
+    [InlineData(@"^\cK$", "\u000b", true)]
     [InlineData(@"(?<kk>s)\k<kk>", "SS", true)]
     public void Matches_like_JavaScript_for_the_i_flag(string source, string input, bool expected)
     {
