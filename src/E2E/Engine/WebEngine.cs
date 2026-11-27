@@ -4181,8 +4181,9 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var context = RequireContext();
-                await context.AddInitScriptAsync(source).ConfigureAwait(false);
+                // Logged before the call, as upstream's surface.addInitScript does, so a clock call that is still running orders after it.
                 _documentSetup.Add(new DocumentSetup(source, null));
+                await context.AddInitScriptAsync(source).ConfigureAwait(false);
             });
 
         /// <summary>
