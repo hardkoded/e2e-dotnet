@@ -191,12 +191,62 @@ public Task<IReadOnlyList<BrowserCookie>> CookiesAsync(CancellationToken cancell
 ```
 
 
-Returns the cookies visible to the browser context.
+Returns every cookie of the browser.
 
 **Parameters**
 
 | Name | Type | Description |
 | --- | --- | --- |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;IReadOnlyList&lt;BrowserCookie&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_Browser_CookiesAsync_"></a>
+<a id="E2E_Browser_CookiesAsync_System_Collections_Generic_IReadOnlyList_System_String__System_Threading_CancellationToken_"></a>
+
+### CookiesAsync(IReadOnlyList&lt;string&gt;?, CancellationToken)
+
+
+```csharp
+public Task<IReadOnlyList<BrowserCookie>> CookiesAsync(IReadOnlyList<string>? urls, CancellationToken cancellationToken = default)
+```
+
+
+Returns every cookie of the browser when `urls` is null, or only the cookies a request to any of the
+URLs would carry. An empty list returns no cookies. A null entry is `INVALID_ARGUMENT`.
+The URL rules are those of [CookiesAsync(string, CancellationToken)](#E2E_Browser_CookiesAsync_System_String_System_Threading_CancellationToken_).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `urls` | [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;IReadOnlyList&lt;BrowserCookie&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_Browser_CookiesAsync_"></a>
+<a id="E2E_Browser_CookiesAsync_System_String_System_Threading_CancellationToken_"></a>
+
+### CookiesAsync(string, CancellationToken)
+
+
+```csharp
+public Task<IReadOnlyList<BrowserCookie>> CookiesAsync(string url, CancellationToken cancellationToken = default)
+```
+
+
+Returns only the cookies a request to `url` would carry, matched by domain, path, and `Secure`
+(a `Secure` cookie matches `https` URLs, and `http` ones on a loopback host such as `localhost`).
+A relative URL resolves against the base URL, as [GotoAsync(string, GotoOptions?, CancellationToken)](#E2E_Browser_GotoAsync_System_String_E2E_GotoOptions_System_Threading_CancellationToken_) resolves it.
+Throws `POLICY_DENIED` for an unparseable URL or one that is not `http(s)`, and `APP_URL_REQUIRED` for a
+relative URL when the test declares no base URL.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `url` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;IReadOnlyList&lt;BrowserCookie&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)

@@ -138,7 +138,7 @@ Planned gaps are on the roadmap, and Not yet gaps have no date. Not planned gaps
 | `cypress open`, time-travel snapshots | `E2E_HEADLESS=0 dotnet test` with `E2E_DEBUG=1`. The port has no trace page, `--watch`, or `--step` |
 | `before()` and `after()` that drive the app, `describe.only` | UI setup in `[SetUp]` (NUnit) or `InitializeAsync` (xUnit), cleanup in `[TearDown]` or `DisposeAsync`; sign-in in an `[E2ESetup]` that saves a session; `[Explicit]` or a `--filter` on the test |
 | `cy.clock()`, `cy.tick()` | A fake-timers script loaded with `Browser.AddInitScriptAsync`, driven by `Browser.EvaluateAsync<T>` |
-| `cy.request()` with the browser's cookies | Send the cookies from `Browser.CookiesAsync()` with `HttpClient` |
+| `cy.request()` with the browser's cookies | Send the cookies from `Browser.CookiesAsync(url)` with `HttpClient` |
 
 ### Not yet
 

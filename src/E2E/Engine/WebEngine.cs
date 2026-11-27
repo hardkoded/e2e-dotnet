@@ -3851,11 +3851,16 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             }
         }
 
-        public Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(CancellationToken cancellationToken) =>
-            GuardAsync<IReadOnlyList<BrowserCookie>>("cookies", cancellationToken, async () =>
+        public Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(
+            IReadOnlyList<string>? urls,
+            CancellationToken cancellationToken
+        ) => GuardAsync<IReadOnlyList<BrowserCookie>>("cookies", cancellationToken, async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var cookies = await RequireContext().CookiesAsync().ConfigureAwait(false);
+                // The driver reads an empty list as no filter; a list that came out empty must not widen to every site's cookies.
+                var cookies = urls is { Count: 0 }
+                    ? []
+                    : await RequireContext().CookiesAsync(urls ?? []).ConfigureAwait(false);
                 return cookies
                     .Select(cookie => new BrowserCookie
                     {

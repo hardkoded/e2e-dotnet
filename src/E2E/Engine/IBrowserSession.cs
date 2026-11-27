@@ -169,7 +169,11 @@ public interface IBrowserSession : IEngineSession
             new EngineException("UNSUPPORTED_CAPABILITY", "browser.waitForPopup is not supported by this engine.")
         );
 
-    Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(CancellationToken cancellationToken);
+    /// <summary>Returns every cookie of the browser, or with <paramref name="urls"/> only those a request to one of them would carry; an empty list returns none.</summary>
+    Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(
+        IReadOnlyList<string>? urls,
+        CancellationToken cancellationToken
+    );
 
     Task SetCookiesAsync(IReadOnlyList<BrowserCookie> cookies, CancellationToken cancellationToken);
 

@@ -96,4 +96,63 @@ public sealed class BrowserFixtureTests : E2ETest
         var theme = (await Browser.CookiesAsync()).FirstOrDefault(cookie => cookie.Name == "theme");
         Assert.That(theme?.Value, Is.EqualTo("dark"));
     }
+
+    [Test]
+    public async Task Cookies_url_returns_only_the_cookies_a_request_to_the_URL_carries()
+    {
+        var hostname = new Uri(E2E.Playground.Testbed.Url).Host;
+        var baseUrl = E2E.Playground.Testbed.Url;
+        await Browser.SetCookiesAsync([
+            new BrowserCookie
+            {
+                Name = "everywhere",
+                Value = "1",
+                Url = baseUrl,
+            },
+            new BrowserCookie
+            {
+                Name = "scoped",
+                Value = "1",
+                Domain = hostname,
+                Path = "/browser",
+            },
+            new BrowserCookie
+            {
+                Name = "elsewhere",
+                Value = "1",
+                Domain = "other.example",
+                Path = "/",
+            },
+            new BrowserCookie
+            {
+                Name = "encrypted",
+                Value = "1",
+                Domain = "shop.example",
+                Path = "/",
+                Secure = true,
+            },
+            new BrowserCookie
+            {
+                Name = "shared",
+                Value = "1",
+                Domain = ".shop.example",
+                Path = "/",
+            },
+        ]);
+
+        async Task<string[]> Names(IReadOnlyList<string>? urls = null) =>
+            (await Browser.CookiesAsync(urls)).Select(cookie => cookie.Name).Order(StringComparer.Ordinal).ToArray();
+
+        Assert.That(await Names([baseUrl]), Is.EqualTo(new[] { "everywhere" }));
+        Assert.That(await Names(["/browser"]), Is.EqualTo(new[] { "everywhere", "scoped" }));
+        Assert.That(await Names(["/browsers"]), Is.EqualTo(new[] { "everywhere" }));
+        Assert.That(await Names(["http://shop.example/"]), Is.EqualTo(new[] { "shared" }));
+        Assert.That(await Names(["https://shop.example/"]), Is.EqualTo(new[] { "encrypted", "shared" }));
+        Assert.That(await Names(["http://api.shop.example/"]), Is.EqualTo(new[] { "shared" }));
+        Assert.That(
+            await Names(["http://other.example/", "/browser"]),
+            Is.EqualTo(new[] { "elsewhere", "everywhere", "scoped" })
+        );
+        Assert.That(await Names(), Is.EqualTo(new[] { "elsewhere", "encrypted", "everywhere", "scoped", "shared" }));
+    }
 }

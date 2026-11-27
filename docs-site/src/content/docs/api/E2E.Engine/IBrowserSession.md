@@ -187,20 +187,23 @@ Task ForwardAsync(CancellationToken cancellationToken)
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Engine_IBrowserSession_GetCookiesAsync_"></a>
-<a id="E2E_Engine_IBrowserSession_GetCookiesAsync_System_Threading_CancellationToken_"></a>
+<a id="E2E_Engine_IBrowserSession_GetCookiesAsync_System_Collections_Generic_IReadOnlyList_System_String__System_Threading_CancellationToken_"></a>
 
-### GetCookiesAsync(CancellationToken)
+### GetCookiesAsync(IReadOnlyList&lt;string&gt;?, CancellationToken)
 
 
 ```csharp
-Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(CancellationToken cancellationToken)
+Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(IReadOnlyList<string>? urls, CancellationToken cancellationToken)
 ```
 
+
+Returns every cookie of the browser, or with `urls` only those a request to one of them would carry; an empty list returns none.
 
 **Parameters**
 
 | Name | Type | Description |
 | --- | --- | --- |
+| `urls` | [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;IReadOnlyList&lt;BrowserCookie&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)

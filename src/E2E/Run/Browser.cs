@@ -436,11 +436,35 @@ public sealed class Browser
     public Task AddInitScriptAsync(WebInitScript script, object? arg, CancellationToken cancellationToken = default) =>
         AddInitScriptCoreAsync(script, arg, hasArg: true, cancellationToken);
 
-    /// <summary>Returns the cookies visible to the browser context.</summary>
+    /// <summary>Returns every cookie of the browser.</summary>
     public Task<IReadOnlyList<BrowserCookie>> CookiesAsync(CancellationToken cancellationToken = default) =>
-        RunStepAsync(StepKind.Resource, "browser.cookies", "", () =>
-            Require("cookies").GetCookiesAsync(Token(cancellationToken))
+        CookiesAsync((IReadOnlyList<string>?)null, cancellationToken);
+
+    /// <summary>
+    /// Returns only the cookies a request to <paramref name="url"/> would carry, matched by domain, path, and <c>Secure</c>
+    /// (a <c>Secure</c> cookie matches <c>https</c> URLs, and <c>http</c> ones on a loopback host such as <c>localhost</c>).
+    /// A relative URL resolves against the base URL, as <see cref="GotoAsync(string, GotoOptions?, CancellationToken)"/> resolves it.
+    /// Throws <c>POLICY_DENIED</c> for an unparseable URL or one that is not <c>http(s)</c>, and <c>APP_URL_REQUIRED</c> for a
+    /// relative URL when the test declares no base URL.
+    /// </summary>
+    public Task<IReadOnlyList<BrowserCookie>> CookiesAsync(string url, CancellationToken cancellationToken = default) =>
+        CookiesAsync([url], cancellationToken);
+
+    /// <summary>
+    /// Returns every cookie of the browser when <paramref name="urls"/> is null, or only the cookies a request to any of the
+    /// URLs would carry. An empty list returns no cookies. A null entry is <c>INVALID_ARGUMENT</c>.
+    /// The URL rules are those of <see cref="CookiesAsync(string, CancellationToken)"/>.
+    /// </summary>
+    public Task<IReadOnlyList<BrowserCookie>> CookiesAsync(
+        IReadOnlyList<string>? urls,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var targets = ResolveCookieUrls(urls);
+        return RunStepAsync(StepKind.Resource, "browser.cookies", CookieUrlsLabel(urls), () =>
+            Require("cookies").GetCookiesAsync(targets, Token(cancellationToken))
         );
+    }
 
     /// <summary>
     /// Sets cookies. Each target URL, or the origin a domain cookie is sent to, must pass the URL rule. A relative url resolves against the base URL.
@@ -464,6 +488,39 @@ public sealed class Browser
             Require("clearCookies").ClearCookiesAsync(options, Token(cancellationToken))
         );
 
+    /// <summary>Upstream's <c>resolveCookieUrl</c>: resolves a cookie URL under the harness's URL rule; only http(s) holds cookies.</summary>
+    private string ResolveCookieUrl(string url)
+    {
+        var target = Routes.Resolve(_baseUrl, url);
+        if (
+            !target.StartsWith("http:", StringComparison.Ordinal)
+            && !target.StartsWith("https:", StringComparison.Ordinal)
+        )
+        {
+            throw new TestException("POLICY_DENIED", "cookie URL must be http(s): " + target);
+        }
+
+        return target;
+    }
+
+    /// <summary>Upstream's <c>resolveCookieUrls</c>: the absolute URLs <c>browser.cookies</c> filters by, or null for no filter.</summary>
+    private string[]? ResolveCookieUrls(IReadOnlyList<string>? urls) =>
+        urls
+            ?.Select(url =>
+                ResolveCookieUrl(
+                    url
+                        ?? throw new TestException(
+                            "INVALID_ARGUMENT",
+                            "browser.cookies takes a URL or a list of URLs, got null"
+                        )
+                )
+            )
+            .ToArray();
+
+    /// <summary>Upstream's <c>cookieUrlsLabel</c>: the step label of a <c>browser.cookies</c> call, the URLs as the test wrote them.</summary>
+    private static string CookieUrlsLabel(IReadOnlyList<string>? urls) =>
+        urls is null ? "" : string.Join(", ", urls.Where(url => url is not null));
+
     private Task SetCookiesStepAsync(IReadOnlyList<BrowserCookie> cookies, CancellationToken cancellationToken)
     {
         var session = Require("setCookies");
@@ -483,14 +540,7 @@ public sealed class Browser
             // A url cookie is set on the URL the rule resolved, so a relative one
             // lands on the base URL the way OpenAsync would. The rule admits
             // about:blank for navigation, which holds no cookie.
-            var target = Routes.Resolve(_baseUrl, cookie.Url ?? scheme + "://" + cookie.Domain!.TrimStart('.'));
-            if (
-                !target.StartsWith("http:", StringComparison.Ordinal)
-                && !target.StartsWith("https:", StringComparison.Ordinal)
-            )
-            {
-                throw new TestException("POLICY_DENIED", "cookie URL must be http(s): " + target);
-            }
+            var target = ResolveCookieUrl(cookie.Url ?? scheme + "://" + cookie.Domain!.TrimStart('.'));
 
             resolved.Add(cookie.Url is null ? cookie : cookie with { Url = target });
         }
