@@ -36,13 +36,13 @@ it decides, so a rejected option leaves the request undecided, and the request i
 
 
 ```csharp
-public WebRouteRequest Request { get; }
+public WebRequest Request { get; }
 ```
 
 
 The intercepted request.
 
-**Value:** [WebRouteRequest](/api/E2E.Engine/WebRouteRequest/)
+**Value:** [WebRequest](/api/E2E.Engine/WebRequest/)
 
 ## Methods
 

@@ -498,7 +498,7 @@ showing (see the mobile reference).
   `ASSERTION_FAILED` with the last error as the inner exception. Await every call.
 - A `Timeout` of `TimeSpan.Zero` on a locator action, `WaitForAsync`, an `Expect`
   matcher, `ToHaveScreenshotAsync`, `Screen.TreeAsync`, `Screen.DebugAsync`,
-  `Browser.GotoAsync`, `WaitForResponseAsync`, `WaitForDownloadAsync`, or
+  `Browser.GotoAsync`, `WaitForResponseAsync`, `WaitForRequestAsync`, `WaitForDownloadAsync`, or
   `WaitForDownloadsAsync` sets no deadline of its own: the test timeout still bounds it.
   `Expect.Poll` with a zero `Timeout` polls until the cancellation token you pass ends,
   and without a token that can end it fails with `INVALID_CONFIG`. A negative `Timeout`
@@ -704,12 +704,30 @@ misses.
   a second `DownAsync` of the same key sends a repeat event. `PressAsync(key)`
   presses and releases within the call. Prefer `PressAsync` and `FillAsync` on a
   locator.
-- `WaitForResponseAsync(pattern, timeout?)` resolves once the headers
-  arrive, with a `WebResponse` (`Url`, `Status`, `Headers`, `BodyAsync()`,
-  `TextAsync()`, `JsonAsync<T>()`). The body readers wait for the body (up to
-  the action timeout) and fail with `ACTION_FAILED` when it could not be
-  read. Start it before the step that sends the request, and await it after.
-  This includes the first `GotoAsync` or `App.OpenAsync`.
+- `WaitForResponseAsync(pattern | predicate, timeout?)`: returns a
+  `PageResponse` with `Url`, `Status`, `Headers`, `Request`, `BodyAsync()`,
+  `TextAsync()`, `JsonAsync<T>()`. Only the body readers are methods; `Headers`
+  has lower-cased names. Resolves on headers unless a predicate reads the body.
+  On the returned response, body readers wait for the body (up to the action
+  timeout) and fail with `ACTION_FAILED` when it could not be read. An empty
+  body gives an empty array from `BodyAsync()`, `""` from `TextAsync()`, and a
+  failure from `JsonAsync<T>()`.
+- `WaitForRequestAsync(pattern | predicate, timeout?)`: resolves when the page
+  sends the request, before any response, with a `WebRequest` (`Url`, `Method`,
+  `Headers`, `PostData`), the same type as `route.Request`.
+- Start either wait before the triggering action, and await it after. Both work
+  before the first `GotoAsync` or `App.OpenAsync`. Nothing matching in time is
+  `ACTION_FAILED`, and a relative pattern with no base URL is
+  `APP_URL_REQUIRED`. Traces label a predicate as `predicate`.
+- A wait predicate is a `Func<PageResponse, bool>` or `Func<PageResponse, Task<bool>>`
+  (`Func<WebRequest, ...>` for `WaitForRequestAsync`). It runs per event, async
+  predicates can run concurrently, and the first match wins. Inside a
+  `WaitForResponseAsync` predicate, body reads share the wait's timeout, so
+  reading a streaming or unclosed body can wait until timeout; reads still
+  pending on passed-over responses fail with `CANCELLED` when the wait settles.
+  A thrown exception fails the step unchanged: an e2e error keeps its code,
+  such as `ASSERTION_FAILED` from a failed assertion or `ACTION_FAILED` from an
+  unreadable body.
 - `RouteAsync(pattern, handler)`, `UnrouteAsync(pattern)`: intercept
   requests, newest route first; `pattern` is a URL pattern or a
   `new RouteMatcher { Method, Url | UrlRegex }` for one method.
@@ -732,7 +750,7 @@ misses.
   aborted, fails with the handler's error. A `GotoAsync` whose request a
   handler aborted on purpose fails with `ACTION_FAILED`.
 - `UnrouteAllAsync()` removes every route; configured headers stay.
-- A `RouteAsync`, `UnrouteAsync`, or `WaitForResponseAsync` pattern is a
+- A `RouteAsync`, `UnrouteAsync`, `WaitForResponseAsync`, or `WaitForRequestAsync` pattern is a
   glob string or a `Regex` matched against the full URL (`*` stays within
   one path segment, `**` crosses `/`, `?` is one character, `\` escapes the
   next one), or a `RouteMatcher` to match one HTTP method too,

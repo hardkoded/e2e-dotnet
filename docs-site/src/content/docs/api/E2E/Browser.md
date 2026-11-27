@@ -20,7 +20,7 @@ public sealed class Browser
 
 
 The browser the attempt drives, showing one active tab. Navigation, reads, [Locator(string)](#E2E_Browser_Locator_System_String_), [FrameLocator(string)](#E2E_Browser_FrameLocator_System_String_),
-`EvaluateAsync&lt;T&gt;`, `WaitForResponseAsync`,
+`EvaluateAsync&lt;T&gt;`, `WaitForResponseAsync`, `WaitForRequestAsync`,
 `WaitForDownloadAsync`, the keyboard and mouse, `Expect(browser)`, and the screen act on the active tab; cookies, routes,
 and dialog handlers cover the whole browser, every tab included. A tab the app opens (a `target="_blank"` link,
 `window.open`) joins [Tabs()](#E2E_Browser_Tabs) but does not become active on its own: `WaitForPopupAsync` makes the tab its trigger
@@ -828,6 +828,119 @@ error, and no tab within the timeout fails with `ACTION_FAILED`, naming the page
 
 **Returns:** [Task&lt;BrowserTab&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
+<a id="E2E_Browser_WaitForRequestAsync_"></a>
+<a id="E2E_Browser_WaitForRequestAsync_E2E_RouteMatcher_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
+
+### WaitForRequestAsync(RouteMatcher, TimeSpan?, CancellationToken)
+
+
+```csharp
+public Task<WebRequest> WaitForRequestAsync(RouteMatcher pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+```
+
+
+Waits for a request of one HTTP method whose URL matches. See `WaitForResponseAsync`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `pattern` | [RouteMatcher](/api/E2E/RouteMatcher/) |  |
+| `timeout` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;WebRequest&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_Browser_WaitForRequestAsync_System_Func_E2E_Engine_WebRequest_System_Boolean__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
+
+### `WaitForRequestAsync(Func<WebRequest, bool>, TimeSpan?, CancellationToken)`
+
+
+```csharp
+public Task<WebRequest> WaitForRequestAsync(Func<WebRequest, bool> predicate, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+```
+
+
+Waits for a request that &lt;code class="paramref"&gt;predicate&lt;/code&gt; accepts. Predicate matching and errors work as in `WaitForResponseAsync`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `predicate` | [Func&lt;WebRequest, bool&gt;](https://learn.microsoft.com/dotnet/api/system.func-2) |  |
+| `timeout` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;WebRequest&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_Browser_WaitForRequestAsync_System_Func_E2E_Engine_WebRequest_System_Threading_Tasks_Task_System_Boolean___System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
+
+### `WaitForRequestAsync(Func<WebRequest, Task<bool>>, TimeSpan?, CancellationToken)`
+
+
+```csharp
+public Task<WebRequest> WaitForRequestAsync(Func<WebRequest, Task<bool>> predicate, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+```
+
+
+Waits for a request that an asynchronous &lt;code class="paramref"&gt;predicate&lt;/code&gt; accepts.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `predicate` | [Func&lt;WebRequest, Task&lt;bool&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-2) |  |
+| `timeout` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;WebRequest&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_Browser_WaitForRequestAsync_System_String_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
+
+### WaitForRequestAsync(string, TimeSpan?, CancellationToken)
+
+
+```csharp
+public Task<WebRequest> WaitForRequestAsync(string pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+```
+
+
+Waits for a request on the active tab whose complete URL matches the glob &lt;code class="paramref"&gt;pattern&lt;/code&gt;, and resolves when the page
+sends it, before any response arrives. The glob grammar is the one of `WaitForResponseAsync`.
+The timeout bounds the match, and defaults to the action timeout; zero waits for the test timeout.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `pattern` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `timeout` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;WebRequest&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_Browser_WaitForRequestAsync_System_Text_RegularExpressions_Regex_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
+
+### WaitForRequestAsync(Regex, TimeSpan?, CancellationToken)
+
+
+```csharp
+public Task<WebRequest> WaitForRequestAsync(Regex pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+```
+
+
+Waits for a request whose URL matches &lt;code class="paramref"&gt;pattern&lt;/code&gt;. See `WaitForRequestAsync`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `pattern` | [Regex](https://learn.microsoft.com/dotnet/api/system.text.regularexpressions.regex) |  |
+| `timeout` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;WebRequest&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
 <a id="E2E_Browser_WaitForResponseAsync_"></a>
 <a id="E2E_Browser_WaitForResponseAsync_E2E_RouteMatcher_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
@@ -835,7 +948,7 @@ error, and no tab within the timeout fails with `ACTION_FAILED`, naming the page
 
 
 ```csharp
-public Task<WebResponse> WaitForResponseAsync(RouteMatcher pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+public Task<PageResponse> WaitForResponseAsync(RouteMatcher pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
 ```
 
 
@@ -851,7 +964,54 @@ waits for the test timeout.
 | `timeout` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
-**Returns:** [Task&lt;WebResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+**Returns:** [Task&lt;PageResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_Browser_WaitForResponseAsync_System_Func_E2E_PageResponse_System_Boolean__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
+
+### `WaitForResponseAsync(Func<PageResponse, bool>, TimeSpan?, CancellationToken)`
+
+
+```csharp
+public Task<PageResponse> WaitForResponseAsync(Func<PageResponse, bool> predicate, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+```
+
+
+Waits for a response on the active tab that &lt;code class="paramref"&gt;predicate&lt;/code&gt; accepts. The predicate runs per response until one
+returns `true`; throwing fails the wait with the predicate's own error. The timeout bounds the match only, and defaults to
+the action timeout; zero waits for the test timeout. A body read inside the predicate is bounded by the wait, not by the action
+timeout, and a read of a response the wait passed over that is still running when the wait ends fails with `CANCELLED`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `predicate` | [Func&lt;PageResponse, bool&gt;](https://learn.microsoft.com/dotnet/api/system.func-2) |  |
+| `timeout` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;PageResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_Browser_WaitForResponseAsync_System_Func_E2E_PageResponse_System_Threading_Tasks_Task_System_Boolean___System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
+
+### `WaitForResponseAsync(Func<PageResponse, Task<bool>>, TimeSpan?, CancellationToken)`
+
+
+```csharp
+public Task<PageResponse> WaitForResponseAsync(Func<PageResponse, Task<bool>> predicate, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+```
+
+
+Waits for a response that an asynchronous &lt;code class="paramref"&gt;predicate&lt;/code&gt; accepts. See `WaitForResponseAsync`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `predicate` | [Func&lt;PageResponse, Task&lt;bool&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-2) |  |
+| `timeout` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;PageResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
 <a id="E2E_Browser_WaitForResponseAsync_System_String_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
@@ -859,7 +1019,7 @@ waits for the test timeout.
 
 
 ```csharp
-public Task<WebResponse> WaitForResponseAsync(string pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+public Task<PageResponse> WaitForResponseAsync(string pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
 ```
 
 
@@ -876,7 +1036,7 @@ the match only, and defaults to the action timeout; zero waits for the test time
 | `timeout` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
-**Returns:** [Task&lt;WebResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+**Returns:** [Task&lt;PageResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
 <a id="E2E_Browser_WaitForResponseAsync_System_Text_RegularExpressions_Regex_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
@@ -884,7 +1044,7 @@ the match only, and defaults to the action timeout; zero waits for the test time
 
 
 ```csharp
-public Task<WebResponse> WaitForResponseAsync(Regex pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+public Task<PageResponse> WaitForResponseAsync(Regex pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
 ```
 
 
@@ -898,7 +1058,7 @@ Waits for a response whose URL matches &lt;code class="paramref"&gt;pattern&lt;/
 | `timeout` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
-**Returns:** [Task&lt;WebResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+**Returns:** [Task&lt;PageResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
 <a id="E2E_Browser_WaitForURLAsync_"></a>
 <a id="E2E_Browser_WaitForURLAsync_System_String_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>

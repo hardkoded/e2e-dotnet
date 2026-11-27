@@ -415,6 +415,78 @@ public sealed class WebPlatformIntegrationTests
         );
     }
 
+    // Partial: upstream also reads the report's attempt result. The port reads the steps the session recorded.
+    [Fact]
+    public async Task Partial_Waits_for_a_response_and_a_request_a_predicate_accepts_labeled_as_a_predicate()
+    {
+        var (error, steps) = await RunWithStepsAsync(async session =>
+        {
+            await session.App.OpenAsync();
+            var browser = session.Browser;
+            var response = browser.WaitForResponseAsync(async candidate =>
+                candidate.Url.EndsWith("/api/flags", StringComparison.Ordinal)
+                && !(await candidate.JsonAsync<System.Text.Json.JsonElement>()).GetProperty("betaBoard").GetBoolean()
+            );
+            var request = browser.WaitForRequestAsync(candidate =>
+                candidate.Url.EndsWith("/api/flags", StringComparison.Ordinal) && candidate.Method == "GET"
+            );
+            await browser.GotoAsync("/flags");
+            var seen = await response;
+            Assert.Equal(200, seen.Status);
+            Assert.Equal((await request).Url, seen.Request.Url);
+        });
+        Assert.Null(error);
+        Assert.Equal(
+            [
+                ("browser.waitForResponse", "predicate", StepStatus.Passed),
+                ("browser.waitForRequest", "predicate", StepStatus.Passed),
+            ],
+            steps
+                .Where(step => step.Api is "browser.waitForResponse" or "browser.waitForRequest")
+                .Select(step => (step.Api, step.Label, step.Status))
+        );
+    }
+
+    // Partial: upstream also reads the report's attempt error code, ERROR for a plain throw. The port's session fails with the exception
+    // the predicate threw, and the failed step names the call.
+    [Fact]
+    public async Task Partial_A_predicate_that_throws_fails_with_its_own_error()
+    {
+        var (error, steps) = await RunWithStepsAsync(async session =>
+        {
+            await session.App.OpenAsync();
+            var waiting = session.Browser.WaitForResponseAsync(
+                new Func<PageResponse, bool>(_ => throw new InvalidCastException("predicate bug"))
+            );
+            await session.Browser.GotoAsync("/flags");
+            await waiting;
+        });
+        Assert.IsType<InvalidCastException>(error);
+        Assert.Contains("predicate bug", error.Message, StringComparison.Ordinal);
+        Assert.Equal("browser.waitForResponse", steps.First(step => step.Status == StepStatus.Failed).Api);
+    }
+
+    // The port has no value matcher (upstream's expect(value).toBe), so the predicate's assertion throws the ASSERTION_FAILED it would.
+    [Fact]
+    public async Task Partial_An_expect_in_a_predicate_fails_as_an_assertion()
+    {
+        var (error, steps) = await RunWithStepsAsync(async session =>
+        {
+            await session.App.OpenAsync();
+            var waiting = session.Browser.WaitForRequestAsync(candidate =>
+            {
+                ExpectToBe(candidate.Method, "POST");
+                return true;
+            });
+            await session.Browser.GotoAsync("/flags");
+            await waiting;
+        });
+        var failure = Assert.IsType<TestException>(error);
+        Assert.Equal("ASSERTION_FAILED", failure.Code);
+        Assert.Contains("POST", failure.Message, StringComparison.Ordinal);
+        Assert.Equal("browser.waitForRequest", steps.First(step => step.Status == StepStatus.Failed).Api);
+    }
+
     [Fact]
     public async Task Denies_a_wrapped_or_non_http_s_scheme_on_app_open_and_browser_goto_before_it_loads()
     {

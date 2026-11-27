@@ -11,7 +11,7 @@ namespace E2E;
 
 /// <summary>
 /// The browser the attempt drives, showing one active tab. Navigation, reads, <see cref="Locator(string)"/>, <see cref="FrameLocator(string)"/>,
-/// <see cref="EvaluateAsync{T}(string, CancellationToken)"/>, <see cref="WaitForResponseAsync(string, TimeSpan?, CancellationToken)"/>,
+/// <see cref="EvaluateAsync{T}(string, CancellationToken)"/>, <see cref="WaitForResponseAsync(string, TimeSpan?, CancellationToken)"/>, <see cref="WaitForRequestAsync(string, TimeSpan?, CancellationToken)"/>,
 /// <see cref="WaitForDownloadAsync"/>, the keyboard and mouse, <c>Expect(browser)</c>, and the screen act on the active tab; cookies, routes,
 /// and dialog handlers cover the whole browser, every tab included. A tab the app opens (a <c>target="_blank"</c> link,
 /// <c>window.open</c>) joins <see cref="Tabs"/> but does not become active on its own: <see cref="WaitForPopupAsync"/> makes the tab its trigger
@@ -311,7 +311,7 @@ public sealed class Browser
     /// matches one character, and <c>\</c> escapes the next one. The timeout bounds
     /// the match only, and defaults to the action timeout; zero waits for the test timeout.
     /// </summary>
-    public Task<WebResponse> WaitForResponseAsync(
+    public Task<PageResponse> WaitForResponseAsync(
         string pattern,
         TimeSpan? timeout = null,
         CancellationToken cancellationToken = default
@@ -322,7 +322,7 @@ public sealed class Browser
     }
 
     /// <summary>Waits for a response whose URL matches <paramref name="pattern"/>. The timeout bounds the match only, and defaults to the action timeout; zero waits for the test timeout.</summary>
-    public Task<WebResponse> WaitForResponseAsync(
+    public Task<PageResponse> WaitForResponseAsync(
         Regex pattern,
         TimeSpan? timeout = null,
         CancellationToken cancellationToken = default
@@ -337,7 +337,7 @@ public sealed class Browser
     /// or <see cref="Regex"/> grammar of the plain overloads. The timeout bounds the match only, and defaults to the action timeout; zero
     /// waits for the test timeout.
     /// </summary>
-    public Task<WebResponse> WaitForResponseAsync(
+    public Task<PageResponse> WaitForResponseAsync(
         RouteMatcher pattern,
         TimeSpan? timeout = null,
         CancellationToken cancellationToken = default
@@ -345,6 +345,92 @@ public sealed class Browser
     {
         ArgumentNullException.ThrowIfNull(pattern);
         return WaitForResponseCoreAsync(pattern, timeout, cancellationToken);
+    }
+
+    /// <summary>
+    /// Waits for a response on the active tab that <paramref name="predicate"/> accepts. The predicate runs per response until one
+    /// returns <c>true</c>; throwing fails the wait with the predicate's own error. The timeout bounds the match only, and defaults to
+    /// the action timeout; zero waits for the test timeout. A body read inside the predicate is bounded by the wait, not by the action
+    /// timeout, and a read of a response the wait passed over that is still running when the wait ends fails with <c>CANCELLED</c>.
+    /// </summary>
+    public Task<PageResponse> WaitForResponseAsync(
+        Func<PageResponse, bool> predicate,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        return WaitForResponseCoreAsync(predicate, timeout, cancellationToken);
+    }
+
+    /// <summary>Waits for a response that an asynchronous <paramref name="predicate"/> accepts. See <see cref="WaitForResponseAsync(Func{PageResponse, bool}, TimeSpan?, CancellationToken)"/>.</summary>
+    public Task<PageResponse> WaitForResponseAsync(
+        Func<PageResponse, Task<bool>> predicate,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        return WaitForResponseCoreAsync(predicate, timeout, cancellationToken);
+    }
+
+    /// <summary>
+    /// Waits for a request on the active tab whose complete URL matches the glob <paramref name="pattern"/>, and resolves when the page
+    /// sends it, before any response arrives. The glob grammar is the one of <see cref="WaitForResponseAsync(string, TimeSpan?, CancellationToken)"/>.
+    /// The timeout bounds the match, and defaults to the action timeout; zero waits for the test timeout.
+    /// </summary>
+    public Task<WebRequest> WaitForRequestAsync(
+        string pattern,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        return WaitForRequestCoreAsync(pattern, timeout, cancellationToken);
+    }
+
+    /// <summary>Waits for a request whose URL matches <paramref name="pattern"/>. See <see cref="WaitForRequestAsync(string, TimeSpan?, CancellationToken)"/>.</summary>
+    public Task<WebRequest> WaitForRequestAsync(
+        Regex pattern,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        return WaitForRequestCoreAsync(pattern, timeout, cancellationToken);
+    }
+
+    /// <summary>Waits for a request of one HTTP method whose URL matches. See <see cref="WaitForResponseAsync(RouteMatcher, TimeSpan?, CancellationToken)"/>.</summary>
+    public Task<WebRequest> WaitForRequestAsync(
+        RouteMatcher pattern,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        return WaitForRequestCoreAsync(pattern, timeout, cancellationToken);
+    }
+
+    /// <summary>Waits for a request that <paramref name="predicate"/> accepts. Predicate matching and errors work as in <see cref="WaitForResponseAsync(Func{PageResponse, bool}, TimeSpan?, CancellationToken)"/>.</summary>
+    public Task<WebRequest> WaitForRequestAsync(
+        Func<WebRequest, bool> predicate,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        return WaitForRequestCoreAsync(predicate, timeout, cancellationToken);
+    }
+
+    /// <summary>Waits for a request that an asynchronous <paramref name="predicate"/> accepts.</summary>
+    public Task<WebRequest> WaitForRequestAsync(
+        Func<WebRequest, Task<bool>> predicate,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        return WaitForRequestCoreAsync(predicate, timeout, cancellationToken);
     }
 
     /// <summary>
@@ -781,23 +867,69 @@ public sealed class Browser
         }
     }
 
-    private Task<WebResponse> WaitForResponseCoreAsync(
+    private Task<PageResponse> WaitForResponseCoreAsync(
         object pattern,
         TimeSpan? timeout,
         CancellationToken cancellationToken
     ) => RunStepAsync(StepKind.Resource, "browser.waitForResponse", Routes.PatternLabel(pattern), async () =>
         {
-            var wirePattern = Routes.ToRoutePattern("browser.waitForResponse", pattern);
+            var wanted = Routes.ToWaitPattern("browser.waitForResponse", pattern);
             var session = Require("waitForResponse");
             var budget = StepBudget(timeout, "browser.waitForResponse");
-            var response = await session
-                .WaitForResponseAsync(
-                    (url, method) => Routes.UrlMatches(wirePattern, url) && Routes.MethodMatches(wirePattern, method),
-                    budget,
-                    Token(cancellationToken)
-                )
-                .ConfigureAwait(false);
-            return new WebResponse(response, _actionTimeout, _token);
+            var token = Token(cancellationToken);
+
+            // Ends the body reads of the responses the wait passed over once it settles,
+            // so a predicate still reading one stops instead of holding it for the attempt.
+            using var waited = new CancellationTokenSource();
+            using var reads = CancellationTokenSource.CreateLinkedTokenSource(token, waited.Token);
+
+            // The view a predicate saw is the one the wait returns (upstream's viewOnce).
+            var views = new System.Runtime.CompilerServices.ConditionalWeakTable<BrowserResponse, PageResponse>();
+            PageResponse ViewOf(BrowserResponse response) =>
+                views.GetValue(response, candidate => new PageResponse(candidate, _actionTimeout, _token, reads.Token));
+
+            Func<BrowserResponse, Task<bool>> matches = wanted switch
+            {
+                Func<PageResponse, bool> sync => candidate => Task.FromResult(sync(ViewOf(candidate))),
+                Func<PageResponse, Task<bool>> async => candidate => async(ViewOf(candidate)),
+                NormalizedRoutePattern route => candidate =>
+                    Task.FromResult(
+                        Routes.UrlMatches(route, candidate.Url)
+                            && Routes.MethodMatches(route, candidate.Request!.Method)
+                    ),
+                _ => throw new InvalidOperationException("unreachable"),
+            };
+            try
+            {
+                var response = await session.WaitForResponseAsync(matches, budget, token).ConfigureAwait(false);
+                return ViewOf(response).Settle();
+            }
+            finally
+            {
+                await waited.CancelAsync().ConfigureAwait(false);
+            }
+        });
+
+    private Task<WebRequest> WaitForRequestCoreAsync(
+        object pattern,
+        TimeSpan? timeout,
+        CancellationToken cancellationToken
+    ) => RunStepAsync(StepKind.Resource, "browser.waitForRequest", Routes.PatternLabel(pattern), () =>
+        {
+            var wanted = Routes.ToWaitPattern("browser.waitForRequest", pattern);
+            var session = Require("waitForRequest");
+            var budget = StepBudget(timeout, "browser.waitForRequest");
+            Func<WebRequest, Task<bool>> matches = wanted switch
+            {
+                Func<WebRequest, bool> sync => candidate => Task.FromResult(sync(candidate)),
+                Func<WebRequest, Task<bool>> async => candidate => async(candidate),
+                NormalizedRoutePattern route => candidate =>
+                    Task.FromResult(
+                        Routes.UrlMatches(route, candidate.Url) && Routes.MethodMatches(route, candidate.Method)
+                    ),
+                _ => throw new InvalidOperationException("unreachable"),
+            };
+            return session.WaitForRequestAsync(matches, budget, Token(cancellationToken));
         });
 
     private Task RouteCoreAsync(object pattern, Func<WebRoute, Task> handler, CancellationToken cancellationToken)
@@ -913,7 +1045,7 @@ public sealed class WebRoute
     }
 
     /// <summary>The intercepted request.</summary>
-    public WebRouteRequest Request => _route.Request;
+    public WebRequest Request => _route.Request;
 
     internal bool Decided { get; private set; }
 
@@ -973,7 +1105,8 @@ public sealed class WebRoute
 /// <summary>
 /// A URL pattern narrowed to one HTTP method, for <see cref="Browser.RouteAsync(RouteMatcher, Func{WebRoute, Task}, CancellationToken)"/>,
 /// <see cref="Browser.UnrouteAsync(RouteMatcher, CancellationToken)"/> and
-/// <see cref="Browser.WaitForResponseAsync(RouteMatcher, TimeSpan?, CancellationToken)"/>. Set <see cref="Method"/> and exactly one of
+/// <see cref="Browser.WaitForResponseAsync(RouteMatcher, TimeSpan?, CancellationToken)"/> and
+/// <see cref="Browser.WaitForRequestAsync(RouteMatcher, TimeSpan?, CancellationToken)"/>. Set <see cref="Method"/> and exactly one of
 /// <see cref="Url"/> and <see cref="UrlRegex"/>; a missing or invalid part fails with <c>INVALID_ARGUMENT</c>.
 /// </summary>
 public sealed record RouteMatcher
@@ -984,14 +1117,15 @@ public sealed record RouteMatcher
     /// <summary>The URL pattern, a string using the same glob grammar as a plain route pattern. <see cref="UrlRegex"/> is the regex form.</summary>
     public string? Url { get; init; }
 
-    /// <summary>The URL pattern as a <see cref="Regex"/>. <c>RouteAsync</c> and <c>WaitForResponseAsync</c> match requests against it; <c>UnrouteAsync</c> compares it structurally.</summary>
+    /// <summary>The URL pattern as a <see cref="Regex"/>. <c>RouteAsync</c>, <c>WaitForResponseAsync</c> and <c>WaitForRequestAsync</c> match requests against it; <c>UnrouteAsync</c> compares it structurally.</summary>
     public Regex? UrlRegex { get; init; }
 }
 
 /// <summary>A response <see cref="Browser.WaitForResponseAsync(string, TimeSpan?, CancellationToken)"/> matched.</summary>
-public sealed class WebResponse
+public class WebResponse
 {
     private readonly Task<string> _body;
+    private readonly Action? _startBody;
     private readonly Task<byte[]>? _bytes;
     private readonly TimeSpan _actionTimeout;
     private readonly Func<CancellationToken> _token;
@@ -1003,6 +1137,7 @@ public sealed class WebResponse
         Headers = response.Headers;
         _body = response.Body;
         _bytes = response.BodyBytes;
+        _startBody = response.StartBody;
         _actionTimeout = actionTimeout;
         _token = token;
     }
@@ -1032,7 +1167,16 @@ public sealed class WebResponse
     public Task<string> TextAsync(CancellationToken cancellationToken = default) =>
         WaitForAsync(_body, cancellationToken);
 
-    private async Task<T> WaitForAsync<T>(Task<T> body, CancellationToken cancellationToken)
+    private protected void StartBody() => _startBody?.Invoke();
+
+    private Task<T> WaitForAsync<T>(Task<T> body, CancellationToken cancellationToken)
+    {
+        StartBody();
+        return WaitForBodyAsync(body, cancellationToken);
+    }
+
+    /// <summary>Waits for a body read within the action timeout. <see cref="PageResponse"/> bounds a read inside a wait predicate by the wait instead.</summary>
+    private protected virtual async Task<T> WaitForBodyAsync<T>(Task<T> body, CancellationToken cancellationToken)
     {
         try
         {
@@ -1054,6 +1198,63 @@ public sealed class WebResponse
     /// <summary>Waits for the body as <see cref="TextAsync"/> does and deserializes it as JSON.</summary>
     public async Task<T?> JsonAsync<T>(CancellationToken cancellationToken = default) =>
         JsonSerializer.Deserialize<T>(await TextAsync(cancellationToken).ConfigureAwait(false), JsonDefaults.Options);
+}
+
+/// <summary>What <see cref="Browser.WaitForResponseAsync(string, TimeSpan?, CancellationToken)"/> returns and its predicate reads: a <see cref="WebResponse"/> and the request it answers.</summary>
+public sealed class PageResponse : WebResponse
+{
+    private readonly CancellationToken _wait;
+    private volatile bool _settled;
+
+    internal PageResponse(
+        BrowserResponse response,
+        TimeSpan actionTimeout,
+        Func<CancellationToken> token,
+        CancellationToken wait
+    )
+        : base(response, actionTimeout, token)
+    {
+        _wait = wait;
+        Request = response.Request!;
+    }
+
+    /// <summary>The request this response answers.</summary>
+    public WebRequest Request { get; }
+
+    /// <summary>
+    /// The wait returned this response: a read of it that is still pending goes on under the action timeout, as does any read that
+    /// starts later. Starts reading the body at once, while the browser still holds it (upstream's <c>settle</c>).
+    /// </summary>
+    internal PageResponse Settle()
+    {
+        _settled = true;
+        StartBody();
+        return this;
+    }
+
+    // While the wait runs, a read is bounded by the wait only, since the wait's own timeout already bounds a predicate that reads
+    // it; a read still pending when the wait ends is cancelled with it, unless its response is the one the wait returns. A read
+    // that starts after the wait, on any response it saw, waits on the action timeout (upstream's responseView).
+    private protected override async Task<T> WaitForBodyAsync<T>(Task<T> body, CancellationToken cancellationToken)
+    {
+        if (!_settled && !_wait.IsCancellationRequested)
+        {
+            try
+            {
+                return await body.WaitAsync(_wait).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (_settled)
+            {
+                // The wait returned this response while the read was pending: it goes on as a read of that response.
+            }
+            catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new EngineException(EngineErrorCodes.Cancelled, "waitForResponse body cancelled", false, ex);
+            }
+        }
+
+        return await base.WaitForBodyAsync(body, cancellationToken).ConfigureAwait(false);
+    }
 }
 
 /// <summary>

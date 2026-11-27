@@ -16,12 +16,14 @@ namespace E2E.Tests.WaitForResponse;
 /// <c>Content-Length</c> was sent, one whose body follows its headers 800ms later,
 /// and one that never finishes. The fragment is flushed before the close so the
 /// browser has seen the headers and reports the response rather than an empty
-/// reply. It writes raw HTTP, so headers go out before the body is ready.
+/// reply. <c>/api/held</c> sends nothing until <see cref="ReleaseHeld"/>, and <c>/api/orders</c> answers with the method it saw, so a
+/// POST reads as 201. It writes raw HTTP, so headers go out before the body is ready.
 /// </summary>
 internal sealed class BodySite : IDisposable
 {
     private readonly TcpListener _listener;
     private readonly ConcurrentBag<TcpClient> _clients = [];
+    private readonly ConcurrentQueue<TcpClient> _held = [];
 
     private BodySite(TcpListener listener)
     {
@@ -34,6 +36,9 @@ internal sealed class BodySite : IDisposable
     /// <summary>The site's origin, with no trailing slash.</summary>
     public string Origin { get; }
 
+    /// <summary>Requests to <c>/api/held</c> whose response has not started.</summary>
+    public int HeldCount => _held.Count;
+
     public static BodySite Start()
     {
         var listener = new TcpListener(IPAddress.Loopback, 0);
@@ -41,6 +46,22 @@ internal sealed class BodySite : IDisposable
         var site = new BodySite(listener);
         _ = Task.Run(site.ListenAsync);
         return site;
+    }
+
+    /// <summary>Answers every held request.</summary>
+    public void ReleaseHeld()
+    {
+        while (_held.TryDequeue(out var client))
+        {
+            try
+            {
+                EndAsync(client, "200 OK", "content-type: text/plain\r\n", "released").GetAwaiter().GetResult();
+            }
+            catch (Exception)
+            {
+                client.Dispose();
+            }
+        }
     }
 
     public void Dispose()
@@ -71,14 +92,26 @@ internal sealed class BodySite : IDisposable
         }
     }
 
-    private static async Task ServeAsync(TcpClient client)
+    private async Task ServeAsync(TcpClient client)
     {
         try
         {
             var stream = client.GetStream();
-            var path = await ReadPathAsync(stream);
+            var (method, path, _) = await ReadRequestAsync(stream);
             switch (path)
             {
+                case "/api/held":
+                    // No headers until ReleaseHeld.
+                    _held.Enqueue(client);
+                    return;
+                case "/api/orders":
+                    await EndAsync(
+                        client,
+                        method == "POST" ? "201 Created" : "200 OK",
+                        "content-type: application/json\r\n",
+                        "{\"method\":\"" + method + "\"}"
+                    );
+                    return;
                 case "/":
                     await EndAsync(
                         client,
@@ -134,11 +167,13 @@ internal sealed class BodySite : IDisposable
         }
     }
 
-    private static async Task<string> ReadPathAsync(NetworkStream stream)
+    /// <summary>Reads the request line, and the body a request with a <c>content-length</c> declares.</summary>
+    private static async Task<(string Method, string Path, string Body)> ReadRequestAsync(NetworkStream stream)
     {
         var request = new StringBuilder();
         var buffer = new byte[1024];
-        while (!request.ToString().Contains("\r\n\r\n", StringComparison.Ordinal))
+        int end;
+        while ((end = request.ToString().IndexOf("\r\n\r\n", StringComparison.Ordinal)) < 0)
         {
             var read = await stream.ReadAsync(buffer);
             if (read == 0)
@@ -149,7 +184,27 @@ internal sealed class BodySite : IDisposable
             request.Append(Encoding.ASCII.GetString(buffer, 0, read));
         }
 
-        return request.ToString().Split(' ')[1];
+        var text = request.ToString();
+        var head = end < 0 ? text : text[..end];
+        var line = head.Split(' ');
+        var body = end < 0 ? "" : text[(end + 4)..];
+        var declared = System.Text.RegularExpressions.Regex.Match(
+            head,
+            @"content-length: (\d+)",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase
+        );
+        while (declared.Success && body.Length < int.Parse(declared.Groups[1].Value))
+        {
+            var read = await stream.ReadAsync(buffer);
+            if (read == 0)
+            {
+                break;
+            }
+
+            body += Encoding.ASCII.GetString(buffer, 0, read);
+        }
+
+        return (line[0], line[1], body);
     }
 
     private static async Task EndAsync(TcpClient client, string status, string headers, string body)

@@ -75,6 +75,21 @@ Response headers, with lower-cased names.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
+<a id="E2E_Engine_BrowserResponse_Request_"></a>
+<a id="E2E_Engine_BrowserResponse_Request"></a>
+
+### Request
+
+
+```csharp
+public WebRequest? Request { get; init; }
+```
+
+
+The request this response answers. Set on a response `WaitForResponseAsync` reports.
+
+**Value:** [WebRequest](/api/E2E.Engine/WebRequest/)
+
 <a id="E2E_Engine_BrowserResponse_Status_"></a>
 <a id="E2E_Engine_BrowserResponse_Status"></a>
 
