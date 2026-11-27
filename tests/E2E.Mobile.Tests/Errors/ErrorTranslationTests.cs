@@ -88,6 +88,20 @@ public sealed class ErrorTranslationTests
                 )
             ).Code
         );
+
+        // An agent-device 0.21.42 daemon, as a provider may pin, has no lock-screen runtime and says so as COMMAND_FAILED.
+        var noRuntime = Engine(
+            DeviceErrors.TranslateError(
+                new AgentDeviceError(
+                    "COMMAND_FAILED",
+                    "lock-screen has no runtime execution on the generic route",
+                    Details(("reason", "generic-route-runtime-missing"))
+                ),
+                "device.lock"
+            )
+        );
+        Assert.Equal("UNSUPPORTED_CAPABILITY", noRuntime.Code);
+        Assert.Contains("lock-screen has no runtime execution", noRuntime.Message);
     }
 
     [Fact]

@@ -513,6 +513,45 @@ public sealed class Device
             )
         );
 
+    /// <summary>
+    /// Locks the screen and completes once the device reports it locked: the sleep key on an Android phone or tablet, the
+    /// lock button on an iPhone or iPad simulator. A screen that is already locked stays locked. A lock that asks for a PIN,
+    /// pattern, password, or passcode is locked too, but <see cref="UnlockAsync"/> refuses it, so the device stays locked
+    /// until someone unlocks it by hand: use Swipe on Android and no passcode on iOS. <c>UNSUPPORTED_CAPABILITY</c> on a
+    /// device agent-device cannot lock (a physical iPhone or iPad, a TV, a device a provider drives through a backend that
+    /// has no lock command), and on an Android device whose screen lock is set to None, which has no lock screen to show.
+    /// Android 11 to 15 do not report that setting, so there the sleep key is sent, the display turns off, and the lock
+    /// fails with <c>ENGINE_FAILURE</c> after about 5 seconds. Android 10 and older do not report the lock type either, so
+    /// a lock or an unlock that would change the state fails with <c>ENGINE_FAILURE</c> before any key is sent.
+    /// </summary>
+    public Task LockAsync(CancellationToken cancellationToken = default) =>
+        RunAsync("device.lock", "", () => LockScreenAsync("device.lock", "lock", cancellationToken));
+
+    /// <summary>
+    /// Unlocks the screen and completes once the device reports it unlocked. Nothing brings an app to the front: check the
+    /// screen you expect next. Android wakes the screen and dismisses the keyguard, an iOS simulator swipes up from the
+    /// bottom edge. A display that is off turns on even when the screen is not locked (Android always sends its wake key);
+    /// an unlocked screen that is on stays as it is. The exception is an iPhone simulator with an always-on display, such
+    /// as the iPhone 17 Pro: the unlock can leave its display off, and on iOS 26.5 the text a later fill types does not
+    /// reach the app. It never enters a PIN, pattern, password, or passcode: a lock that asks for one is
+    /// <c>UNSUPPORTED_CAPABILITY</c>, and so is a device agent-device cannot lock (a physical iPhone or iPad, a TV, a
+    /// device a provider drives through a backend that has no lock command).
+    /// </summary>
+    public Task UnlockAsync(CancellationToken cancellationToken = default) =>
+        RunAsync("device.unlock", "", () => LockScreenAsync("device.unlock", "unlock", cancellationToken));
+
+    private Task LockScreenAsync(string label, string action, CancellationToken cancellationToken) =>
+        _session.ScreenCommandAsync(
+            label,
+            (client, token) =>
+                client.CallAsync(
+                    DeviceMethods.CommandLockScreen,
+                    _session.Selection.ToArgs(("action", JsonValue.Create(action))),
+                    token
+                ),
+            cancellationToken
+        );
+
     /// <summary>Accepts or dismisses the visible system alert.</summary>
     public Task AlertAsync(AlertAction action, CancellationToken cancellationToken = default) =>
         RunAsync("device.alert", action == AlertAction.Accept ? "accept" : "dismiss", () =>

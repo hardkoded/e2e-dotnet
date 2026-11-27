@@ -61,6 +61,7 @@ public static class DeviceMethods
     public const string CommandAlert = "command.alert";
     public const string CommandHardwareButton = "command.hardwareButton";
     public const string CommandHome = "command.home";
+    public const string CommandLockScreen = "command.lockScreen";
     public const string CommandOrientation = "command.orientation";
     public const string CommandFold = "command.fold";
     public const string CommandAppState = "command.appState";
