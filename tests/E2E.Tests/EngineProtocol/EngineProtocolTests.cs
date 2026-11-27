@@ -368,30 +368,31 @@ public sealed class EngineProtocolTests
             using var client = new Connection(
                 new MessageStreams(toClient.Reader.AsStream(), toServer.Writer.AsStream())
             );
-            await client.RequestAsync(
-                "initialize",
-                new JsonObject { ["protocolVersion"] = Protocol.EngineProtocolVersion }
-            );
+            await client
+                .RequestAsync("initialize", new JsonObject { ["protocolVersion"] = Protocol.EngineProtocolVersion })
+                .WaitAsync(TimeSpan.FromSeconds(10));
 
             client.Notify("$/abort", new JsonObject { ["id"] = 7 });
             for (var call = 0; call < 2; call++)
             {
-                await client.RequestAsync(
-                    "lifecycle/init",
-                    new JsonObject
-                    {
-                        ["runId"] = "run",
-                        ["targetName"] = "toy",
-                        ["workerSlot"] = 0,
-                        ["env"] = new JsonObject(),
-                        ["headed"] = false,
-                        ["signal"] = new JsonObject { ["id"] = 7 },
-                    }
-                );
+                await client
+                    .RequestAsync(
+                        "lifecycle/init",
+                        new JsonObject
+                        {
+                            ["runId"] = "run",
+                            ["targetName"] = "toy",
+                            ["workerSlot"] = 0,
+                            ["env"] = new JsonObject(),
+                            ["headed"] = false,
+                            ["signal"] = new JsonObject { ["id"] = 7 },
+                        }
+                    )
+                    .WaitAsync(TimeSpan.FromSeconds(10));
             }
 
             Assert.Equal([true, true], seen.ToArray());
-            await client.RequestAsync("shutdown");
+            await client.RequestAsync("shutdown").WaitAsync(TimeSpan.FromSeconds(10));
             client.Notify("exit");
             await serving.WaitAsync(TimeSpan.FromSeconds(10));
         }

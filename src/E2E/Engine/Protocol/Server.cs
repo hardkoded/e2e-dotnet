@@ -140,9 +140,21 @@ public static class ProtocolServer
                                     // Not referenced yet: keep the abort until the first request carrying the id arrives. An id no request
                                     // ever carries (its signal ended with its attempt) is dropped once the newest entries fill the cap.
                                     _earlyAbortOrder.Enqueue(abort.Id);
-                                    while (_earlyAbortOrder.Count > MaxEarlyAborts)
+                                    // The order also holds ids a request already consumed, so only the pending count is bounded; a
+                                    // dequeued id that is gone from the set evicts nothing.
+                                    while (_earlyAborts.Count > MaxEarlyAborts)
                                     {
                                         _earlyAborts.Remove(_earlyAbortOrder.Dequeue());
+                                    }
+
+                                    if (_earlyAbortOrder.Count > 2 * MaxEarlyAborts)
+                                    {
+                                        var pending = _earlyAbortOrder.Where(_earlyAborts.Contains).ToArray();
+                                        _earlyAbortOrder.Clear();
+                                        foreach (var id in pending)
+                                        {
+                                            _earlyAbortOrder.Enqueue(id);
+                                        }
                                     }
                                 }
                             }
