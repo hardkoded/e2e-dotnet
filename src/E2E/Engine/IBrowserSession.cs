@@ -46,18 +46,33 @@ public interface IBrowserSession : IEngineSession
     Task<JsonElement?> EvaluateAsync(string expression, object? arg, bool hasArg, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Waits up to <paramref name="timeout"/> for a response whose URL and request method <paramref name="matches"/>
-    /// accepts. The timeout bounds the match only: the body read starts once the
-    /// response is known and goes on in <see cref="BrowserResponse.Body"/>. A session
-    /// that does not override it fails with <c>UNSUPPORTED_CAPABILITY</c>.
+    /// Waits up to <paramref name="timeout"/> for a response <paramref name="matches"/> accepts, on the active tab (on the
+    /// first page the context opens, before any page exists). <paramref name="matches"/> runs per response until it returns
+    /// <c>true</c>; what it throws fails the wait with that error, untranslated. The timeout bounds the match only: the body
+    /// read starts once the response is known and goes on in <see cref="BrowserResponse.Body"/>. A session that does not
+    /// override it fails with <c>UNSUPPORTED_CAPABILITY</c>.
     /// </summary>
     Task<BrowserResponse> WaitForResponseAsync(
-        Func<string, string, bool> matches,
+        Func<BrowserResponse, Task<bool>> matches,
         TimeSpan timeout,
         CancellationToken cancellationToken
     ) =>
         Task.FromException<BrowserResponse>(
             new EngineException("UNSUPPORTED_CAPABILITY", "browser.waitForResponse is not supported by this engine.")
+        );
+
+    /// <summary>
+    /// Waits up to <paramref name="timeout"/> for a request <paramref name="matches"/> accepts, as
+    /// <see cref="WaitForResponseAsync"/> does for a response: it resolves when the page sends the request, before any
+    /// response arrives. A session that does not override it fails with <c>UNSUPPORTED_CAPABILITY</c>.
+    /// </summary>
+    Task<WebRequest> WaitForRequestAsync(
+        Func<WebRequest, Task<bool>> matches,
+        TimeSpan timeout,
+        CancellationToken cancellationToken
+    ) =>
+        Task.FromException<WebRequest>(
+            new EngineException("UNSUPPORTED_CAPABILITY", "browser.waitForRequest is not supported by this engine.")
         );
 
     /// <summary>
@@ -287,6 +302,15 @@ public sealed record BrowserResponse
 
     public required int Status { get; init; }
 
+    /// <summary>The request this response answers. Set on a response <see cref="IBrowserSession.WaitForResponseAsync"/> reports.</summary>
+    public WebRequest? Request { get; init; }
+
+    /// <summary>
+    /// Starts the body read of a response whose read waits for a first reader, so a wait predicate that never reads the
+    /// body does not pay for it. Null when the read is already running.
+    /// </summary>
+    internal Action? StartBody { get; init; }
+
     /// <summary>Response headers, with lower-cased names.</summary>
     public required IReadOnlyDictionary<string, string> Headers { get; init; }
 
@@ -306,7 +330,7 @@ public sealed record BrowserResponse
 /// </summary>
 public interface IBrowserRoute
 {
-    WebRouteRequest Request { get; }
+    WebRequest Request { get; }
 
     /// <summary>Answers the request. <see cref="RouteFulfillResponse.Status"/> is set, and <see cref="RouteFulfillResponse.Json"/> has become a <see cref="RouteFulfillResponse.Body"/>.</summary>
     Task FulfillAsync(RouteFulfillResponse response);
@@ -326,16 +350,20 @@ public interface IBrowserRoute
     Task AbortAsync();
 }
 
-/// <summary>The request a route intercepted.</summary>
-public sealed record WebRouteRequest
+/// <summary>A request the page made: what a route handler reads as <see cref="IBrowserRoute.Request"/> and <c>WaitForRequestAsync</c> returns.</summary>
+public sealed record WebRequest
 {
     public required string Url { get; init; }
 
     public required string Method { get; init; }
 
-    /// <summary>Request headers, with lower-cased names.</summary>
+    /// <summary>
+    /// Request headers, with lower-cased names. The cookie headers the browser adds on its own are there only when a route
+    /// intercepts the request, so always in <see cref="IBrowserRoute.Request"/>.
+    /// </summary>
     public required IReadOnlyDictionary<string, string> Headers { get; init; }
 
+    /// <summary>Request body as text; <c>null</c> when the request has none.</summary>
     public string? PostData { get; init; }
 }
 

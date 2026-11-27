@@ -168,7 +168,20 @@ internal static partial class Routes
     /// <see cref="RouteMatcher"/> where <c>Method</c> is one HTTP method and the URL keeps the glob/regex grammar.
     /// The method is normalized to uppercase. <paramref name="api"/> names the calling member in errors.
     /// </summary>
-    public static NormalizedRoutePattern ToRoutePattern(string api, object pattern)
+    public static NormalizedRoutePattern ToRoutePattern(string api, object pattern) =>
+        Normalize(api, pattern, "a string, RegExp, or { method, url }");
+
+    /// <summary>
+    /// Validates a <c>WaitForResponseAsync</c> or <c>WaitForRequestAsync</c> pattern: a predicate the test wrote, returned as is for the
+    /// wait to call with each candidate, or a route pattern as <see cref="ToRoutePattern"/> reads one (upstream's <c>toWaitPattern</c>).
+    /// </summary>
+    public static object ToWaitPattern(string api, object pattern) =>
+        pattern is Delegate
+            ? pattern
+            : Normalize(api, pattern, "a string, RegExp, { method, url }, or a predicate function");
+
+    /// <summary><see cref="ToRoutePattern"/> with the accepted shapes its errors name (upstream's <c>normalize</c>).</summary>
+    private static NormalizedRoutePattern Normalize(string api, object pattern, string shapes)
     {
         if (pattern is string or Regex)
         {
@@ -177,15 +190,12 @@ internal static partial class Routes
 
         if (pattern is not RouteMatcher matcher)
         {
-            throw new TestException("INVALID_ARGUMENT", api + " pattern must be a string, RegExp, or { method, url }");
+            throw new TestException("INVALID_ARGUMENT", api + " pattern must be " + shapes);
         }
 
         if (matcher.Method is null && matcher.Url is null && matcher.UrlRegex is null)
         {
-            throw new TestException(
-                "INVALID_ARGUMENT",
-                api + " pattern must be a string, RegExp, or { method, url }; got an object"
-            );
+            throw new TestException("INVALID_ARGUMENT", api + " pattern must be " + shapes + "; got an object");
         }
 
         if (matcher.Method is null)
@@ -257,6 +267,8 @@ internal static partial class Routes
         pattern switch
         {
             string glob => JsonSerializer.Serialize(glob, QuoteOptions),
+            // Never the function's source: a predicate may close over test data.
+            Delegate => "predicate",
             Regex regex => RegexLabel(regex),
             RouteMatcher { Method: { } method } matcher => method.ToUpperInvariant()
                 + " "

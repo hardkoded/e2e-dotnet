@@ -15,13 +15,15 @@ Namespace: [E2E](/api/E2E/)
 
 
 ```csharp
-public sealed class WebResponse
+public class WebResponse
 ```
 
 
 A response `WaitForResponseAsync` matched.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
+
+**Derived:** [PageResponse](/api/E2E/PageResponse/)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs)
 

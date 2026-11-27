@@ -14,6 +14,12 @@ namespace E2E.Tests.RoutePattern;
 public sealed class PatternLabelTests
 {
     [Fact]
+    public void Names_a_predicate_without_its_source()
+    {
+        Assert.Equal("predicate", E2E.Internal.Routes.PatternLabel(new Func<PageResponse, bool>(r => r.Status == 201)));
+    }
+
+    [Fact]
     public void Quotes_a_glob_and_writes_a_regex_as_its_literal()
     {
         Assert.Equal("\"foo.css\"", E2E.Internal.Routes.PatternLabel("foo.css"));

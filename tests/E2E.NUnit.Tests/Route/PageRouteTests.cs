@@ -136,7 +136,7 @@ public sealed class PageRouteTests : PlaywrightTest
     [Test]
     public async Task Should_contain_referer_header()
     {
-        var requests = new ConcurrentQueue<WebRouteRequest>();
+        var requests = new ConcurrentQueue<WebRequest>();
         await Browser.RouteAsync("**/*", async route =>
         {
             requests.Enqueue(route.Request);
@@ -328,7 +328,7 @@ public sealed class PageRouteTests : PlaywrightTest
     [Test]
     public async Task Should_not_work_with_redirects()
     {
-        var intercepted = new ConcurrentQueue<WebRouteRequest>();
+        var intercepted = new ConcurrentQueue<WebRequest>();
         await Browser.RouteAsync("**/*", async route =>
         {
             await route.ContinueAsync();
@@ -359,7 +359,7 @@ public sealed class PageRouteTests : PlaywrightTest
     [Test]
     public async Task Should_work_with_redirects_for_subresources()
     {
-        var intercepted = new ConcurrentQueue<WebRouteRequest>();
+        var intercepted = new ConcurrentQueue<WebRequest>();
         await Browser.RouteAsync("**/*", async route =>
         {
             await route.ContinueAsync();
@@ -412,7 +412,7 @@ public sealed class PageRouteTests : PlaywrightTest
     public async Task Should_be_able_to_fetch_dataURL_and_not_fire_dataURL_requests()
     {
         await Browser.GotoAsync(EmptyPage);
-        var requests = new ConcurrentQueue<WebRouteRequest>();
+        var requests = new ConcurrentQueue<WebRequest>();
         await Browser.RouteAsync("**/*", async route =>
         {
             requests.Enqueue(route.Request);
@@ -429,7 +429,7 @@ public sealed class PageRouteTests : PlaywrightTest
     [Test]
     public async Task Should_navigate_to_URL_with_hash_and_and_fire_requests_without_hash()
     {
-        var requests = new ConcurrentQueue<WebRouteRequest>();
+        var requests = new ConcurrentQueue<WebRequest>();
         await Browser.RouteAsync("**/*", async route =>
         {
             requests.Enqueue(route.Request);
@@ -472,7 +472,7 @@ public sealed class PageRouteTests : PlaywrightTest
     public async Task Should_work_with_encoded_server_2()
     {
         await Browser.GotoAsync(EmptyPage);
-        var requests = new ConcurrentQueue<WebRouteRequest>();
+        var requests = new ConcurrentQueue<WebRequest>();
         await Browser.RouteAsync("**/*", async route =>
         {
             await route.ContinueAsync();

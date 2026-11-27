@@ -1,6 +1,6 @@
 ---
 title: "RouteMatcher"
-description: "A URL pattern narrowed to one HTTP method, for RouteAsync, UnrouteAsync and WaitForResponseAsync. Set Method and exactly one of Url and UrlRegex; a missing o..."
+description: "A URL pattern narrowed to one HTTP method, for RouteAsync, UnrouteAsync and WaitForResponseAsync and WaitForRequestAsync. Set Method and exactly one of Url a..."
 editUrl: false
 prev: false
 next: false
@@ -21,7 +21,8 @@ public sealed record RouteMatcher : IEquatable<RouteMatcher>
 
 A URL pattern narrowed to one HTTP method, for `RouteAsync`,
 `UnrouteAsync` and
-`WaitForResponseAsync`. Set [Method](#E2E_RouteMatcher_Method) and exactly one of
+`WaitForResponseAsync` and
+`WaitForRequestAsync`. Set [Method](#E2E_RouteMatcher_Method) and exactly one of
 [Url](#E2E_RouteMatcher_Url) and [UrlRegex](#E2E_RouteMatcher_UrlRegex); a missing or invalid part fails with `INVALID_ARGUMENT`.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
@@ -73,6 +74,6 @@ public Regex? UrlRegex { get; init; }
 ```
 
 
-The URL pattern as a [Regex](https://learn.microsoft.com/dotnet/api/system.text.regularexpressions.regex). `RouteAsync` and `WaitForResponseAsync` match requests against it; `UnrouteAsync` compares it structurally.
+The URL pattern as a [Regex](https://learn.microsoft.com/dotnet/api/system.text.regularexpressions.regex). `RouteAsync`, `WaitForResponseAsync` and `WaitForRequestAsync` match requests against it; `UnrouteAsync` compares it structurally.
 
 **Value:** [Regex](https://learn.microsoft.com/dotnet/api/system.text.regularexpressions.regex)
