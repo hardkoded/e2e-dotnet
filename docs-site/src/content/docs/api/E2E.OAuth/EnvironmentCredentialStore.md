@@ -140,6 +140,31 @@ Forgets the login. True when one was stored.
 
 **Returns:** [Task&lt;bool&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
+<a id="E2E_OAuth_EnvironmentCredentialStore_ReplaceAsync_"></a>
+<a id="E2E_OAuth_EnvironmentCredentialStore_ReplaceAsync_System_String_E2E_OAuth_OAuthCredentials_E2E_OAuth_OAuthCredentials_System_Threading_CancellationToken_"></a>
+
+### ReplaceAsync(string, OAuthCredentials, OAuthCredentials, CancellationToken)
+
+
+```csharp
+public Task<bool> ReplaceAsync(string providerId, OAuthCredentials expected, OAuthCredentials next, CancellationToken cancellationToken = default)
+```
+
+
+Stores &lt;code class="paramref"&gt;next&lt;/code&gt; only while the stored login is still &lt;code class="paramref"&gt;expected&lt;/code&gt;; false when a
+login or logout replaced it meanwhile, which then stands.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `providerId` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `expected` | [OAuthCredentials](/api/E2E.OAuth/OAuthCredentials/) |  |
+| `next` | [OAuthCredentials](/api/E2E.OAuth/OAuthCredentials/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;bool&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
 <a id="E2E_OAuth_EnvironmentCredentialStore_SetAsync_"></a>
 <a id="E2E_OAuth_EnvironmentCredentialStore_SetAsync_System_String_E2E_OAuth_OAuthCredentials_System_Threading_CancellationToken_"></a>
 

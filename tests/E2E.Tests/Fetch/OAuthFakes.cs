@@ -32,6 +32,29 @@ internal sealed class MemoryCredentialStore(Dictionary<string, OAuthCredentials>
         return Task.CompletedTask;
     }
 
+    public Task<bool> ReplaceAsync(
+        string providerId,
+        OAuthCredentials expected,
+        OAuthCredentials next,
+        CancellationToken cancellationToken = default
+    )
+    {
+        lock (_entries)
+        {
+            if (
+                !_entries.TryGetValue(providerId, out var stored)
+                || stored.Access != expected.Access
+                || stored.Refresh != expected.Refresh
+            )
+            {
+                return Task.FromResult(false);
+            }
+
+            _entries[providerId] = next;
+            return Task.FromResult(true);
+        }
+    }
+
     public Task<bool> RemoveAsync(string providerId, CancellationToken cancellationToken = default) =>
         Task.FromResult(_entries.TryRemove(providerId, out _));
 

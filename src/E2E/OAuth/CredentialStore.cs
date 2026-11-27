@@ -18,6 +18,17 @@ public interface ICredentialStore
     /// <summary>Forgets the login. True when one was stored.</summary>
     Task<bool> RemoveAsync(string providerId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Stores <paramref name="next"/> only while the stored login is still <paramref name="expected"/>; false when a
+    /// login or logout replaced it meanwhile, which then stands.
+    /// </summary>
+    Task<bool> ReplaceAsync(
+        string providerId,
+        OAuthCredentials expected,
+        OAuthCredentials next,
+        CancellationToken cancellationToken = default
+    );
+
     /// <summary>Every provider id with stored credentials.</summary>
     Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default);
 
@@ -74,6 +85,9 @@ public static class CredentialStores
 
         return all.Keys.FirstOrDefault(key => CurrentId(key) == providerId) ?? providerId;
     }
+
+    internal static bool SameLogin(OAuthCredentials? stored, OAuthCredentials expected) =>
+        stored is not null && stored.Access == expected.Access && stored.Refresh == expected.Refresh;
 
     internal static IReadOnlyList<string> StoredIds(Dictionary<string, JsonNode?> all) =>
         [
@@ -166,6 +180,34 @@ public sealed class FileCredentialStore : ICredentialStore
             )
             .ConfigureAwait(false);
         return removed;
+    }
+
+    public async Task<bool> ReplaceAsync(
+        string providerId,
+        OAuthCredentials expected,
+        OAuthCredentials next,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentNullException.ThrowIfNull(expected);
+        ArgumentNullException.ThrowIfNull(next);
+        var replaced = false;
+        await UpdateAsync(
+                all =>
+                {
+                    var key = CredentialStores.StoredKey(all, providerId);
+                    replaced =
+                        all.TryGetValue(key, out var entry)
+                        && CredentialStores.SameLogin(OAuthCredentials.FromJson(entry), expected);
+                    if (replaced)
+                    {
+                        all[key] = next.ToJson();
+                    }
+                },
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        return replaced;
     }
 
     public Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default)
@@ -308,6 +350,16 @@ public sealed class EnvironmentCredentialStore : ICredentialStore
     }
 
     public Task<bool> RemoveAsync(string providerId, CancellationToken cancellationToken = default)
+    {
+        throw ReadOnly();
+    }
+
+    public Task<bool> ReplaceAsync(
+        string providerId,
+        OAuthCredentials expected,
+        OAuthCredentials next,
+        CancellationToken cancellationToken = default
+    )
     {
         throw ReadOnly();
     }

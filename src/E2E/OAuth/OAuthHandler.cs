@@ -187,7 +187,7 @@ public sealed class OAuthHandler : DelegatingHandler
                     {
                         // No deadline: the vendor may rotate the token before a late answer, and dropping that answer loses the login.
                         var renewed = await _provider.RefreshAsync(latest, cancellationToken).ConfigureAwait(false);
-                        await PersistAsync(renewed, cancellationToken).ConfigureAwait(false);
+                        await PersistAsync(latest, renewed, cancellationToken).ConfigureAwait(false);
                         return new RefreshOutcome(renewed, null, null);
                     }
                     catch (OAuthException ex) when (ex.Code == OAuthException.LoginRequired)
@@ -234,11 +234,16 @@ public sealed class OAuthHandler : DelegatingHandler
         return null;
     }
 
-    private async Task PersistAsync(OAuthCredentials renewed, CancellationToken cancellationToken)
+    /// <summary>Stores what <paramref name="sent"/> was renewed to, unless a login or logout replaced <paramref name="sent"/> meanwhile.</summary>
+    private async Task PersistAsync(
+        OAuthCredentials sent,
+        OAuthCredentials renewed,
+        CancellationToken cancellationToken
+    )
     {
         try
         {
-            await _store.SetAsync(_provider.Id, renewed, cancellationToken).ConfigureAwait(false);
+            await _store.ReplaceAsync(_provider.Id, sent, renewed, cancellationToken).ConfigureAwait(false);
             _shared.Renewed.TryRemove(_provider.Id, out _);
         }
         catch (OAuthException ex) when (ex.Code == OAuthException.Misconfigured)
