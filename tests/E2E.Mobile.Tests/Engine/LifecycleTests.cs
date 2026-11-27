@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using E2E.Engine;
 
@@ -640,11 +641,20 @@ public sealed class LifecycleTests
     [Fact]
     public async Task Installs_nothing_on_its_own_device_installApp_with_no_path_installs_the_engine_build_and_pins_what_it_installed()
     {
-        var h = Harness.Create(pinned: false, app: app => app with { AppPath = "./build/App.app" });
+        using var project = new TempBuilds();
+        project.Create("build/App.app");
+        project.Create("other/Other.app");
+        var build = project.Full("build/App.app");
+        var other = project.Full("other/Other.app");
+        var h = Harness.Create(
+            pinned: false,
+            app: app => app with { AppPath = "./build/App.app" },
+            projectRoot: project.Root
+        );
         h.Fake.Respond(DeviceMethods.AppsInstall, _ => new JsonObject
         {
-            ["app"] = "./build/App.app",
-            ["appPath"] = "/project/build/App.app",
+            ["app"] = build,
+            ["appPath"] = build,
             ["platform"] = "ios",
             ["bundleId"] = "com.example.app",
         });
@@ -652,7 +662,10 @@ public sealed class LifecycleTests
         Assert.Equal(["devices.boot"], h.Fake.Methods());
 
         Assert.Equal(new InstalledApp("com.example.app", "com.example.app"), await session.InstallAppAsync());
-        JsonAssert.Args("""{"platform":"ios","appPath":"/project/build/App.app"}""", h.Fake.LastArgs("apps.install"));
+        JsonAssert.Args(
+            JsonSerializer.Serialize(new { platform = "ios", appPath = build }),
+            h.Fake.LastArgs("apps.install")
+        );
 
         // From here on the installed bundle is the pinned app: app.open() launches it, reset clears it.
         await session.RestartAsync(CancellationToken.None);
@@ -666,9 +679,15 @@ public sealed class LifecycleTests
 
         // A build named by path that is the engine's own counts the same. Another path pins nothing.
         await session.InstallAppAsync("build/App.app");
-        JsonAssert.Args("""{"platform":"ios","appPath":"/project/build/App.app"}""", h.Fake.LastArgs("apps.install"));
+        JsonAssert.Args(
+            JsonSerializer.Serialize(new { platform = "ios", appPath = build }),
+            h.Fake.LastArgs("apps.install")
+        );
         await session.InstallAppAsync("other/Other.app");
-        JsonAssert.Args("""{"platform":"ios","appPath":"/project/other/Other.app"}""", h.Fake.LastArgs("apps.install"));
+        JsonAssert.Args(
+            JsonSerializer.Serialize(new { platform = "ios", appPath = other }),
+            h.Fake.LastArgs("apps.install")
+        );
         Assert.Equal("com.example.app", session.PinnedApp);
     }
 
