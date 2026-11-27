@@ -151,8 +151,7 @@ public Task<bool> ReplaceAsync(string providerId, OAuthCredentials expected, OAu
 ```
 
 
-Stores &lt;code class="paramref"&gt;next&lt;/code&gt; only while the stored login is still &lt;code class="paramref"&gt;expected&lt;/code&gt;; false when a
-login or logout replaced it meanwhile, which then stands.
+Always throws [Misconfigured](/api/E2E.OAuth/OAuthException/#E2E_OAuth_OAuthException_Misconfigured), whether or not the credentials match: this store never stores &lt;code class="paramref"&gt;next&lt;/code&gt; and never returns false.
 
 **Parameters**
 

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Net;
+using System.Text.Json.Nodes;
 using E2E.OAuth;
 using E2E.Tests.Fetch;
 
@@ -56,8 +57,12 @@ public sealed class LoginAndLogoutDuringARefreshTests : IDisposable
         );
         provider.Release.SetResult(Renewed());
         using var _ = await request;
-        Assert.Equal("new-account", (await store.GetAsync(provider.Id))!.Access);
-        Assert.Equal("new-refresh", (await store.GetAsync(provider.Id))!.Refresh);
+        var stored = (await store.GetAsync(provider.Id))!;
+        Assert.Equal(
+            (SignedIn.Access, SignedIn.Refresh, SignedIn.Expires),
+            (stored.Access, stored.Refresh, stored.Expires)
+        );
+        Assert.True(JsonNode.DeepEquals(SignedIn.ToJson(), stored.ToJson()));
     }
 
     [Fact]
@@ -91,7 +96,14 @@ public sealed class LoginAndLogoutDuringARefreshTests : IDisposable
         var api = new FakeApi(_ => (HttpStatusCode.OK, "{}"));
         var http = new HttpClient(new OAuthHandler(provider, store, null, api));
         var request = http.GetAsync(new Uri("https://api.test/"));
-        await provider.Started.Task;
+        var started = await Task.WhenAny(provider.Started.Task, request, Task.Delay(TimeSpan.FromSeconds(30)));
+        if (started != provider.Started.Task)
+        {
+            // The request ended (or hung) before the refresh began: report why.
+            using var response = await request.WaitAsync(TimeSpan.FromSeconds(1));
+            Assert.Fail("The request finished without refreshing: " + response.StatusCode);
+        }
+
         return (store, provider, request);
     }
 

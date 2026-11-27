@@ -28,7 +28,11 @@ internal sealed class MemoryCredentialStore(Dictionary<string, OAuthCredentials>
 
     public Task SetAsync(string providerId, OAuthCredentials credentials, CancellationToken cancellationToken = default)
     {
-        _entries[providerId] = credentials;
+        lock (_entries)
+        {
+            _entries[providerId] = credentials;
+        }
+
         return Task.CompletedTask;
     }
 
@@ -55,8 +59,13 @@ internal sealed class MemoryCredentialStore(Dictionary<string, OAuthCredentials>
         }
     }
 
-    public Task<bool> RemoveAsync(string providerId, CancellationToken cancellationToken = default) =>
-        Task.FromResult(_entries.TryRemove(providerId, out _));
+    public Task<bool> RemoveAsync(string providerId, CancellationToken cancellationToken = default)
+    {
+        lock (_entries)
+        {
+            return Task.FromResult(_entries.TryRemove(providerId, out _));
+        }
+    }
 
     public Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<string>>([.. _entries.Keys]);

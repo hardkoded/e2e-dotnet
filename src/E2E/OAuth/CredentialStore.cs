@@ -354,6 +354,7 @@ public sealed class EnvironmentCredentialStore : ICredentialStore
         throw ReadOnly();
     }
 
+    /// <summary>Always throws <see cref="OAuthException.Misconfigured"/>, whether or not the credentials match: this store never stores <paramref name="next"/> and never returns false.</summary>
     public Task<bool> ReplaceAsync(
         string providerId,
         OAuthCredentials expected,

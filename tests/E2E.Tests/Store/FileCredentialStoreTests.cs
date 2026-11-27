@@ -105,6 +105,7 @@ public sealed class FileCredentialStoreTests : IDisposable
             Access = "renewed",
             Refresh = "r2",
             Expires = 123,
+            Extra = Creds.Extra,
         };
         Assert.False(await store.ReplaceAsync("spacexsi", Creds, renewed));
         Assert.Empty(await store.ListAsync());
@@ -114,10 +115,8 @@ public sealed class FileCredentialStoreTests : IDisposable
             new JsonObject { ["spacexai"] = Creds.ToJson(), ["openai"] = Creds.ToJson() }.ToJsonString()
         );
         Assert.True(await store.ReplaceAsync("spacexsi", Creds, renewed));
-        var written = JsonNode.Parse(await File.ReadAllTextAsync(file))!.AsObject();
-        Assert.Equal(["spacexai", "openai"], written.Select(pair => pair.Key));
-        Assert.Equal("renewed", written["spacexai"]!["access"]!.GetValue<string>());
-        Assert.Equal("a", written["openai"]!["access"]!.GetValue<string>());
+        var expected = new JsonObject { ["spacexai"] = renewed.ToJson(), ["openai"] = Creds.ToJson() };
+        Assert.True(JsonNode.DeepEquals(expected, JsonNode.Parse(await File.ReadAllTextAsync(file))));
 
         // The stored login changed meanwhile: a new login stands.
         var stale = new OAuthCredentials
@@ -125,9 +124,11 @@ public sealed class FileCredentialStoreTests : IDisposable
             Access = "stale-renewal",
             Refresh = "r",
             Expires = 123,
+            Extra = Creds.Extra,
         };
         Assert.False(await store.ReplaceAsync("spacexsi", Creds, stale));
-        Assert.Equal("renewed", (await store.GetAsync("spacexsi"))!.Access);
+        var stored = (await store.GetAsync("spacexsi"))!;
+        Assert.True(JsonNode.DeepEquals(renewed.ToJson(), stored.ToJson()));
     }
 
     [Fact]
