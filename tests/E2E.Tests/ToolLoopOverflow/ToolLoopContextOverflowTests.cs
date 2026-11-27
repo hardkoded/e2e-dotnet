@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
+using E2E.Tests.ToolLoopToolChoice;
 using static E2E.Tests.CoreTests;
 
 namespace E2E.Tests.ToolLoopOverflow;
@@ -113,6 +114,30 @@ public sealed class ToolLoopContextOverflowTests
         Assert.Equal(requests[1][^1], requests[2][^1]);
         // The refused request never answered, so it is not a model call the step paid for.
         Assert.Equal(2, attempt.ModelCalls);
+    }
+
+    [Fact]
+    public async Task Sends_the_wind_down_notice_once_when_the_turn_that_carried_it_is_shrunk_and_sent_again()
+    {
+        var loop = new FakeLoopModel(call =>
+            call.Turn == 1 ? throw Refusal() : ModelResponses.Done("passed", "read the rows")
+        );
+
+        var attempt = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/big");
+                await ctx.Agent.ActAsync("read the big output", new ActOptions { MaxModelCalls = 5 });
+            },
+            BigScreen(),
+            loop.Model
+        );
+
+        Assert.Null(attempt.Error);
+        Assert.Equal(2, loop.Calls.Count);
+        Assert.Contains("Only 5 turns remain", loop.Calls[0].LastPrompt, StringComparison.Ordinal);
+        Assert.Contains("Only 5 turns remain", loop.Calls[1].LastPrompt, StringComparison.Ordinal);
+        Assert.Equal(loop.Calls[0].UserMessages, loop.Calls[1].UserMessages);
     }
 
     /// <summary>
