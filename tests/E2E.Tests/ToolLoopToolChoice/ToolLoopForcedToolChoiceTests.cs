@@ -95,6 +95,30 @@ public sealed class ToolLoopForcedToolChoiceTests
     }
 
     [Fact]
+    public async Task Sends_the_wind_down_notice_once_when_the_turn_that_carried_it_is_asked_again()
+    {
+        var loop = new FakeLoopModel(RefusingForcedChoice(_ => Done()));
+
+        var attempt = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/start");
+                await ctx.Agent.ActAsync("do the thing", new ActOptions { MaxModelCalls = 5 });
+            },
+            Page(),
+            loop.Model
+        );
+
+        Assert.Null(attempt.Error);
+        Assert.Equal(2, loop.Calls.Count);
+        // Five turns left on the first turn: the notice rides on it, and the re-sent request is that same request, not one with a
+        // second notice.
+        Assert.Contains("Only 5 turns remain", loop.Calls[0].LastPrompt, StringComparison.Ordinal);
+        Assert.Contains("Only 5 turns remain", loop.Calls[1].LastPrompt, StringComparison.Ordinal);
+        Assert.Equal(loop.Calls[0].UserMessages, loop.Calls[1].UserMessages);
+    }
+
+    [Fact]
     public async Task Asks_again_when_a_turn_comes_back_as_prose_without_a_tool_call()
     {
         var loop = new FakeLoopModel(

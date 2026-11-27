@@ -344,6 +344,8 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         string? noticed = null;
         var shrunkOnce = false;
         var noticedLowClock = false;
+        // Upstream's LoopRun.noticedWindDown: a turn asked again (a refused forced choice, an overflow) resends the request that already carries the notice.
+        var noticedWindDown = false;
 
         // The waits already warned in this step, by key: other notices in between do not make a wait warned again.
         var noticedWaits = new HashSet<string>(StringComparer.Ordinal);
@@ -522,8 +524,9 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 }
             }
 
-            if (turnsLeft == WindDownTurns && !stopped)
+            if (turnsLeft == WindDownTurns && !stopped && !noticedWindDown)
             {
+                noticedWindDown = true;
                 turns.Note(
                     "before turn "
                         + turns.Next.ToString(CultureInfo.InvariantCulture)
