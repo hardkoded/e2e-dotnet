@@ -421,7 +421,7 @@ public sealed class E2EConfig
     /// <see cref="WithTarget(string, IEngine)"/> for an engine handle (upstream's <c>engine</c> of a target, <c>defineEngine(...)</c> or
     /// <c>connectEngine(...)</c>). Config resolution serves it through <see cref="E2E.Engine.Protocol.ProtocolClient.ProtocolEngine"/>, so a
     /// connected engine stays as declared. The runner, <c>E2EFixture</c>, <c>E2EHost.OpenAsync</c>, explore, and mcp do not run a handle target
-    /// yet: they refuse it with <c>INVALID_CONFIG</c>. The target's platform is the handle's.
+    /// yet: they refuse it with <c>INVALID_CONFIG</c>. The target's platform is the handle's; a handle that declares none keeps the platform of the existing target of that name, or takes <paramref name="name"/> for a new target.
     /// </summary>
     public E2EConfig WithTarget(string name, EngineHandle engine)
     {
