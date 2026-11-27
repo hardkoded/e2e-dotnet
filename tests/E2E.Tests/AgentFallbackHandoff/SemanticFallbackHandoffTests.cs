@@ -69,6 +69,52 @@ public sealed class SemanticFallbackHandoffTests
     }
 
     [Fact]
+    public async Task Takes_no_cache_capture_on_a_read_only_miss_and_the_first_look_settles()
+    {
+        var captures = 0;
+        var engine = new FallbackEngine
+        {
+            Observe = (_, _, _) =>
+            {
+                captures += 1;
+                // The previous step's page changes on each of its first three captures, then holds still.
+                var name = captures <= 3 ? $"Loading {captures}" : "Save";
+                return Task.FromResult(
+                    FallbackFixtures.TreeOf(
+                        new SemanticNode
+                        {
+                            Ref = "n",
+                            Role = "button",
+                            Name = name,
+                        }
+                    )
+                );
+            },
+        };
+        var executor = new TestExecutor("first-look-executor", async (context, token) =>
+        {
+            Assert.Equal(0, captures);
+            var observation = await context.ObserveAsync(null, token);
+            Assert.Contains("Save", observation.Text, StringComparison.Ordinal);
+            Assert.DoesNotContain("Loading", observation.Text, StringComparison.Ordinal);
+            return Passed("read the settled screen");
+        });
+
+        var outcome = await FallbackRun.ActAsync(
+            new FallbackSetup
+            {
+                Engine = engine,
+                Executor = executor,
+                CacheMode = CacheMode.ReadOnly,
+            }
+        );
+
+        Assert.Null(outcome.Error);
+        Assert.True(outcome.ActPassed);
+        Assert.Equal("missed", outcome.ActCache?.Mode);
+    }
+
+    [Fact]
     public async Task Partial_Types_at_a_point_from_the_opening_fallback_screenshot()
     {
         var captures = 0;

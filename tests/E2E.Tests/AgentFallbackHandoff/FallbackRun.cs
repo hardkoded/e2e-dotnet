@@ -23,6 +23,9 @@ internal sealed class FallbackSetup
     /// <summary>Upstream's <c>cache: 'off'</c> is false.</summary>
     public bool CacheEnabled { get; init; } = true;
 
+    /// <summary>The replay cache's mode. Upstream's <c>cache: 'read-only'</c> is <see cref="CacheMode.ReadOnly"/>.</summary>
+    public CacheMode CacheMode { get; init; } = CacheMode.ReadWrite;
+
     /// <summary>The engine's action timeout. Upstream's <c>actionTimeout</c>, which the default is when unset.</summary>
     public TimeSpan? ActionTimeout { get; init; }
 }
@@ -78,7 +81,7 @@ internal static class FallbackRun
                 BaseUrl = "https://fixture.test",
                 Cache = setup.Cache ?? new FileStepCache(directory),
                 CacheEnabled = setup.CacheEnabled,
-                CacheMode = CacheMode.ReadWrite,
+                CacheMode = setup.CacheMode,
                 TestTitle = "semantic fallback handoff",
                 ActionTimeout = setup.ActionTimeout ?? TimeSpan.FromSeconds(5),
                 AssertionTimeout = TimeSpan.FromSeconds(4),
