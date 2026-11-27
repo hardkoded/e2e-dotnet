@@ -212,7 +212,7 @@ public interface IBrowserSession : IEngineSession
     /// Runs one <c>browser.clock</c> call on the attempt's context, for every tab and frame, and logs it for a context that replaces
     /// this one. A session that does not override it fails with <c>UNSUPPORTED_CAPABILITY</c>.
     /// </summary>
-    internal Task ClockAsync(ClockCall call, CancellationToken cancellationToken) =>
+    Task ClockAsync(ClockCall call, CancellationToken cancellationToken) =>
         Task.FromException(
             new EngineException("UNSUPPORTED_CAPABILITY", "browser.clock is not supported by this engine.")
         );

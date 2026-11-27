@@ -97,7 +97,7 @@ public sealed record BrowserClockInstallOptions
 }
 
 /// <summary>The clock calls a test makes (upstream's <c>ClockCall['method']</c>).</summary>
-internal enum ClockMethod
+public enum ClockMethod
 {
     Install,
     PauseAt,
@@ -109,10 +109,10 @@ internal enum ClockMethod
 }
 
 /// <summary>One clock call with its argument resolved to milliseconds, as a replacement context replays it; a call that failed after Playwright logged it counts too (upstream's <c>ClockCall</c>).</summary>
-internal readonly record struct ClockCall(ClockMethod Method, long Ms = 0)
+public readonly record struct ClockCall(ClockMethod Method, long Ms = 0)
 {
     /// <summary>The method as the API names it, as in <c>browser.clock.pauseAt</c>.</summary>
-    internal string Name =>
+    public string Name =>
         Method switch
         {
             ClockMethod.Install => "install",
