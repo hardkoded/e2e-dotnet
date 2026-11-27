@@ -231,7 +231,7 @@ Every row works today. For an API that is not here, check [What e2e doesn't have
 | `Page.EvaluateAsync(fn, arg)` | `Browser.EvaluateAsync<T>(expression, arg)`; JSON in and out, no handles |
 | `Page.AddInitScriptAsync(script)`, `Context.AddInitScriptAsync()` | `Browser.AddInitScriptAsync(source)`, or `WebEngineOptions.InitScripts` for every test |
 | `Page.EmulateMediaAsync(new() { ColorScheme, ReducedMotion })` | `Browser.EmulateMediaAsync(new WebMedia { ... })`, for every open tab and every tab opened after it; `Media`, `ForcedColors`, and `Contrast` are not supported |
-| `Context.AddCookiesAsync()`, `Context.CookiesAsync()` | `Browser.SetCookiesAsync()`, `Browser.CookiesAsync()` |
+| `Context.AddCookiesAsync()`, `Context.CookiesAsync(urls)` | `Browser.SetCookiesAsync()`, `Browser.CookiesAsync(urls)` |
 | `Context.ClearCookiesAsync(options)` | `Browser.ClearCookiesAsync(new CookieFilter { ... })` |
 
 ### Test structure

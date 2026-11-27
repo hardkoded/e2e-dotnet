@@ -577,7 +577,9 @@ close to its screen as the app allows:
   (NUnit `[SetUp]`, which runs after the base class's own, so `Browser` is ready; xUnit v3 `InitializeAsync`, which calls
   `await base.InitializeAsync()` first, since the base starts the session):
   request the app's sign-in
-  API with an `HttpClient`, then pass its cookies to `Browser.SetCookiesAsync`. Click through the form only in the
+  API with an `HttpClient`, then pass its cookies to `Browser.SetCookiesAsync`. To call the API as a user the test
+  signed in through the UI, send `Browser.CookiesAsync(url)` in the `Cookie` header: it returns only the cookies the
+  browser would send to that URL, so another site's, such as a sign-in provider's, stay out. Click through the form only in the
   test that covers it ("Sign-in").
 - Open the screen by its path, `App.OpenAsync("/projects/42/settings")`, not
   the home page and three taps. `navigate` over MCP takes the same path.
@@ -762,7 +764,10 @@ misses.
   URL-matching them. A `RouteMatcher` with a missing or invalid part
   (no `Method`, no `Url`, a `Method` that is not an HTTP method, both `Url`
   and `UrlRegex`) is `INVALID_ARGUMENT`.
-- `CookiesAsync()`, `SetCookiesAsync([...])`: a target is an http(s) URL,
+- `CookiesAsync(urls?)`: every cookie, or only those a request to one URL
+  (`CookiesAsync(url)`) or a list would carry, by domain, path, and `Secure`;
+  a relative URL resolves against the app URL, an empty list returns none.
+- `SetCookiesAsync([...])`: a target is an http(s) URL,
   relative to the base URL, or a domain. `SetCookiesAsync` refuses a cookie
   URL that is not http(s), `about:blank` included, with `POLICY_DENIED`.
 - `ClearCookiesAsync(new CookieFilter { Name, Domain, Path })`: remove the cookies
