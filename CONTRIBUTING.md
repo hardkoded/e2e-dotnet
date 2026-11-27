@@ -22,6 +22,8 @@ This repo is a community .NET port of [tester-army/e2e](https://github.com/teste
 | `src/E2E.XUnit.V3` | xUnit v3 fixture `E2ETest` |
 | `src/E2E.TUnit` | TUnit fixture `E2ETest`. No upstream counterpart |
 | `src/E2E.Mobile.TUnit` | `MobileAppTest` for TUnit, packed as `E2E.Mobile.TUnit`. No upstream counterpart |
+| `src/E2E.Desktop` | macOS desktop engine: the port of upstream's `packages/desktop`, with `MacOsDriver` (the port of its `crates/e2e-desktop-napi` Rust crate) under `MacOs/`, packed as `E2E.Desktop` |
+| `src/E2E.Desktop.NUnit` | `DesktopTest` for NUnit, packed as `E2E.Desktop.NUnit`. `E2E.Desktop.XUnit.V3` and `E2E.Desktop.TUnit` are its twins. No upstream counterpart |
 | `src/E2E.WinApp.TUnit` | TUnit `WinAppTest`, the twin of `E2E.WinApp.XUnit.V3`. No upstream counterpart |
 | `tests/E2E.Tests` | Unit tests. No API key. The Chromium tests install the browser on the first launch |
 | `tests/E2E.Cli.Tests` | Tests of the `e2e` tool: the bundled skill, the MCP server, its sessions, and its tools. The server tests start `e2e mcp` as a child process, open a session on a fixture app in Chromium, and talk to it over stdio. No API key |
@@ -35,6 +37,7 @@ This repo is a community .NET port of [tester-army/e2e](https://github.com/teste
 | `tests/E2E.TestMu.Mobile.Tests` | Unit tests of `src/E2E.TestMu.Mobile`, with a fake Appium hub. No device, no account, no key |
 | `tests/E2E.Mobile.DevFlow.Tests` | Unit tests of `src/E2E.Mobile.DevFlow`, with a fake DevFlow agent and broker. No device, no app |
 | `tests/E2E.TestMu.Tests` | Unit tests of `src/E2E.TestMu`: the endpoint, the capabilities, and the credentials. No API key. One live test attaches to the real grid and is skipped unless `LT_USERNAME` and `LT_ACCESS_KEY` are set. All are .NET-only |
+| `tests/E2E.Desktop.Tests` | Unit tests of `src/E2E.Desktop`, with snapshots captured from a real macOS app and a scripted driver whose launches start real stand-in processes. No Mac, no API key. Ported from upstream's `packages/desktop/tests`. The tests that need a Mac are skipped elsewhere |
 | `tests/E2E.Mobile.Tests` | Unit tests of `src/E2E.Mobile`, with snapshots captured from a real iOS simulator and Android emulator, and a scripted agent-device client. No device, no API key |
 | `tests/E2E.Agent.Tests` | Agent tests against a real model, ported from upstream's `apps/testbed/tests-agent`. They serve upstream's playground pages on a loopback port. All are in the `RealModel` category and need a GitHub Copilot login |
 | `skills/e2e-dotnet` | The agent skill bundled in `E2E.Cli` and printed by `e2e guide` |
@@ -44,6 +47,7 @@ This repo is a community .NET port of [tester-army/e2e](https://github.com/teste
 | `samples/E2E.Sample` | NUnit tests against the live Dariten demo. The agent test needs a GitHub Copilot login (`dotnet run --project src/E2E.Cli -- login github-copilot`) |
 | `samples/E2E.XUnit.V3.Sample` | The `samples/E2E.Sample` tests, written for xUnit v3 |
 | `samples/E2E.TUnit.Sample` | The `samples/E2E.Sample` tests, written for TUnit |
+| `samples/DesktopCalculator` | Tests that drive the macOS Calculator with `DesktopEngine`. They need a Mac with Accessibility permission and skip elsewhere; the agent test is `RealModel`. The project builds in `E2E.slnx` |
 | `samples/MobileApp` | A small .NET MAUI app (iOS and Android) for the mobile sample. It is not in `E2E.slnx`: building it needs the MAUI workload, and CI has none. Build it with `dotnet build samples/MobileApp -f net11.0-ios -r iossimulator-arm64` |
 | `samples/MobileApp.E2ETests` | Tests that drive `samples/MobileApp` on a simulator or emulator with `MobileEngine`. All are `RealModel` and `Device`, and need a device and Node 22.12 or newer. Leave them out of a local real-model run with `--filter "TestCategory=RealModel&TestCategory!=Device"`. The project builds in `E2E.slnx` |
 

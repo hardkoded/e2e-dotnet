@@ -86,6 +86,12 @@ public sealed class ExploreOptions
     internal Func<TargetConfig, IEngine>? CreateWindowsEngine { get; init; }
 
     /// <summary>
+    /// Builds the engine of a <c>macos</c> target when <see cref="Engine"/> is not set. .NET-only: <c>E2E</c> cannot reference
+    /// <c>E2E.Desktop</c>, so the host (<c>e2e explore</c>) supplies it.
+    /// </summary>
+    internal Func<TargetConfig, IEngine>? CreateMacosEngine { get; init; }
+
+    /// <summary>
     /// The accounts the explorer can sign in with, by name. Each travels into every step as the username and a password secret
     /// named <c>&lt;name&gt;.password</c>, which the explorer fills with <c>type_secret</c>; the password never reaches a model.
     /// The config's <c>credentials</c> are always accounts, as upstream carries them; this adds accounts the config does not declare
@@ -276,7 +282,8 @@ public static class Explore
                 target,
                 options.Headed ? false : null,
                 options.CreateMobileEngine,
-                options.CreateWindowsEngine
+                options.CreateWindowsEngine,
+                options.CreateMacosEngine
             );
         var trace = options.Trace is { } traceFlag
             ? new ResolvedRecording(traceFlag, RecordingSource.Run)

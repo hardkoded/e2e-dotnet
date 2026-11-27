@@ -198,6 +198,7 @@ internal static partial class ExploreCommand
             Headed = parsed.Headed,
             CreateMobileEngine = DeviceTargets.Create,
             CreateWindowsEngine = WindowsTargets.Create,
+            CreateMacosEngine = MacosTargets.Create,
             Output = parsed.Output,
             Debug = parsed.Debug,
             AiTrace = parsed.AiTrace,

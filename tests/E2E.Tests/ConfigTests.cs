@@ -311,6 +311,22 @@ public sealed class ConfigTests
         Assert.Null(config.Target.App.Url);
     }
 
+    /// <summary>.NET-only: upstream's config holds an engine handle, <c>desktop()</c>; the port's names the <c>macos</c> platform.</summary>
+    [Fact]
+    public void A_macos_target_names_its_app_by_bundle_id_or_app_bundle_and_takes_launch_arguments()
+    {
+        var config = Parse(
+            """{ "targets": [{ "platform": "macos", "app": { "bundleId": "com.example.app", "appPath": "build/Example.app", "launchArguments": { "AppleLocale": "fr_FR" } } }] }"""
+        );
+
+        Assert.Equal("macos", config.Target.Platform);
+        Assert.Equal("macos", config.Target.Name);
+        Assert.Equal("com.example.app", config.Target.App.BundleId);
+        Assert.Equal("build/Example.app", config.Target.App.AppPath);
+        Assert.NotNull(config.Target.App.LaunchArgumentValues);
+        Assert.Null(config.Target.App.Url);
+    }
+
     [Fact]
     public void Secrets_read_the_override_variable_first()
     {

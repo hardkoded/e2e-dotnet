@@ -120,12 +120,12 @@ public sealed class E2EConfig
         "launchArguments",
     ];
 
-    // A Windows app has no permissions to grant.
+    // A Windows or macOS desktop app has no permissions to grant.
     private static readonly string[] UnsupportedAppKeys = ["permissions"];
 
     private static readonly string[] Environments = ["test", "staging", "production"];
 
-    private static readonly string[] Platforms = ["web", "ios", "android", "windows"];
+    private static readonly string[] Platforms = ["web", "ios", "android", "windows", "macos"];
 
     private static readonly string[] AgentKeys =
     [
@@ -884,13 +884,13 @@ public sealed class E2EConfig
                 throw Invalid(at + ".app must be an object");
             }
 
-            // A pinned-app target (a device or a Windows app) names its app by bundle id and build path, a web target by URL.
+            // A pinned-app target (a device or a desktop app) names its app by bundle id and build path, a web target by URL.
             var pinned = platform != "web";
             CheckKeys(
                 rawApp,
                 at + ".app",
                 !pinned ? AppKeys
-                    : platform == "windows" ? WindowsAppKeys
+                    : platform is "windows" or "macos" ? WindowsAppKeys
                     : MobileAppKeys,
                 UnsupportedAppKeys,
                 null

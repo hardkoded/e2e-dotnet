@@ -1,0 +1,100 @@
+---
+title: macOS
+description: Test a native macOS app through its accessibility tree with DesktopEngine.
+---
+
+`DesktopEngine` runs tests on native macOS apps. It reads and drives the app through the macOS accessibility tree, with a driver that runs in the test process. Tests use the same `Screen`, `Expect`, and agent APIs as web tests. It is the port of upstream's `@e2e-dev/desktop`.
+
+The engine is a prototype, and it runs on macOS 13 or later only. A config with a `macos` target still loads on Windows and Linux, and its other targets run there when you pick them with `Target`. A run that includes the `macos` target stops with `UNSUPPORTED_CAPABILITY` before any test starts.
+
+## Prerequisites
+
+- A Mac with macOS 13 or later and the .NET 10 or 11 SDK. You don't need Rust or Xcode.
+- Two permissions for the app that starts the tests (your terminal, your IDE, or your CI agent), in **System Settings > Privacy & Security**:
+  - **Accessibility**, to read and drive the app.
+  - **Screen Recording**, for screenshots.
+
+## 1. Create the test project
+
+```bash
+dotnet new nunit -n MyApp.E2ETests
+cd MyApp.E2ETests
+dotnet add package E2E.Desktop.NUnit
+```
+
+For [xUnit v3](/testing-frameworks/xunit/) or [TUnit](/testing-frameworks/tunit/), create the project as that page says, then add `E2E.Desktop.XUnit.V3` or `E2E.Desktop.TUnit` in place of `E2E.Desktop.NUnit`.
+
+Check your setup with `e2e doctor`. It checks the driver, both permissions, and the `appPath` build.
+
+## 2. Point at your app
+
+Set the target's `app.appPath` to a built `.app` bundle. Or set `app.bundleId` to an installed app's bundle id or name, such as `com.apple.calculator`. With both, the `appPath` build is launched, and its bundle id must be `bundleId`.
+
+```json
+{
+  "targets": [
+    {
+      "name": "mac",
+      "platform": "macos",
+      "app": {
+        "appPath": "build/MyApp.app",
+        "launchArguments": { "AppleLanguages": ["fr"] }
+      }
+    }
+  ]
+}
+```
+
+`app.launchArguments` go to every launch. An object entry becomes `-name value`, as on iOS, so `{ "AppleLanguages": ["fr"] }` opens the app in French. In code, that is `LaunchArgumentValues`.
+
+The launched app gets only a minimal environment (`HOME`, `USER`, `LOGNAME`, `SHELL`, `PATH`, `TMPDIR`, `LANG`, `LC_*`, `__CF_USER_TEXT_ENCODING`), so your secrets, model keys, and CI tokens never leak into it.
+
+## 3. Write a test
+
+Derive from `DesktopTest`. By default, `App.OpenAsync()` leaves the app in the background. Return `new DesktopOptions { Headed = true }` from `CreateDesktopOptions()` for apps that need to come forward before they show a window. `e2e run --headed` also launches the app in the foreground, but only `Headed` turns on the physical input described below. When the engine launched the app before, it quits that copy first. A copy you opened yourself is left alone, and the engine never reads or drives it. Every test ends with the app quit, and no window the app saved at its last quit comes back.
+
+```csharp
+using E2E.Desktop.NUnit;
+
+public sealed class SignInTests : DesktopTest
+{
+    [Test]
+    public async Task Signs_in()
+    {
+        await App.OpenAsync();
+        await Screen.GetByRole("textbox", new() { Name = "Username" }).FillAsync("ada");
+        await Screen.GetByRole("textbox", new() { Name = "Password" }).FillAsync("secret");
+        await Screen.GetByRole("combobox", new() { Name = "Plan" }).SelectOptionAsync("Team");
+        await Screen.GetByRole("button", new() { Name = "Sign in" }).TapAsync();
+        await Expect.That(Screen.GetByTestId("status")).ToContainTextAsync("Signed in as ada");
+    }
+}
+```
+
+Roles use the names the web uses: `textbox`, `checkbox`, `combobox`, `button`. The tree lists static text as `text`, which is not a `GetByRole` role: find it with `GetByText`. A control's name is the one macOS accessibility gives it: its title, or its accessibility label. A button's title is its name and its text, so `GetByText("Sign in")` finds the button as well as any static text that reads the same; `GetByRole("button", ...)` finds only the button. `GetByPlaceholder` is not supported: the engine names a field with no label by its placeholder, so find that field with `GetByRole("textbox", ...)`. `GetByTestId` finds the control's `AXIdentifier`.
+
+The `Desktop` fixture lists the app's windows (`WindowsAsync()`), picks the one `Screen` reads (`UseWindowAsync(window)`), presses a key into the app's window for an app with no control that takes keyboard focus (`PressAsync("ControlOrMeta+2")`), and quits the app (`CloseAppAsync()`).
+
+## What differs from the web
+
+| Area | On a macOS target |
+| --- | --- |
+| Input | The app runs in the background. Actions use the macOS Accessibility API and keys go into the app's own event queue, so your mouse and keyboard stay free. Apps that don't open a window in the background (like document-based apps) need `Headed` or `--headed`. |
+| Physical input | `DoubleTap`, `Hover`, and taps at a point require `Headed`, which brings the app forward and uses the real pointer. Keys and typing then use the real keyboard. A click is refused when another window, or a control inside the element, is under the pointer. |
+| Keys | `Press` and typing send keys only to the focused control in the app's key window. Named keys, letters, digits, and ``, . / ; ' [ ] \ - = ` `` are supported (other characters like `!` or `é` are rejected), and system shortcuts like `ControlOrMeta+q` are blocked: use `Desktop.CloseAppAsync()`. Without `Headed`, a `ControlOrMeta` shortcut reaches only the app's menu bar. |
+| Select | `SelectOptionAsync` matches by option label, not index. For editable combo boxes, use `FillAsync()` instead. |
+| Windows | `Screen` reads the window picked with `Desktop.UseWindowAsync()`, otherwise the focused window, otherwise the app's main window, otherwise the first visible window. Sheets and open menus are included; window chrome is excluded. Minimized windows and rows scrolled out of their list read as hidden. |
+| Reading | If the screen is locked, the window tree is deeper than `MaxDepth`, or the window holds more than the 8,000 elements a read takes, locators keep retrying until timeout, and screenshots of that window are refused. `App.OpenAsync()` fails on a locked screen. |
+| Not supported | The menu bar, web content (use `WebEngine`), `App.ClearStateAsync()`, `App.BackAsync()`, video, tap modifiers, `GetByPlaceholder`, `ToBeInViewportAsync`, `BlurAsync`, `LongPressAsync`, `DragToAsync`, `SetInputFilesAsync`, and `SelectOptionAsync` by index. One worker per desktop target. |
+| Secrets | Password fields never expose their value and are painted black in screenshots. If a screenshot can't cover a password field, it fails instead of saving. |
+
+## Options
+
+| `DesktopOptions` | Type | Default |
+| --- | --- | --- |
+| `Snapshot` | `DesktopSnapshotMode` (`Full` or `Interactive`) | `Full` |
+| `Headed` | `bool` | `false` |
+| `Settle`, `SettleMilliseconds` | `bool`, `int` | `true`, `150` |
+| `MaxDepth` | `int` | `24` |
+
+`Interactive` makes the agent's observations read only controls, without static text; locators and `Expect` read the whole window either way. `SettleMilliseconds` is how long the engine waits after an agent action before the agent reads the screen. `MaxDepth` is how many levels of a window a read goes down, from 1 to 50; raise it when locators on a deeply nested app time out on a read only in part.

@@ -100,13 +100,7 @@ public sealed record Envelope<T>
 }
 
 /// <summary>The window a point was taken in, which must still take a click at it. Port of upstream's <c>PointerTarget</c>.</summary>
-public sealed record PointerTarget(
-    int Pid,
-    string WindowId,
-    bool Sheet,
-    string? SheetId = null,
-    bool? Content = null
-);
+public sealed record PointerTarget(int Pid, string WindowId, bool Sheet, string? SheetId = null, bool? Content = null);
 
 /// <summary>One window of a process, as <c>listWindows</c> answers. Port of upstream's <c>RawWindow</c>.</summary>
 public sealed record RawWindow
@@ -182,7 +176,7 @@ public sealed record ActRequest
 
     public string? Direction { get; init; }
 
-    public int? Pages { get; init; }
+    public double? Pages { get; init; }
 
     public bool? Physical { get; init; }
 

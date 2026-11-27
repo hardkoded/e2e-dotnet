@@ -87,6 +87,35 @@ public sealed class TargetEngineChoiceTests
         Assert.Equal("windows", engine.Platform);
     }
 
+    [Fact]
+    public void Builds_the_macos_engine_of_the_host_for_a_macos_target_without_asking_for_a_device_engine()
+    {
+        var target = Target("macos");
+        TargetConfig? seen = null;
+        var engine = TargetEngines.Create(
+            target,
+            headless: null,
+            mobile: _ => throw new InvalidOperationException("no device engine for macos"),
+            macos: given =>
+            {
+                seen = given;
+                return new DeviceEngine("macos");
+            }
+        );
+        Assert.Same(target, seen);
+        Assert.Equal("macos", engine.Platform);
+    }
+
+    [Fact]
+    public void Refuses_a_macos_target_when_the_host_has_no_macos_engine()
+    {
+        var error = Assert.Throws<ConfigurationException>(() =>
+            TargetEngines.Create(Target("macos"), headless: null, mobile: _ => new DeviceEngine("ios"), macos: null)
+        );
+        Assert.Equal("INVALID_CONFIG", error.Code);
+        Assert.Contains("has no macOS desktop engine", error.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>.NET-only: upstream's <c>launchesPinnedApp</c> reads the engine handle of the target; the port reads the engine it built.</summary>
     [Fact]
     public void Launches_a_pinned_app_only_for_a_target_without_a_url_on_an_engine_that_pins_one()
@@ -129,7 +158,7 @@ public sealed class TargetEngineChoiceTests
     }
 
     [Fact]
-    public void Refuses_a_platform_that_is_not_web_ios_android_or_windows()
+    public void Refuses_a_platform_that_is_not_web_ios_android_windows_or_macos()
     {
         var error = Assert.Throws<ConfigurationException>(() =>
             TargetEngines.Create(
@@ -140,7 +169,11 @@ public sealed class TargetEngineChoiceTests
             )
         );
         Assert.Equal("INVALID_CONFIG", error.Code);
-        Assert.Contains("the platform must be web, ios, android, or windows", error.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "the platform must be web, ios, android, windows, or macos",
+            error.Message,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
