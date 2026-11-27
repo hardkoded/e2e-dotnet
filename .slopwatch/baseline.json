@@ -1220,10 +1220,10 @@
       "baselinedAt": "2026-11-18T15:41:48.2142414+00:00"
     },
     {
-      "hash": "c18bf5559aad0348",
+      "hash": "6066ffff51ac963c",
       "ruleId": "SW003",
       "filePath": "src/E2E.Mobile/DeviceSession.cs",
-      "lineNumber": 1184,
+      "lineNumber": 1211,
       "codeSnippet": "catch (AggregateException)\n                        {\n                            // A callback of the client's own registration threw; the caller is leaving either way.\n                        }",
       "message": "Empty catch block swallows exceptions without handling",
       "baselinedAt": "2026-11-18T15:41:48.2142459+00:00"
