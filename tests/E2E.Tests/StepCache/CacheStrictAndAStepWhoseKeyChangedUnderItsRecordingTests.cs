@@ -55,6 +55,26 @@ public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
     }
 
     [Fact]
+    public async Task Lists_the_store_again_on_the_next_miss_after_a_listing_fails()
+    {
+        var context = Rekeyed();
+        var store = (FileStepCache)context.Store;
+        var calls = 0;
+        var listing = store.EnumerateEntryFiles;
+        store.EnumerateEntryFiles = directory =>
+        {
+            calls++;
+            return calls == 1 ? throw new IOException("too many open files") : listing(directory);
+        };
+
+        Assert.Null(await MakeSession(context, MakeHost(["/"])).BeginAsync());
+        var error = await Assert.ThrowsAsync<AgentException>(MakeSession(context, MakeHost(["/"])).BeginAsync);
+
+        Assert.Equal("REPLAY_STALE", error.Code);
+        Assert.Equal(2, calls);
+    }
+
+    [Fact]
     public async Task Runs_live_against_an_entry_recorded_before_the_occurrence_fields_were_which_could_be_another_call_of_the_instruction()
     {
         var session = MakeSession(
