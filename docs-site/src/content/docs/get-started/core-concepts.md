@@ -28,6 +28,39 @@ public sealed class BillingTests : E2ETest
 }
 ```
 
+Each test checks one behavior with one goal. Arrange the starting state, act toward that goal, then assert the result at the end. Name a repeated locator or value with a `const` or a local. Share setup with `[SetUp]`, a constructor, or a helper method, a function for a shared action, or a page object when several tests drive the same screen. Keep the outcome checks visible in the test. Keep a short, single-use `ActAsync` or `AssertAsync` instruction inline, and name a long one with a local. Pass test data in `Params`.
+
+Await each agent call, screen call, and `Expect`.
+
+## Goals
+
+`Agent.ActAsync` takes an instruction and performs the actions it needs. Give it the steps that lead to the test's goal. Use the screen's field and button names and specify the order when it matters. For example, completing checkout can mean filling a shipping form, choosing a delivery option, and placing the order.
+
+Start with one call for the behavior under test. Split at a meaningful transition when the next step needs a known state (such as the payment page of a long checkout), when a long flow risks `MaxSteps` or `MaxModelCalls` budgets, or when a middle failure needs its own step boundary. Explain why the split is needed and wait for the intermediate screen state before continuing. Each call has its own budgets and can replay from its own recording.
+
+```csharp
+[Test]
+public async Task Places_an_order_with_a_saved_card()
+{
+    await App.OpenAsync("/checkout");
+
+    // The saved card can load after the Payment heading appears.
+    await Agent.ActAsync(
+        "Fill the Shipping address with {address}, then choose Continue to payment.",
+        new ActOptions { Params = new Dictionary<string, object?> { ["address"] = "12 Market Street" } }
+    );
+    await Screen.GetByRole("radio", "Test card").WaitForAsync();
+    await Agent.ActAsync("Select the saved Test card and choose Place order.");
+
+    await Expect.That(Screen.GetByText("Order confirmed")).ToBeVisibleAsync();
+}
+```
+
+- When setup uses `ActAsync`, end the arrange block with a wait for the starting state. Check the test's outcome in the assert block.
+- A later passing wait or check confirms an action for the [replay cache](/features/caching/).
+- Use the words that the screen shows.
+- Give test data in `Params`. For a password, give a `Secret`; the model never gets its value as text.
+
 `E2ETest` starts a `WebEngine` session for each `[Test]`. Override `CreateEngine` with a `DocumentEngine` when the test should not open a browser, or with a `WebEngine` whose `Connect` attaches to a remote Chromium over CDP (see [Recovering a CDP transport](/features/browser/#recovering-a-cdp-transport)), or whose `Browser` leases hosted browsers (see [Hosted browsers](/features/browser/#hosted-browsers)). An `act` that a later `assert`, `waitFor`, or locator `Expect` verifies is recorded. The next run replays those actions with no model calls until the screen no longer matches. See [Self-healing tests](/features/caching/#self-healing-tests). In `read-write` mode, when the test ends, verified acts are written and unverified acts that recorded or replayed are evicted, whether it passed, failed, or was skipped. A model outage leaves existing entries in place, unless a failure on the app implicated them too, and an `E2ETest` run whose cancellation token was cancelled writes and evicts nothing. A `Standalone` attempt that is disposed without completion still writes and evicts, even when its token was cancelled. `read-only` and `cache.strict` never write or evict. `[Retry]` runs the later attempts live, and they still record. Tests that never call the agent need no model. A judgment (`AssertAsync`, `WaitForAsync`, `ExtractAsync`) reads the text snapshot of the screen and where it is: the path on the app, or the whole address off it. The address is evidence only for a claim about the URL or route, and a `WaitForAsync` judges again when the address changes, unless `Vision = VisionMode.Only` withholds the tree. Pass `Vision = VisionMode.On` to show it a masked screenshot too, or `VisionMode.Only` for the screenshot alone, when the answer is in pixels. After a test fills a `Secret`, no pixels reach a model. Screenshots kept as artifacts stay on and mask secure fields only.
 
 ### xUnit v3

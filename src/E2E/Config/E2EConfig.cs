@@ -2271,6 +2271,12 @@ public sealed class AgentConfig
     /// <summary>The executor <see cref="E2EConfig.WithExecutor"/> gave, or null for the built-in agent. The config file cannot name one.</summary>
     public IStepExecutor? Executor => _executor;
 
+    /// <summary>
+    /// Whether a model is configured, by id or by an instance, without creating it (upstream's <c>agent.model !== undefined</c>). .NET-only: the
+    /// model is created from its id, which can throw for a provider that lacks its settings.
+    /// </summary>
+    internal bool HasModel => _modelInstance is not null || Model is not null;
+
     /// <summary>The model for <see cref="Model"/>, or null when no model is set. A model instance <see cref="E2EConfig.WithModel"/> gave wins.</summary>
     public IAgentModel? CreateModel() => _modelInstance ?? Create(Model);
 

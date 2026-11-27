@@ -46,6 +46,33 @@ public sealed class EnvCredentialStoreTests
     }
 
     [Fact]
+    public async Task Refuses_to_replace_a_login_the_variable_holds()
+    {
+        var creds = new OAuthCredentials
+        {
+            Access = "a",
+            Refresh = "r",
+            Expires = 123,
+        };
+        var store = new EnvironmentCredentialStore(
+            """{ "github-copilot": { "access": "a", "refresh": "r", "expires": 123 } }"""
+        );
+        var error = await Assert.ThrowsAsync<OAuthException>(() =>
+            store.ReplaceAsync(
+                "github-copilot",
+                creds,
+                new OAuthCredentials
+                {
+                    Access = "renewed",
+                    Refresh = "r",
+                    Expires = 123,
+                }
+            )
+        );
+        Assert.Equal(OAuthException.Misconfigured, error.Code);
+    }
+
+    [Fact]
     public async Task Reads_a_login_the_variable_holds_under_a_legacy_key()
     {
         var store = new EnvironmentCredentialStore(

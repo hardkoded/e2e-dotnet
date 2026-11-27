@@ -43,6 +43,12 @@ internal sealed class TestLineOptions
 
     /// <summary>The full name of the test the session ran before it went live: the lines carry on from where it stopped. Upstream's <c>testRan</c> (<c>file:line</c> there).</summary>
     public string? TestRan { get; init; }
+
+    /// <summary>Whether the session is attached to a held running test (<c>Screen.PauseAsync()</c> or <c>--step</c>). Upstream's <c>attached</c>.</summary>
+    public bool? Attached { get; init; }
+
+    /// <summary>Whether the session's agent has a model or custom executor, so tests can call <c>Agent.ActAsync</c>. Upstream's <c>hasAgent</c>.</summary>
+    public bool? HasAgent { get; init; }
 }
 
 /// <summary>
@@ -53,7 +59,7 @@ internal sealed class TestLineOptions
 /// label, placeholder, text, test id) against the live screen, as <c>locate</c> tries one: a locator that matches the target
 /// and nothing else is printed, one that matches its twins too is narrowed (to the nodes that render, under a container, or
 /// by position, in that order), and otherwise the result says why there is no line. The session keeps the lines in order, and
-/// <c>test_lines</c> returns them as a draft test body. Upstream's <c>session-tools/test-lines.ts</c>.
+/// <c>test_lines</c> returns them as a draft test body, lines that continue a resumed test, or lines for a held test's pause point. Upstream's <c>session-tools/test-lines.ts</c>.
 /// </summary>
 internal sealed class SessionTestLines(TestLineOptions options)
 {
@@ -208,10 +214,18 @@ internal sealed class SessionTestLines(TestLineOptions options)
     /// <summary>The read-only <c>test_lines</c> catalog tool.</summary>
     public CatalogTool Tool()
     {
+        var guidance =
+            _options.TestRan is not null
+                ? "Use these lines to continue the existing test where it stopped. Keep the test's outcome checks together at the end."
+            : _options.Attached == true
+                ? "Use these lines at the pause point of the held test. Keep the test's outcome checks together at the end."
+            : "Split the draft into tests, one behavior each. Arrange the starting state, act, then check the outcome at the end. A check of a screen the flow later leaves belongs to its own test. Name a locator a test repeats.";
         return new CatalogTool
         {
             Description =
-                "Every test line this session's actions printed so far, in order, as a draft test body: the Screen.* and App.* calls that repeat each action, with a comment where an action has none. Paste it into a test, then add the assertions.",
+                "Every test line this session's actions printed so far, in order: the Screen.* and App.* calls that repeat each action, with a comment where an action has none. "
+                + guidance
+                + " See topic writing-tests, Structure.",
             InputSchema = JsonSerializer.SerializeToElement(
                 new
                 {
@@ -224,7 +238,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
         };
     }
 
-    /// <summary>The recorded lines as a draft test body.</summary>
+    /// <summary>The recorded lines with placement guidance for a fresh draft, a resumed test, or a held test's pause point.</summary>
     public string Draft()
     {
         if (_entries.Count == 0)
@@ -238,17 +252,30 @@ internal sealed class SessionTestLines(TestLineOptions options)
             + _entries.Count(entry => entry.Line is not null).ToString(CultureInfo.InvariantCulture)
             + " lines):";
 
-        // A session that ran a test holds only what came after it: the test's own lines are in its file.
-        var (lead, place) = _options.TestRan is { } ran
-            ? (
-                "Test lines from this session's actions after test " + ran + " stopped, " + count,
-                "Put them in that test where it stopped, in place of the line that failed or after its last line,"
-            )
-            : ("Draft test body from this session's actions, " + count, "Paste it into a test method,");
-        return string.Join(
-            '\n',
-            [lead, "", .. body, "", place + " and add an Expect after each step that should change the screen."]
-        );
+        var agentGuidance =
+            _options.HasAgent == true
+                ? " Prefer Agent.ActAsync for user flows (keep Screen lines for low-level mechanics under test or a sign-in setup). Give the agent the steps for one test goal, and split into calls when a later step needs a known screen state, risks MaxSteps or MaxModelCalls budgets, or needs a middle step boundary. Wait for the intermediate screen state before continuing."
+                : "";
+
+        // A session that ran a test, or attached to a held one, holds only lines from that point onward (upstream's draft).
+        var (lead, place) =
+            _options.TestRan is { } ran
+                ? (
+                    "Test lines from this session's actions after test " + ran + " stopped, " + count,
+                    "Put them in that test where it stopped, in place of the line that failed or after its last step. Keep the test's checks together at its end, with one that checks its outcome. See topic writing-tests, Structure."
+                )
+            : _options.Attached == true
+                ? (
+                    "Test lines from this session's actions while the test was held, " + count,
+                    "Put them in the held test at the pause point. Keep the test's checks together at its end, with one that checks its outcome. See topic writing-tests, Structure."
+                )
+            : (
+                "Draft test body from this session's actions, " + count,
+                "Split these lines into tests, one behavior each: its arrange lines, the act under test, then its checks together at the end. Every test needs a check of its outcome; add one where none is here. A check of a screen the flow later leaves belongs to its own test. Name a locator a test uses twice."
+                    + agentGuidance
+                    + " See topic writing-tests, Structure."
+            );
+        return string.Join('\n', [lead, "", .. body, "", place]);
     }
 
     /// <summary>

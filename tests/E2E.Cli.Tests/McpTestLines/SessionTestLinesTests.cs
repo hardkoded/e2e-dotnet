@@ -513,7 +513,7 @@ public sealed class SessionTestLinesTests
     [Fact]
     public async Task Records_the_opening_of_the_app_as_App_OpenAsync_and_drafts_the_lines_in_order()
     {
-        var session = new TestLineHarness([Save]);
+        var session = new TestLineHarness([Save], hasAgent: true);
         session.Lines.Opened();
         await session.RunAsync("tap", """{ "target": "n2" }""");
         await session.RunAsync("scroll", """{ "direction": "down" }""");
@@ -526,10 +526,47 @@ public sealed class SessionTestLinesTests
                 "await Screen.GetByRole(\"button\", \"Save\").TapAsync();",
                 "// scroll: no test line: a test action brings its node into view itself",
                 "",
-                "Paste it into a test method, and add an Expect after each step that should change the screen."
+                "Split these lines into tests, one behavior each: its arrange lines, the act under test, then its checks together at the end. Every test needs a check of its outcome; add one where none is here. A check of a screen the flow later leaves belongs to its own test. Name a locator a test uses twice. Prefer Agent.ActAsync for user flows (keep Screen lines for low-level mechanics under test or a sign-in setup). Give the agent the steps for one test goal, and split into calls when a later step needs a known screen state, risks MaxSteps or MaxModelCalls budgets, or needs a middle step boundary. Wait for the intermediate screen state before continuing. See topic writing-tests, Structure."
             ),
             session.Lines.Draft()
         );
+        var description = session.Lines.Tool().Description;
+        Assert.Contains("Split the draft into tests, one behavior each", description, StringComparison.Ordinal);
+        Assert.DoesNotContain("continue the existing test", description, StringComparison.Ordinal);
+        Assert.DoesNotContain("pause point", description, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Drafts_the_lines_while_attached_to_a_held_test_for_its_pause_point()
+    {
+        var session = new TestLineHarness([Save], attached: true);
+        await session.RunAsync("tap", """{ "target": "n2" }""");
+        Assert.Equal(
+            string.Join(
+                '\n',
+                "Test lines from this session's actions while the test was held, in order (1 lines):",
+                "",
+                "await Screen.GetByRole(\"button\", \"Save\").TapAsync();",
+                "",
+                "Put them in the held test at the pause point. Keep the test's checks together at its end, with one that checks its outcome. See topic writing-tests, Structure."
+            ),
+            session.Lines.Draft()
+        );
+        var description = session.Lines.Tool().Description;
+        Assert.Contains("Use these lines at the pause point of the held test", description, StringComparison.Ordinal);
+        Assert.DoesNotContain("split the draft into tests", description, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("continue the existing test", description, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Omits_Agent_ActAsync_advice_from_the_draft_when_no_model_or_executor_is_configured()
+    {
+        var session = new TestLineHarness([Save], hasAgent: false);
+        session.Lines.Opened();
+        await session.RunAsync("tap", """{ "target": "n2" }""");
+        var draft = session.Lines.Draft();
+        Assert.Contains("Split these lines into tests, one behavior each", draft, StringComparison.Ordinal);
+        Assert.DoesNotContain("Agent.ActAsync", draft, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -544,9 +581,12 @@ public sealed class SessionTestLinesTests
                 "",
                 "await Screen.GetByRole(\"button\", \"Save\").TapAsync();",
                 "",
-                "Put them in that test where it stopped, in place of the line that failed or after its last line, and add an Expect after each step that should change the screen."
+                "Put them in that test where it stopped, in place of the line that failed or after its last step. Keep the test's checks together at its end, with one that checks its outcome. See topic writing-tests, Structure."
             ),
             session.Lines.Draft()
         );
+        var description = session.Lines.Tool().Description;
+        Assert.Contains("Use these lines to continue the existing test", description, StringComparison.Ordinal);
+        Assert.DoesNotContain("split the draft into tests", description, StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -45,9 +45,10 @@ Use a test account there: the model sees what's on screen. See
 [Core concepts](/get-started/core-concepts/) for what a judgment reads and
 how `Secret` values are kept from a model.
 
-For a complex journey, write a sequence of goals in plain English. Keep
-each goal to one outcome and check it before continuing. A verified
-`ActAsync` step is recorded, so a short goal per step replays cleanly (see
+For a complex flow, describe the steps toward one outcome in plain
+English. See [Core concepts](/get-started/core-concepts/#goals) for when to
+split the flow into calls and wait for an intermediate state. A verified
+`ActAsync` step is recorded and replays cleanly (see
 [Caching & self-healing](/features/caching/)).
 
 ## When to use agentic assertions?
@@ -77,8 +78,10 @@ still needs time to reach the expected state. See
 
 ## When to use deterministic tests?
 
-Use locators for short, stable flows where you already know which controls
-to use. You specify each field and button in code, as in this discount test:
+Use locators for low-level mechanics that are themselves under test (such as
+an empty submission, a keyboard shortcut, or a drag offset), sign-in setup
+tests, or projects that run without a model. You specify each field and button
+in code, as in this discount test:
 
 ```csharp
 await App.OpenAsync("/checkout");

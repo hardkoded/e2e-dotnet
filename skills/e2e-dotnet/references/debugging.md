@@ -3,6 +3,7 @@
 ## Contents
 
 - Read the failure
+- Rerunning a test while you fix it
 - The trace page
 - For scripts: report.json
 - Error codes
@@ -68,6 +69,28 @@ To see the screen the agent reads, call `await screen.DebugAsync()` in the test,
 or `await screen.TreeAsync()` to get the text. To see where a slow test spends its time, set `E2E_DEBUG=1`
 ("Timings and transcripts"). To see what the page did, record it
 ("Watch it happen").
+
+## Rerunning a test while you fix it
+
+- Filter by class and method, not the whole project:
+  `--filter "FullyQualifiedName~<Class>.<Method>"`. A filter that matches no
+  test runs nothing, so check the name after a rename.
+- Set `"actionTimeout": 5000` in the config (or `ActionTimeout` on the
+  fixture) so a missing locator fails in 5 s instead of 30 s. Keep it above
+  the slowest screen load; a call's own `Timeout` wins; `Expect` defaults to
+  5 s.
+- Keep the replay cache on (`read-write` locally; never `E2E_NO_CACHE=1` on
+  every edit). A failed run keeps every `ActAsync` that a wait or check
+  confirmed after it, and reruns only the new, changed, failed, or
+  handed-off goals. Give the command a timeout longer than the test: a
+  killed run saves nothing.
+- Do not rename the test, its class, a goal's instruction, its `Params`, or
+  the agent's `context` once a goal passes: each is part of the cache key.
+  Fixing a locator or an assertion keeps the recordings.
+- Take `[Retry]` off while you iterate: outside `cache.strict`, a retry never
+  replays.
+- Once the test passes, put `actionTimeout` back and run it once with
+  `E2E_NO_CACHE=1` to confirm the agent still reaches it live.
 
 ## The trace page
 
@@ -437,9 +460,14 @@ turn and can be several megabytes. Add `.e2e/ai-trace-*.json` to `.gitignore`.
 
 - A read (`TextContentAsync`, `CountAsync`) caught a value mid-update: use a
   matcher.
-- Shared data: unique names per run with `Values.Unique(...)`, and cleanup
-  in `[TearDown]`.
-- App not ready: assert on the element you are about to use, not on the
+- Shared data: each test creates its records with run-unique names in the
+  framework's setup and deletes them in the teardown, guarded so a partial
+  setup touches nothing; with one app-wide state no test can own, run the
+  tests one at a time. A test that passes with its class but fails alone by
+  its filter depends on an earlier test: give it its own arrange steps, not a
+  `[Serial]` group (topic `writing-tests`, "Each test owns its starting
+  state and passes alone").
+- App not ready: wait for the element you are about to use, not the
   previous page.
 - An agent judgment asserts exact phrasing: judge the fact, and add an
   `Expect.That` beside it.

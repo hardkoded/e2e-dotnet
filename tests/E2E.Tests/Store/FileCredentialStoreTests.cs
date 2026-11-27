@@ -96,6 +96,42 @@ public sealed class FileCredentialStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task Replaces_a_login_only_while_it_is_still_the_one_stored_under_the_key_it_is_stored_under()
+    {
+        var file = Path.Combine(_directory, "oauth.json");
+        var store = new FileCredentialStore(file);
+        var renewed = new OAuthCredentials
+        {
+            Access = "renewed",
+            Refresh = "r2",
+            Expires = 123,
+            Extra = Creds.Extra,
+        };
+        Assert.False(await store.ReplaceAsync("spacexsi", Creds, renewed));
+        Assert.Empty(await store.ListAsync());
+        Directory.CreateDirectory(_directory);
+        await File.WriteAllTextAsync(
+            file,
+            new JsonObject { ["spacexai"] = Creds.ToJson(), ["openai"] = Creds.ToJson() }.ToJsonString()
+        );
+        Assert.True(await store.ReplaceAsync("spacexsi", Creds, renewed));
+        var expected = new JsonObject { ["spacexai"] = renewed.ToJson(), ["openai"] = Creds.ToJson() };
+        Assert.True(JsonNode.DeepEquals(expected, JsonNode.Parse(await File.ReadAllTextAsync(file))));
+
+        // The stored login changed meanwhile: a new login stands.
+        var stale = new OAuthCredentials
+        {
+            Access = "stale-renewal",
+            Refresh = "r",
+            Expires = 123,
+            Extra = Creds.Extra,
+        };
+        Assert.False(await store.ReplaceAsync("spacexsi", Creds, stale));
+        var stored = (await store.GetAsync("spacexsi"))!;
+        Assert.True(JsonNode.DeepEquals(renewed.ToJson(), stored.ToJson()));
+    }
+
+    [Fact]
     public async Task Prefers_the_login_under_the_id_to_one_under_its_legacy_key()
     {
         var file = Path.Combine(_directory, "nested", "oauth.json");
