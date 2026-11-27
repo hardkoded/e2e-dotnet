@@ -165,16 +165,41 @@ internal static class WireCodec
     /// <summary>
     /// JavaScript's <c>\d</c>, <c>\w</c> and <c>\b</c> are ASCII only; .NET's match Unicode digits and letters. <c>RegexOptions.ECMAScript</c>
     /// cannot be combined with <c>s</c>, so the shorthands are rewritten to ASCII classes, inside character classes too. With
-    /// <paramref name="ignoreCase"/> it also keeps .NET's case folding to ECMAScript's <c>Canonicalize</c>: .NET folds U+212A with k, U+017F
+    /// <paramref name="ignoreCaseFlag"/> it also keeps .NET's case folding to ECMAScript's <c>Canonicalize</c>: .NET folds U+212A with k, U+017F
     /// with s, U+212B with U+00E5 and U+2126 with U+03C9, which JavaScript's non-unicode <c>i</c> flag does not (see <see cref="CaseFolds"/>).
     /// </summary>
-    private static string ToAsciiShorthands(string source, bool ignoreCase)
+    private static string ToAsciiShorthands(string source, bool ignoreCaseFlag)
     {
         var result = new StringBuilder(source.Length);
+        var ignoreCase = ignoreCaseFlag;
+        var scopes = new Stack<bool>();
         for (var i = 0; i < source.Length; i++)
         {
             var c = source[i];
-            if (c == '[')
+            if (c == '(')
+            {
+                scopes.Push(ignoreCase);
+                var colon = ModifierEnd(source, i);
+                if (colon > 0)
+                {
+                    // `(?i:` and `(?-i:` switch case folding on or off inside the group.
+                    var flags = source[(i + 2)..colon];
+                    var dash = flags.IndexOf('-');
+                    var on = dash < 0 ? flags : flags[..dash];
+                    var off = dash < 0 ? "" : flags[(dash + 1)..];
+                    ignoreCase = on.Contains('i') || (ignoreCase && !off.Contains('i'));
+                    result.Append(source, i, colon - i + 1);
+                    i = colon;
+                    continue;
+                }
+            }
+
+            if (c == ')')
+            {
+                ignoreCase = scopes.Count > 0 ? scopes.Pop() : ignoreCase;
+                result.Append(c);
+            }
+            else if (c == '[')
             {
                 result.Append(RewriteClass(source, ref i, ignoreCase));
             }
@@ -392,6 +417,30 @@ internal static class WireCodec
             : null;
     }
 
+    /// <summary>The index of the <c>:</c> that ends a <c>(?flags:</c> modifier group starting at <paramref name="i"/>, or -1 when it is not one.</summary>
+    private static int ModifierEnd(string source, int i)
+    {
+        if (i + 1 >= source.Length || source[i + 1] != '?')
+        {
+            return -1;
+        }
+
+        for (var j = i + 2; j < source.Length; j++)
+        {
+            if (source[j] == ':')
+            {
+                return j;
+            }
+
+            if (source[j] is not ('i' or 'm' or 's' or 'x' or '-'))
+            {
+                return -1;
+            }
+        }
+
+        return -1;
+    }
+
     private static bool IsGroupNameStart(string source, int i) =>
         source[i] == '('
         && i + 2 < source.Length
@@ -467,6 +516,8 @@ internal static class WireCodec
                 {
                     continue;
                 }
+
+                affected.Add(c);
 
                 if (!groups.TryGetValue(key, out var group))
                 {
