@@ -50,6 +50,9 @@ internal static partial class MarkdownText
     [GeneratedRegex(@"[\\`*\[\]~|]", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 2000)]
     private static partial Regex InlineMarkup();
 
+    [GeneratedRegex(@"_+", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 2000)]
+    private static partial Regex UnderscoreRun();
+
     [GeneratedRegex(@"`+", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 2000)]
     private static partial Regex BacktickRun();
 
@@ -58,10 +61,11 @@ internal static partial class MarkdownText
 
     /// <summary>
     /// Text safe inside a table cell, a list item, or at the start of a line: one line, clipped by code point so an emoji at the
-    /// cut survives whole, markdown that could open a construct escaped, angle brackets as entities so no HTML gets through, and the
-    /// cell separator escaped. A token GitHub would link on its own (a mention, an issue number, a URL) is shown as code, so screen
-    /// text from the app under test cannot notify anyone or plant a link in a pull request comment. An underscore stays: inside a
-    /// word GitHub never reads it as emphasis, and error codes are full of them.
+    /// cut survives whole, markdown that could open a construct escaped, ampersands and angle brackets as entities so no HTML or entity
+    /// gets through, and the cell separator escaped. A token GitHub would link on its own (a mention, an issue number, a URL) is shown as code, so screen
+    /// text from the app under test cannot notify anyone or plant a link in a pull request comment. An underscore inside a word stays:
+    /// GitHub never reads it as emphasis there, and error codes are full of them. One at the edge of a word is escaped, so
+    /// <c>__proto__</c> or <c>_id_</c> is not bold or italic.
     /// </summary>
     public static string Cell(string text, int max = MaxCellChars)
     {
@@ -116,12 +120,37 @@ internal static partial class MarkdownText
     // Upstream's collapseText: ANSI sequences and control characters gone, whitespace collapsed.
     private static string Collapse(string text) => TextRules.Collapse(TextRules.SanitizeText(text));
 
-    // Inline markdown a token could open, escaped; angle brackets become entities.
+    // Inline markdown a token could open, escaped; ampersands and angle brackets become entities. The ampersand goes first, so the
+    // entities this writes are not escaped again and text that already reads as an entity (&copy;) shows as written.
     private static string EscapeInline(string text) =>
-        InlineMarkup()
-            .Replace(text, match => "\\" + match.Value)
+        EscapeUnderscores(InlineMarkup().Replace(text, match => "\\" + match.Value))
+            .Replace("&", "&amp;", StringComparison.Ordinal)
             .Replace("<", "&lt;", StringComparison.Ordinal)
             .Replace(">", "&gt;", StringComparison.Ordinal);
+
+    // A run of underscores, escaped unless it sits between two letters or digits (ERROR_CODE), where GitHub never reads it as
+    // emphasis, or is the whole token, which has nothing to emphasize. One at the edge of a word can open or close emphasis.
+    private static string EscapeUnderscores(string token) =>
+        UnderscoreRun().Replace(token, match => EscapeEdgeUnderscores(match, token));
+
+    private static string EscapeEdgeUnderscores(Match match, string token)
+    {
+        var offset = match.Index;
+        var end = offset + match.Length;
+        var hasBefore = offset > 0;
+        var hasAfter = end < token.Length;
+        if (!hasBefore && !hasAfter)
+        {
+            return match.Value;
+        }
+
+        if (hasBefore && hasAfter && char.IsLetterOrDigit(token[offset - 1]) && char.IsLetterOrDigit(token[end]))
+        {
+            return match.Value;
+        }
+
+        return match.Value.Replace("_", "\\_", StringComparison.Ordinal);
+    }
 
     // A code span around text that may hold backticks: the delimiter is one backtick longer than the longest run inside and, when
     // longer than one, padded with a space GFM strips, so no character of the text is lost. The cell separator is escaped.
