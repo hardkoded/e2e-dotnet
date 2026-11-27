@@ -161,7 +161,7 @@ Planned is on the roadmap, and Not yet has no date. Not planned is left out on p
 | `maestro hierarchy` as a terminal command | A one-line test that calls `Screen.DebugAsync()` |
 | `--device-locale` | `app.launchArguments` of `-AppleLanguages (de) -AppleLocale de_DE` on iOS, see [Run the app in another language](/get-started/mobile/#run-the-app-in-another-language); on Android, set the device language before the run |
 | Maestro Cloud | Your CI with a [hosted device provider](/get-started/mobile/#hosted-devices) |
-| `pressKey: power`, `volume up`, `volume down` | `Device.UnstableRaw.Client.CallAsync(DeviceMethods.CommandHardwareButton, ...)` with `button` set to `"power"`, `"volume-up"`, or `"volume-down"`: power and volume on Android, volume on a physical iPhone. See [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes) |
+| `pressKey: power`, `volume up`, `volume down` | `Device.PressButtonAsync(HardwareButton.Power)`, `VolumeUp`, `VolumeDown`; not on an iOS simulator. See [Press a hardware button](/get-started/mobile/#press-a-hardware-button) |
 | JUnit `properties`, `--format html`, a JUnit path with `--output` | Ids in categories or the title; each failed test gets a `trace.md` page under `.e2e/results/`; copy the logger's output after the run |
 | `--shards`, `--shard-split` | The framework's parallelism on one machine; the port has no `--shard` |
 | `--device` on the command line | `E2E_MOBILE_DEVICE` |

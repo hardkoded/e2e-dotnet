@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using System.Text.Json.Nodes;
 using E2E.Engine;
 
@@ -501,6 +502,34 @@ public sealed class Device
                 (client, token) => client.CallAsync(DeviceMethods.CommandHome, _session.Selection.ToArgs(), token),
                 cancellationToken
             )
+        );
+
+    /// <summary>
+    /// Presses one hardware button: <see cref="HardwareButton.VolumeUp"/>, <see cref="HardwareButton.VolumeDown"/>, or
+    /// <see cref="HardwareButton.Power"/>. An Android emulator or phone takes all three, and a physical iPhone or iPad the volume
+    /// buttons; an iOS simulator, an Android TV, and any other device or button is <c>UNSUPPORTED_CAPABILITY</c>. A value outside
+    /// the enum is <c>INVALID_ARGUMENT</c>. It completes once the press is sent, with no volume level or screen state, so assert on
+    /// what the screen shows next.
+    /// </summary>
+    /// <exception cref="TestException"><c>INVALID_ARGUMENT</c>: a value that is not one of the three buttons. Nothing is sent to the device.</exception>
+    public Task PressButtonAsync(HardwareButton button, CancellationToken cancellationToken = default) =>
+        RunAsync(
+            "device.pressButton",
+            Enum.IsDefined(button) ? button.WireName() : ((int)button).ToString(CultureInfo.InvariantCulture),
+            () =>
+            {
+                Buttons.RequireHardwareButton(button);
+                var input = _session.InputBudget("device.pressButton", cancellationToken);
+                return _session.ScreenCommandAsync(
+                    "device.pressButton",
+                    (client, token) =>
+                        input.SendAsync(
+                            signal => Buttons.PressButtonAsync(client, button, _session.Selection, signal),
+                            token
+                        ),
+                    cancellationToken
+                );
+            }
         );
 
     /// <summary>Navigates back once (in-app back). It settles as <see cref="MobileOptions.Settle"/> and <see cref="MobileOptions.SettleMilliseconds"/> say, which a test's own steps do not.</summary>
