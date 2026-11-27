@@ -242,9 +242,9 @@ and the failure it saw. Without subagents, verify one area after another.
                    ["password"] = shopper.Password,
                },
            });
-           await Agent.ActAsync("add \"Neuromancer\" to the cart");
+           await Agent.ActAsync("empty the cart, then add \"Neuromancer\" to the cart");
            await Agent.ActAsync("add \"Dune\" to the cart");
-           await Agent.WaitForAsync("you are signed in and the cart holds \"Neuromancer\" and \"Dune\"");
+           await Agent.WaitForAsync("you are signed in and the cart holds only \"Neuromancer\" then \"Dune\", each with quantity 1");
 
            await Agent.ActAsync("set the quantity of \"Dune\" in the cart to 2"); // the second line shown (lines stay in the order added), not the first
 

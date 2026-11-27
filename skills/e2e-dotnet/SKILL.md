@@ -159,8 +159,9 @@ public sealed class BillingTests : E2ETest
    then every `Expect.That` or `Agent.AssertAsync` at the end. A second
    outcome worth checking is a second test, so a failing name says what
    broke. A step is an `Agent.ActAsync` goal or `Screen` lines. When
-   `e2e.config.json` configures a model or executor on the default agent
-   (or a named agent under `agents`), write user flows (forms, buttons,
+   `e2e.config.json` configures a model, or code sets a model or an executor
+   (`AgentOptions.Executor`, `E2EConfig.WithExecutor`; the JSON file cannot
+   hold an executor), on the default agent (or a named agent under `agents`), write user flows (forms, buttons,
    cart and CRUD mutations, navigation, sign-in) with `Agent.ActAsync`,
    values in `Params`; reuse the existing helpers and page objects, and do
    not avoid `ActAsync` on a new user flow merely because an `[E2ESetup]`

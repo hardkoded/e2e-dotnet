@@ -143,9 +143,9 @@ Write every test so a failing name says what broke.
     hold a usable id. Even when a test deletes its record, keep the teardown
     and accept `404`, so an earlier failure never leaks. Guard the teardown
     with the id (or a `created` flag), so a setup that failed before it
-    created anything touches no shared state. Without a test API, seed and
-    delete through the UI in the setup; never clean up at the end of a test
-    body.
+    created anything touches no shared state. Without a test API, seed through
+    the UI in the setup and delete through the UI in the guarded teardown;
+    never clean up at the end of a test body.
   - **No coupling or unwaited branching:** never chain tests across shared
     state, never use `[Serial]` to hide coupling, and never branch or skip
     on `IsVisibleAsync()` or `CountAsync()`, which do not wait. Every test
@@ -158,8 +158,9 @@ Write every test so a failing name says what broke.
   variables to prompts in `Params` (`Values.Unique(...)` for a run-unique
   value, so the replay cache hits).
 - **Prefer `Agent.ActAsync` when a model is configured.** When
-  `e2e.config.json` configures a model or custom executor on the default
-  agent (or on a named agent under `agents`, picked as topic `agent`
+  `e2e.config.json` configures a model, or code sets a model or a custom
+  executor (`AgentOptions.Executor`, `E2EConfig.WithExecutor`; the JSON file
+  cannot hold an executor), on the default agent (or on a named agent under `agents`, picked as topic `agent`
   explains), default to `Agent.ActAsync` for user flows (forms, buttons,
   list and CRUD mutations, navigation, sign-in, with the values in
   `Params`), and do not avoid it on a new user flow merely because an
@@ -750,7 +751,11 @@ public async Task DeleteProject()
     // Runs after a failure too, and after a SetUp that failed partway.
     if (_api is not null && _projectId.Length > 0)
     {
-        await _api.DeleteAsync($"/api/projects/{_projectId}");
+        var deleted = await _api.DeleteAsync($"/api/projects/{_projectId}");
+        if (!deleted.IsSuccessStatusCode && deleted.StatusCode != System.Net.HttpStatusCode.NotFound)
+        {
+            deleted.EnsureSuccessStatusCode();
+        }
     }
 
     _api?.Dispose();

@@ -207,8 +207,8 @@ Then each test, one at a time:
   to the other.
 - Translate literally first, one awaited call per source step. Each source
   assertion maps to its own e2e assertion (`Expect.That(...)`). A wait that
-  fails on timeout becomes one more, so the e2e count is at least the
-  inventory's.
+  fails on timeout becomes one more e2e check. Raw counts stay diagnostic
+  only.
 - Then, before the first run, arrange the translated lines in the shape the
   e2e skill's `writing-tests` topic gives ("Structure"). Lines move, split
   tests copy the steps they need, and closing waits are added; no source
@@ -277,7 +277,8 @@ Then each test, one at a time:
   introduced by your own wrapper script, is not an e2e gap). A port you
   tried that failed without a confirmed missing-capability diagnosis is
   `blocked`, not `stays`. Keep unported portable tests as `todo`, not
-  `stays`, and give a file with mixed statuses one row per test. Offer to
+  `stays`, and give a file with mixed statuses one row per test, and a test split into
+  a portable and an unportable behavior one row per behavior. Offer to
   open an issue at `hardkoded/e2e-dotnet` with each genuine gap, once per
   gap, and open it only when the user agrees.
 - Do not change app code. A test that needs a test id the app lacks gets
@@ -395,7 +396,8 @@ CheckoutTests.cs (needs `LoginPage`).
 ```
 
 One row per source file. A file whose tests end in different statuses gets
-one row per test, each with its own assertion count. A suite with hundreds
+one row per test (one per behavior for a test split into a ported and a
+`stays` part), each with its own assertion count. A suite with hundreds
 of tests keeps file rows: the table is read at the start of every session.
 
 Statuses: `todo`; `ported` (green in e2e, the source test still runs);

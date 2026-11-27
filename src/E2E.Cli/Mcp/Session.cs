@@ -520,7 +520,7 @@ internal sealed class SessionHost : IDisposable
                 target.Platform,
                 message => Log("warning", message),
                 [.. secrets.Select(secret => new ExecutorSecret(secret.Name, secret.Purpose))],
-                hasAgent: config.Agent.CreateModel() is not null || config.Agent.Executor is not null
+                hasAgent: config.Agent.HasModel || config.Agent.Executor is not null
             );
 
             // The app as the session resolved it: the declared URL on the port its command was started on.
