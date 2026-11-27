@@ -41,9 +41,11 @@ await Agent.ActAsync("add a todo with the given title", new ActOptions
 await Expect.That(Screen.GetByRole("listitem")).ToHaveCountAsync(1);
 ```
 
-The agent does the flow; `Expect` pins what must be true at the end, and
-that check lets the replay cache rerun every goal before it later. `Screen`
-actions are for exact interactions and values. Every test starts from a
+The agent drives the flow. A passing `Agent.AssertAsync` or locator
+matcher checks the outcome and confirms the preceding actions for replay.
+`Screen` actions are for low-level mechanics under test (like the empty
+submit above) or configs with no model; a goal takes its values in
+`Params`. Always read "Structure" next. Every test starts from a
 fresh browser context with no page open, so it calls `App.OpenAsync` first.
 There is no `describe`, `test.setup`, or tag of e2e's own: grouping, setup, and
 categories are the framework's. For a serial group whose members share one
@@ -54,54 +56,146 @@ skips the rest. xUnit has no such attribute.
 
 ## Structure: one class, arrange-act-assert, one behavior
 
-Write every test in this shape. When a test fails, its name alone should
-say what broke, with no debugging needed, unless the arrange or act steps
-themselves failed or the app changed under them.
+Write every test so a failing name says what broke.
 
-- **One test class per unit or feature.** Name it after the feature
-  (`TodosTests`, `CheckoutTests`) and put every test for it inside, with
-  the setup those tests share (NUnit `[SetUp]`, xUnit v3
-  `InitializeAsync`). A file holds one feature. Split a class only to share
-  a setup or an attribute with some of its tests.
-- **Arrange, act, assert, in that order**, with a blank line between the
-  three blocks:
-  - Arrange reaches the state the behavior starts from: sign-in in the
-    framework's setup, `App.OpenAsync` on the screen's path, data from the
-    app's API. When the app offers no shorter way, an `Agent.ActAsync` or
-    `Screen` lines can arrange too, as in `Marks_a_todo_as_done` below.
-    End such an arrange block with a wait for the state it reached
-    (`locator.WaitForAsync()`, `Agent.WaitForAsync`). A setup goal that
-    passed without doing its job then fails there, not at the outcome
-    check, and the wait confirms the setup goals for the replay cache.
-  - Act does the one thing under test: one `Agent.ActAsync` goal, or the
-    `Screen` lines of one interaction. A wait for the state the action
-    triggers (`Agent.WaitForAsync`, `locator.WaitForAsync`) closes the act
-    block.
-  - Assert holds every `Expect.That`, `Expect.Poll`, and
-    `Agent.AssertAsync`, and nothing after them. No check sits between
-    arrange and act steps.
-- **One behavior per test.** A test verifies one outcome, and its name
-  states it: `Marks_a_todo_as_done`, not `Todos_work` or
-  `Adds_and_completes_a_todo`. An "and" in a name usually means two tests.
-  Several assertions are fine when they all check that one outcome (the
-  count and the remaining label after an add). A second behavior is a
-  second test. When it starts from the first one's result, its arrange
-  block repeats the first one's act (or seeds the result through the API)
-  rather than chaining both into one test.
+- **One test class per feature.** Name it after the feature (`TodosTests`,
+  `CheckoutTests`) and put every test for it inside, with the setup those
+  tests share (NUnit `[SetUp]`, xUnit v3 `InitializeAsync`). A file holds
+  one feature. Split a class only to share a setup or an attribute with
+  some of its tests.
+- **Arrange, act, assert in order.** In the class, put the shared `const`s
+  and fields first, then the setup, then the tests. Inside a test, keep
+  arrange, act, and assert apart with a blank line:
+  - **Arrange:** reach the starting state through the framework's setup,
+    `App.OpenAsync` on the screen's path, or data from the app's API. End UI
+    setup with a wait (`locator.WaitForAsync()`, `Agent.WaitForAsync()`) so
+    setup fails there and confirms the setup `Agent.ActAsync` steps for the
+    replay cache.
+  - **Act:** pursue the test's one goal. Start with one `Agent.ActAsync`
+    call that spells out the required fields, choices, buttons, and order.
+    Split it only when a later step needs a known screen state, when a
+    long flow risks the `MaxSteps` or `MaxModelCalls` budget, or when a
+    failure in the middle needs its own step boundary: explain why in a
+    comment and wait for the intermediate screen state. Before leaving a
+    screen or calling `Agent.AssertAsync`, wait for the required state.
+  - **Assert:**
+    - Put every `Expect.That`, `Expect.Poll`, and `Agent.AssertAsync` here,
+      with nothing after them.
+    - Never assert mid-way: wait on a narrowed locator instead, such as
+      `balance.Filter(hasText: new Regex(@"^\$10\.00$")).WaitForAsync()`
+      (an anchored `hasText` on a leaf status or value node; use
+      `Filter(has: Screen.GetByText(name))` for exact row matching),
+      `Screen.GetByRole("switch", "Lock card", new RoleOptions { Checked = true }).WaitForAsync()`,
+      or `heading.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Hidden })`
+      after an earlier positive wait (`Hidden` passes at once on zero
+      matches, a typo included, and still confirms the earlier
+      `ActAsync` steps).
+    - Never move a pre-reload or pre-navigation check past the reload or
+      navigation: split the earlier phase into its own test. Never stash a
+      one-shot read (`IsVisibleAsync`, `IsEnabledAsync`, `CountAsync`,
+      `InputValueAsync`, `TextContentAsync`, `GetAttributeAsync`) mid-flow
+      in a local variable just to assert it at the end: leave a
+      precondition as a `WaitForAsync()` alone, split the earlier phases so
+      retrying matchers run on the live screen, or use `Expect.Poll(...)`.
+      When a computed arrange precondition is missing, throw directly
+      instead of inventing a fallback value.
+    - On a zero-match timeout, a wait reports `LOCATOR_NOT_FOUND` and a
+      check `ASSERTION_FAILED`; two matches throw `LOCATOR_AMBIGUOUS` on
+      either.
+- **One behavior and one goal per test.** The name states one outcome
+  (`Marks_a_todo_as_done`, not `Adds_and_completes_a_todo`). Several
+  assertions that check that one outcome are fine; a second behavior is a
+  second test that arranges its own starting state. Never undo an action
+  before asserting its effect (returning to the starting value hides a
+  no-op), and never leave a screen before checking what the test promised
+  on it.
+- **Prove the change on the changed record.** Ask what wrong behavior would
+  still pass (a no-op, a deleted row, the wrong row, an unsaved reload).
+  Pick an end value the start cannot show, write expected values as
+  literals, and scope checks to the record's row, card, or dialog (never
+  `First()`). When persistence is part of the promise, wait for the
+  confirmation, reopen the screen afresh, and compare against the inputs
+  (and read the record again by id from the API when there is one). Check
+  only the promised behavior; the name claims only what the assert checks.
+- **Act on the second item shown, never the first.** When a test removes,
+  edits, renames, completes, or toggles one item of a list (a row, a line,
+  a card), its arrange block adds two items, and its act picks the second
+  item the list shows. In a list that shows the newest item first, that is
+  the item added first. Its assert block then checks that the first item is
+  still there, unchanged. An app that always changes the first row passes a
+  test that acts on the first row.
+- **Refusals and multi-user delivery.** When a refusal promises no persisted
+  write, wait for the refusal message (or assert it in its own test), reopen
+  after an independent readiness wait, and assert the records stayed
+  unchanged; put a follow-up retry in its own test. For recipient delivery,
+  keep a separate recipient session open and scope the checks to the
+  run-unique message (and the history after a reopen, if promised).
+- **Each test owns its starting state and passes alone.**
+  - **Client vs. server state:** every test starts from a fresh browser
+    context, so nothing the browser keeps leaks from an earlier test. On an
+    Android or iOS target, reset with `App.ClearStateAsync()` (topic
+    `mobile`).
+  - **Server data:** create the records a test needs in the framework's
+    setup with a run-unique name (`Guid.NewGuid()`), take the id from a 2xx
+    response before asserting the exact status, and delete the record in the
+    teardown, which runs after a failure too. A `try`/`finally` around the
+    creation and the rest of the setup cleans up a partial setup once you
+    hold a usable id. Even when a test deletes its record, keep the teardown
+    and accept `404`, so an earlier failure never leaks. Guard the teardown
+    with the id (or a `created` flag), so a setup that failed before it
+    created anything touches no shared state. Without a test API, seed and
+    delete through the UI in the setup; never clean up at the end of a test
+    body.
+  - **No coupling or unwaited branching:** never chain tests across shared
+    state, never use `[Serial]` to hide coupling, and never branch or skip
+    on `IsVisibleAsync()` or `CountAsync()`, which do not wait. Every test
+    must pass when run alone, by its filter, twice in a row.
+- **Name and reuse what the tests repeat.** Check the existing tests,
+  helpers, and page objects first and reuse or extend them instead of
+  duplicating setup. Define a repeated selector input, value, or prompt once
+  as a `const` (or a feature-local helper class as the tests grow) and keep
+  a single-use one inline; bind a repeated locator to a local variable. Pass
+  variables to prompts in `Params` (`Values.Unique(...)` for a run-unique
+  value, so the replay cache hits).
+- **Prefer `Agent.ActAsync` when a model is configured.** When
+  `e2e.config.json` configures a model or custom executor on the default
+  agent (or on a named agent under `agents`, picked as topic `agent`
+  explains), default to `Agent.ActAsync` for user flows (forms, buttons,
+  list and CRUD mutations, navigation, sign-in, with the values in
+  `Params`), and do not avoid it on a new user flow merely because an
+  `[E2ESetup]` test or a sign-in helper uses `Screen` actions. Pair it with
+  verifying checks at the end, so confirmed `ActAsync` steps record and
+  replay without new model calls (a model-backed judgment such as
+  `Agent.AssertAsync` still calls the model on a rerun). Reserve `Screen`
+  actions for low-level mechanics that are themselves under test (the
+  empty submit in the example above, a keyboard shortcut, a drag offset), a
+  sign-in setup test, or a project with no model configured. Use `Expect`
+  for exact values, counts, or field states; use `Agent.AssertAsync` alone
+  when the screen shows the full semantic or visual outcome, and pair a
+  deterministic `Expect` when exact phrasing or state must also hold
+  (topic `debugging`, "Flaky tests"). A passing locator or engine matcher,
+  `locator.WaitForAsync`, `Agent.AssertAsync`, or `Agent.WaitForAsync`
+  confirms the `ActAsync` steps before it for the replay cache;
+  `Expect.Poll` and a plain-value check confirm nothing.
 
 ```csharp
 public sealed class TodosTests : E2ETest
 {
+    private const string Title = "Write the release notes";
+    private const string Other = "Book the venue";
+    private const string AddTodo = "add a todo named {title}";
+
     [Test]
     public async Task Adds_a_todo_to_the_list()
     {
         await App.OpenAsync("/todos");
 
-        await Agent.ActAsync("add a todo named {title}", new ActOptions
+        await Agent.ActAsync(AddTodo, new ActOptions
         {
-            Params = new Dictionary<string, object?> { ["title"] = "Write the release notes" },
+            Params = new Dictionary<string, object?> { ["title"] = Title },
         });
 
+        await Expect.That(Screen.GetByRole("checkbox", Title)).Not.ToBeCheckedAsync();
         await Expect.That(Screen.GetByRole("listitem")).ToHaveCountAsync(1);
         await Expect.That(Screen.GetByRole("status", "Remaining")).ToHaveTextAsync("1 remaining");
     }
@@ -109,19 +203,35 @@ public sealed class TodosTests : E2ETest
     [Test]
     public async Task Marks_a_todo_as_done()
     {
+        var todo = Screen.GetByRole("checkbox", Title);
         await App.OpenAsync("/todos");
-        await Agent.ActAsync("add a todo named {title}", new ActOptions
+        await Agent.ActAsync(AddTodo, new ActOptions
         {
-            Params = new Dictionary<string, object?> { ["title"] = "Write the release notes" },
+            Params = new Dictionary<string, object?> { ["title"] = Other },
         });
-        await Screen.GetByRole("checkbox", "Write the release notes").WaitForAsync();
+        await Agent.ActAsync(AddTodo, new ActOptions
+        {
+            Params = new Dictionary<string, object?> { ["title"] = Title },
+        });
+        await todo.WaitForAsync();
 
-        await Agent.ActAsync("mark the todo as done");
+        // The second todo shown: this list adds new todos at the end.
+        await Agent.ActAsync("mark {title} as done", new ActOptions
+        {
+            Params = new Dictionary<string, object?> { ["title"] = Title },
+        });
 
-        await Expect.That(Screen.GetByRole("status", "Remaining")).ToHaveTextAsync("0 remaining");
+        await Expect.That(todo).ToBeCheckedAsync();
+        await Expect.That(Screen.GetByRole("checkbox", Other)).Not.ToBeCheckedAsync();
+        await Expect.That(Screen.GetByRole("status", "Remaining")).ToHaveTextAsync("1 remaining");
     }
 }
 ```
+
+The bad version of a list mutation adds `Other`, then `Title`, and acts on
+`Other`, the first item shown: an app that always acts on row 1 passes it.
+The good one above acts on `Title`, the second, then checks that `Other`
+is unchanged.
 
 For the replay cache (topic `agent`), a passing locator or engine matcher,
 `locator.WaitForAsync`, `Agent.AssertAsync`, or `Agent.WaitForAsync`
@@ -173,11 +283,29 @@ Members of `E2ETest` in both frameworks:
 - `Secrets.Get(name)`: a `Secret` from the config. `Credentials.User(name)`:
   an account from `E2E_USER_<NAME>_USERNAME` and `_PASSWORD`.
 
+Guard a teardown (NUnit `[TearDown]`, xUnit v3 `DisposeAsync`) with the id
+or a `created` flag (or clean up only what this attempt wrote), so a skipped
+attempt, or one that failed before it mutated anything, never touches shared
+state. To route tests across same-platform targets
+(such as desktop and mobile viewports), mark the tests with the framework's
+category or trait and run each target with `E2E_TARGET=<name>` and that
+category filter, rather than sniffing the viewport width or the time zone in
+the setup and skipping: that boots every test on every target and turns a
+misconfigured target into a green skip.
+
 ## Locators
 
 - `GetByRole(role, name)`, `GetByText`, `GetByLabel`, `GetByPlaceholder`,
   `GetByTestId`, and `GetByDisplayValue`. Prefer a role with the accessible
   name the app renders.
+- For a collection check, start at the owning list or table and query only
+  its items or rows. When the requirement names the whole collection, check
+  every row in that container, duplicates included. If the order can change,
+  sort copies before comparing the complete observed and expected lists.
+- The second argument to `GetByRole` is the element's accessible name. For
+  visible text inside an unlabelled list item or status, use
+  `GetByRole("listitem").Filter(hasText: message)` or scope a
+  `GetByText(message)` query to the right part of the screen.
 - Text matches are **exact by default**. Pass `exact: false` for a
   case-insensitive substring, or a .NET `Regex`. On the web a `Regex` runs in
   the page as the JavaScript regular expression of the same pattern (its
@@ -583,7 +711,8 @@ close to its screen as the app allows:
   test that covers it ("Sign-in").
 - Open the screen by its path, `App.OpenAsync("/projects/42/settings")`, not
   the home page and three taps. `navigate` over MCP takes the same path.
-- Create the data the screen needs through the app's API in that setup.
+- Create the data the screen needs through the app's API in that setup,
+  under a run-unique name (`Guid.NewGuid()`).
   Click through a creation flow only in the test that covers it. When the
   app signs in with a cookie, the same `HttpClient` signs the setup's
   requests in. Check the response in the setup: a failed seed then fails
@@ -632,10 +761,14 @@ public async Task Renames_a_project()
 {
     await App.OpenAsync($"/projects/{_projectId}/settings"); // straight to the screen under test
 
-    await Screen.GetByLabel("Name").FillAsync("Atlas");
-    await Screen.GetByRole("button", "Save").ClickAsync();
+    await Agent.ActAsync("rename the project to {name} and save", new ActOptions
+    {
+        Params = new Dictionary<string, object?> { ["name"] = "Atlas" },
+    });
+    await Screen.GetByRole("status").Filter(hasText: new Regex(@"^Saved$")).WaitForAsync();
+    await App.OpenAsync($"/projects/{_projectId}/settings"); // reopened: the promise is that it is saved
 
-    await Expect.That(Screen.GetByRole("status")).ToHaveTextAsync("Saved");
+    await Expect.That(Screen.GetByLabel("Name")).ToHaveValueAsync("Atlas");
 }
 ```
 
@@ -644,6 +777,9 @@ target declares `app.linkBase` (`"linkBase": "myapp://"` makes
 `App.OpenAsync("/projects/42")` open `myapp://projects/42`):
 `Device.OpenLinkAsync("myapp://projects/42")` opens a route, or a sign-in
 link, in the app. The step report shows the link without its userinfo, query, or fragment, where a magic link's token rides (`<link>` when it does not parse).
+
+Check the create and delete statuses in the setup and the teardown, as the
+example does.
 
 Grow a test that spans several screens one screen at a time when you have
 not checked its steps live: write up to the next screen you have not seen
@@ -901,11 +1037,20 @@ function fails with `INVALID_ARGUMENT`, and a `Secret` in the argument with
 
 ## Habits
 
-- One goal per `ActAsync`; end the test with a check of the outcome.
+- Prefer `Agent.ActAsync` for user flows when a model is configured; one
+  behavior and one goal per test, and end the test with a check of the
+  outcome ("Structure").
 - One test class per feature, one behavior per test, arrange, act, assert
-  ("Structure").
+  ("Structure"). Name a repeated locator or value once; act on the second
+  item shown in a list mutation, never the first.
+- Prefer role, label, and text names over `Browser.Locator` or
+  `GetByTestId`, which is the last resort.
 - Prefer `Expect.That` with a locator when the check is exact. It needs no
   model and does not flake.
 - Pass data in `Params`. Use `Values.Unique(...)` for fresh emails or names,
   and a `Secret` for passwords.
-- Never add a sleep: wait for the condition with a matcher.
+- Never add a sleep: wait for the condition with a matcher, a locator
+  `WaitForAsync()`, or `Agent.WaitForAsync(...)`.
+- Assert required literal fragments with a matcher such as
+  `ToContainTextAsync`, and semantic outcomes where negation or phrasing can
+  flip the meaning with `Agent.AssertAsync`.

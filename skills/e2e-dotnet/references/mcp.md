@@ -160,7 +160,7 @@ config declares `credentials` or a `secrets` entry.
 | `tap_at {x, y}`, `hover_at {x, y}`, `drag_at {x, y, to_x, to_y}`, `type_at {x, y, value, replace?}`, `press_at {x, y, key}`, `select_at {x, y, value}` | Act at a point of the latest `screenshot`, in that image's pixels, for a target `observe` does not list (a canvas, a map). Before a screenshot they answer with the line that says to take one. Last resort: act on a listed node by id. They print no test line |
 | `locate {role? name? text? label? placeholder? testId? exact?}` | Try a locator; see the loop below |
 | `start_recording {name?}`, `stop_recording` | Record a video of the app for a person to watch (listed when the engine records video). `name` is up to 64 letters, digits, `-`, and `_`, starting with a letter or digit. One recording at a time; a second start reports the one running. `stop_recording` saves it to `.e2e/videos/<session>/<n>[-<name>].<ext>` under the project root (`-part2`, `-part3` for later pages) and returns each file's absolute path, or the URL a hosted provider keeps it at. `close_session` saves a recording still running. Recordings are not masked, so a secret typed into a plain input shows in the video; a recording stopped after `type_secret` says so |
-| `test_lines` | Every test line the session's actions printed, in order, as a draft test body; see below |
+| `test_lines` | Every test line the session's actions printed, in order, as a draft test body. A fresh session opens it with `await App.OpenAsync();`; after `open_session {test}` it continues the test where it stopped; see below |
 
 A failed action is an error result that starts with the tool, the node, and
 the code: `tap n9999 failed: LOCATOR_NOT_FOUND: ...`. It reports the changes
@@ -176,10 +176,13 @@ tapped button "Sign in"
 Test line: await Screen.GetByRole("button", "Sign in").TapAsync();
 ```
 
-`test_lines` returns every line so far, in order, as a draft test body that
-starts with `await App.OpenAsync();` for the session's own opening (after
-`open_session {test}`, it holds only the lines after the test stopped). Paste it
-into a test, then add the assertions at the end, after every step.
+`test_lines` returns every line so far, in order. A fresh session opens the
+draft with `await App.OpenAsync();`. Split a new recording into tests, one
+behavior each with its checks at the end (topic `writing-tests`,
+"Structure"). After `open_session {test}`, the lines start with your next
+action and continue the test where it stopped. After an attach to a held test,
+the lines belong at the pause point of that test. Paste the lines into a
+test, then add the assertions at the end, after every step.
 
 - The locator comes from the node as the newest observation listed it,
   before the action runs. Role and name, label, placeholder, text, and test
@@ -252,20 +255,28 @@ The loop is:
 2. Walk the flow one screen at a time, and write each screen's steps into
    the file before you leave it. Do not walk the whole flow first and write
    the test from memory afterwards. Each step is one of two kinds:
-   - An `Agent.ActAsync` goal, the default for a path that varies: write the
-     goal with the words on screen and its values in `Params`, then walk its
-     path in the session. Those actions stay out of the test, and so do the
-     test lines they print.
-   - A `Screen` line, for an exact value or interaction: a sign-in form in a
-     setup test, a field that must receive one specific string, an
-     interaction that is the point of the test. Act on the control by node
-     id, then copy the `Test line:` the action printed into the file. Its
-     locator matched that control alone on the live screen. When the action
-     prints `No test line:` instead, the reason says why; for a control no
-     locator found alone, try one with `locate`.
+   - An `Agent.ActAsync` goal, the default for user flows whenever
+     `e2e.config.json` configures a model or custom executor: write the goal
+     with the words on screen and its values in `Params`, then walk its path
+     in the session. Those actions stay out of the test, and so do the test
+     lines they print.
+   - A `Screen` line only for low-level mechanics that are themselves under
+     test (such as an empty submit, a keyboard shortcut, or a drag offset), a
+     sign-in form in a setup test, or a project with no model configured. A
+     value alone is not a reason: a goal takes it in `Params`. Act on the
+     control by node id, then copy the `Test line:` the action printed into
+     the file. Its locator matched that control alone on the live screen.
+     When the action prints `No test line:` instead, the reason says why; for
+     a control no locator found alone, try one with `locate`.
 
    With several `Screen` steps on one screen, take their actions, then add
-   the lines they printed in one edit.
+   the lines they printed in one edit. A `Test line:` repeats one action; it
+   is not the test's final shape. When its locator is already in the test,
+   name it once in a local variable and use the name in both places.
+
+   Reading the app's source tells you the flow; it is not the walk. The
+   names a user sees on the live screen are the locators, and a
+   `data-testid` from the source stays the last resort.
 3. When the outcome shows, add its check before the next step: an
    `Expect.That` on a locator you tried with
    `call {tool: "locate", args: {...}}`, or an `Agent.AssertAsync`.
@@ -298,16 +309,23 @@ The loop is:
    call    tap, type, select, tap                   the goal's path; its test lines stay out
    call    locate {role: "status"}                  1 node matches, text "Invite sent"
    edit    + await Expect.That(Screen.GetByRole("status")).ToContainTextAsync("Invite sent");   in the assert block
-   write   + the test method Finds_a_member_by_name, App.OpenAsync("/settings/members")
+   write   + the test method Clears_the_filter_with_Escape, App.OpenAsync("/settings/members")
    call    navigate {url: "/settings/members"}      the new test's fresh start
-   call    type {target: "n40", text: "grace"}     prints the test line below
+   call    type {target: "n40", text: "grace"}     exact key mechanics under test; prints the test line below
            Test line: await Screen.GetByRole("searchbox", "Search members").FillAsync("grace");
-   edit    + that line, as printed
-   call    locate {role: "listitem"}                1 node matches
-   edit    + await Expect.That(Screen.GetByRole("listitem")).ToHaveCountAsync(1);   in the assert block
+   call    press {target: "n40", key: "Escape"}    prints the test line below
+           Test line: await Screen.GetByRole("searchbox", "Search members").PressAsync("Escape");
+   edit    + those lines, binding the repeated searchbox locator to a local variable
+   call    locate {role: "searchbox"}               1 node matches
+   edit    + await Expect.That(searchbox).ToHaveValueAsync("");   in the assert block
    ```
+
+   Before the first run, read the file once from the top: each test's checks
+   sit together at its end, each name states one outcome, no locator is
+   written out twice in one test, and no block of steps repeats across tests
+   (topic `writing-tests`, "Structure").
 4. Run only that test from the shell:
-   `dotnet test --filter "FullyQualifiedName~<Class>.<Method>"` (SKILL.md,
+   `dotnet test --filter "FullyQualifiedName~<Class>.<Method>"` (topic `debugging`,
    "Rerunning a test while you fix it"). On a failure, fix from the exception
    and the trace page (topic `debugging`), then rerun it the same way. To see a screen the evidence leaves out, go
    straight to it instead of walking the flow again from the start:

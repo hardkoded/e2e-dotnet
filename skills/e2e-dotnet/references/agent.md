@@ -8,7 +8,7 @@ step makes no model calls and needs no model in the config.
 ## Contents
 
 - Configure a model
-- ActAsync: one goal
+- ActAsync: one goal per test
 - AssertAsync, WaitForAsync, ExtractAsync: one question
 - Write instructions the model can execute
 - What the model sees
@@ -135,7 +135,7 @@ full name (`CacheTitle`), as `Test: Billing.UpgradeTests.Upgrades_the_tier`; und
 line. The judges read it too, so name a test for what it covers, not for the
 verdict you expect. The title goes in the step's prompt, not the system prompt, so provider prompt caching still serves every test of a run, and the context digest of the replay key leaves it out (the key still carries the test id, so a renamed test records again). A custom executor builds its own prompt: it reads the title from `context.Attempt.TitlePath` if it needs it.
 
-## ActAsync: one goal
+## ActAsync: one goal per test
 
 ```csharp
 await Agent.ActAsync("add a todo named \"Buy milk\"");
@@ -415,50 +415,40 @@ content elsewhere on the current screen.
 
 ## Write instructions the model can execute
 
-- One goal per `ActAsync`. The test sets the order of goals; the model finds
-  the path.
-- Keep each goal atomic: one outcome that one check confirms. When two
-  parts of an instruction each leave a state worth checking, they are two
-  goals, each its own `ActAsync`. Steps toward a single
-  outcome are the path, not more goals: scrolling to a control, closing a
-  banner, opening the menu that holds it, filling the fields of one form.
-- A split flow fails at the goal that broke. Each goal replays from its own
-  recording and gets its own `MaxSteps` and `MaxModelCalls`; the test
-  timeout still caps them all.
+- Give each test one behavior and one goal. An `ActAsync` instruction can
+  give several steps toward that goal. Name the fields, options, and
+  buttons the test depends on. Specify the order when it matters.
+- Keep arrange actions focused on the starting state. Wait for that
+  state before acting on the behavior under test.
+- Start with one call for the act block. Split at a meaningful screen
+  transition when the next step needs a known state, when a long flow
+  would risk the `MaxSteps` or `MaxModelCalls` budget, or when a failure
+  in the middle needs its own step boundary. Explain why, then wait for
+  the intermediate screen state. Each call has its own recording and
+  budgets within the test timeout. Verify the complete path together.
 
 ```csharp
-// BAD: three goals in one instruction, one recording.
-await Agent.ActAsync("open the Pro plan, set the seats to {seats}, and check out", new ActOptions
-{
-    Params = new Dictionary<string, object?> { ["seats"] = 3 },
-});
-
-// GOOD: arrange with two atomic goals, act with the one under test, assert last.
 [Test]
-public async Task Checks_out_the_Pro_plan()
+public async Task Places_an_order_with_a_saved_card()
 {
-    await App.OpenAsync("/plans");
-    await Agent.ActAsync("open the Pro plan");
-    await Agent.ActAsync("set the seats to {seats}", new ActOptions
-    {
-        Params = new Dictionary<string, object?> { ["seats"] = 3 },
-    });
-    await Agent.WaitForAsync("the cart shows the Pro plan with 3 seats");
+    await App.OpenAsync("/checkout");
 
-    await Agent.ActAsync("check out");
+    // The saved card can load after the Payment heading appears.
+    await Agent.ActAsync("Fill the Shipping address with {address}, then choose Continue to payment.", new ActOptions
+    {
+        Params = new Dictionary<string, object?> { ["address"] = "12 Market Street" },
+    });
+    await Screen.GetByRole("radio", "Test card").WaitForAsync();
+    await Agent.ActAsync("Select the saved Test card and choose Place order.");
 
     await Expect.That(Screen.GetByText("Order confirmed")).ToBeVisibleAsync();
-    await Expect.That(Screen.GetByText("Pro plan, 3 seats")).ToBeVisibleAsync();
 }
 ```
 
-Choosing the seats is its own behavior, so it gets its own test that ends
-after `set the seats` and asserts the seat count. Tests follow arrange, act,
-assert, one behavior each (topic `writing-tests`, "Structure").
-
 - Use the words on screen: `"open the Billing tab"`, not `"upgrade"`.
-- Values go in `Params`, never pasted into the instruction.
-- Do not describe mechanics the runner handles: waiting, scrolling, retries.
+- Put test data in `Params` and use placeholders in the instruction, never
+  pasted values.
+- Leave routine waiting, scrolling, and retries to the runner.
 - End the test with a check of the outcome. A passing locator or engine
   matcher, `AssertAsync`, or wait confirms every `ActAsync` before it, which
   lets the cache record them; close an arrange block of `ActAsync` goals
@@ -703,7 +693,7 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   saved: no check passed after this step` (the text does not name the failed
   delete, as upstream), and a failed step's replay gets no line.
 - While you fix a test, keep the cache on: each rerun replays the goals whose
-  check passed instead of calling the model for them (SKILL.md, "Rerunning a
+  check passed instead of calling the model for them (topic `debugging`, "Rerunning a
   test while you fix it"). `"cache": { "mode": "off" }` is for ruling out a
   stale replay (topic `debugging`, "Tools"), and for one live run once the
   test passes.

@@ -158,17 +158,47 @@ public sealed class BillingTests : E2ETest
    in that order: reach the starting state, do the one thing under test,
    then every `Expect.That` or `Agent.AssertAsync` at the end. A second
    outcome worth checking is a second test, so a failing name says what
-   broke. A step is an `Agent.ActAsync` goal or `Screen` lines. Drive the
-   flow with `Agent.ActAsync`, one atomic goal per call; three goals make
-   three calls.
-   Start it on the screen it covers, since every rerun pays for the steps
+   broke. A step is an `Agent.ActAsync` goal or `Screen` lines. When
+   `e2e.config.json` configures a model or executor on the default agent
+   (or a named agent under `agents`), write user flows (forms, buttons,
+   cart and CRUD mutations, navigation, sign-in) with `Agent.ActAsync`,
+   values in `Params`; reuse the existing helpers and page objects, and do
+   not avoid `ActAsync` on a new user flow merely because an `[E2ESetup]`
+   test or a sign-in helper uses `Screen` actions. Never assert mid-way
+   (use `WaitForAsync()` on a narrowed locator), name repeated locators and
+   values (a `const`), and own server data and its cleanup in the
+   framework's setup and teardown (`try`/`finally`). Start it on the
+   screen it covers, since every rerun pays for the steps
    before: in a browser a sign-in through the app's API in the test's setup
    (cookies set with `Browser.SetCookiesAsync`; a `Secret` cannot go into a
    request body, so that setup reads its own test account) instead of the sign-in form, and
    `App.OpenAsync` on that screen's path; on a device `Device.OpenLinkAsync`;
    and data from the app's API (topic `writing-tests`). Exact values go
    through `Screen`.
-4. Run only the test you are working on:
+4. Audit every test before running it:
+   - **Prefer `Agent.ActAsync` when an agent is configured:** normal UI flows
+     (submitting forms, editing or deleting items, navigating, signing out)
+     use `ActAsync` with `Params` and end with a verifying matcher or
+     `Agent.AssertAsync`, which confirms it for the replay cache. Reserve
+     `Screen` actions for low-level mechanics (a keyboard shortcut, a drag
+     offset, an empty submit), a sign-in setup test, or a config with no
+     model.
+   - **One behavior per test, no undone actions or unchecked screens:**
+     split a test whose name joins two behaviors with "and". Never undo an
+     action before asserting its effect (an end state equal to the start
+     hides a no-op), and never navigate past a screen before checking what
+     the test promised on it.
+   - **Second item shown, never the first:** in every test that removes,
+     edits, or toggles one item of a list, arrange adds two items (`A`,
+     then `B`), act targets the second item shown (`B` in append order, `A`
+     in newest-first order, never the first), and assert checks the first
+     item is unchanged. Bad: add `A`, add `B`, delete `A`. Good: add `A`,
+     add `B`, delete `B`, assert `B` is gone and `A` is unchanged.
+   - **No mid-test assertions:** every `Expect.That` and `Agent.AssertAsync`
+     sits at the end of its test with no action after it.
+   - **Every test runs alone:** no test depends on an earlier test's state;
+     any test must pass alone by its filter, twice in a row.
+5. Run only the test you are working on:
    `dotnet test --filter "FullyQualifiedName~<Class>.<Method>"`, with the
    settings in "Rerunning a test while you fix it" below. Agent steps need a
    model in the config and that provider's authentication. Tests without
@@ -178,7 +208,7 @@ public sealed class BillingTests : E2ETest
    doubled each time), and only then fails with `MODEL_PROVIDER_FAILED`.
    Bedrock signs with the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` variables or, with none set, the AWS credential chain (shared profile, SSO, container and instance roles). A SigV4-signed Bedrock request (AWS credentials, not a Bedrock API key) is signed again for every attempt, so a long wait does
    not end in `RequestExpired`.
-5. When it fails, fix it from what the run recorded (next section).
+6. When it fails, fix it from what the run recorded (next section).
 
 ## Workflow: fixing a failed test
 
@@ -516,11 +546,35 @@ lines you changed:
   arrange, act, assert with every assertion last (topic `writing-tests`).
   Bad: one test that adds a todo, checks it, marks it done, and checks
   again. Good: `Adds_a_todo_to_the_list` and `Marks_a_todo_as_done`, the
-  second adding its todo in its arrange block.
-- Agent instructions: one goal per act, the wording on screen, real values
-  in `Params`. A goal is atomic: one outcome that one check confirms. Two
-  outcomes are two goals in two `ActAsync` calls (topic `agent`), never
-  `"add a todo and mark it done"`. Judge meaning, not phrasing. A judgment reads the text snapshot and where the screen is (its
+  second adding its todo in its arrange block; mid-way states use
+  `WaitForAsync()`, not a check.
+- Test isolation: each test owns its starting state and passes alone by its
+  filter, twice in a row. Clean up shared server data in the framework's
+  teardown, guarded so a partial setup touches nothing (`try`/`finally`
+  around the creation), never at the end of a test body, and never chain
+  tests across shared state or branch on `IsVisibleAsync()` or `CountAsync()`
+  without a wait.
+- List mutations: add two items, act on the second item shown (never the
+  first), and check the first is unchanged (topic `writing-tests`, "Act on
+  the second item shown").
+- Agent flows and replay: when the default agent (or a selected named
+  agent) configures a model or executor, default to `Agent.ActAsync` for UI
+  actions (data in `Params`, `Values.Unique(...)` for run-unique values) and
+  end with a verifying matcher or `Agent.AssertAsync`, so replay caching
+  records the eligible `ActAsync` steps (reads, `Expect.Poll`, and
+  plain-value checks confirm nothing). Reserve `Screen` actions for
+  low-level mechanics (keyboard shortcuts, drag offsets, empty submits), a
+  sign-in setup test, or a config with no model. Split `ActAsync` only when
+  a later step needs a known screen state, the flow risks the `MaxSteps` or
+  `MaxModelCalls` budget, or a failure in the middle needs its own step
+  boundary (topic `agent`).
+- Reuse existing code: extend or import the existing tests, helpers, and
+  page objects instead of duplicating setup or locators.
+- Agent instructions: one behavior and one goal per test, the wording on
+  screen, real values in `Params`. An `ActAsync` instruction can give
+  several steps toward its goal: name the fields, options, and buttons the
+  test depends on, and the order when it matters (topic `agent`). Do not
+  join two behaviors into one test (`"add a todo and mark it done"`). Judge meaning, not phrasing. A judgment reads the text snapshot and where the screen is (its
   path on the app, or the whole address off it); the address is evidence only
   for a claim about the URL or route. When the answer is only in
   pixels (a chart, a canvas, an overlay), pass `Vision = VisionMode.On`, or
