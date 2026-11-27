@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>E2E.Desktop</RootNamespace>
+    <AssemblyName>E2E.Desktop</AssemblyName>
+    <Description>macOS desktop engine for the community .NET port of the e2e agentic testing framework: drives a native macOS app through the accessibility tree. Not an official TesterArmy product.</Description>
+    <PackageId>E2E.Desktop</PackageId>
+    <PackageTags>e2e;testing;agent;macos;accessibility</PackageTags>
+    <IsPackable>true</IsPackable>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- LibraryImport P/Invoke into the macOS frameworks. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\E2E\E2E.csproj" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.13" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <InternalsVisibleTo Include="E2E.Desktop.Tests" />
+    <InternalsVisibleTo Include="E2E.Cli" />
+  </ItemGroup>
+</Project>
