@@ -70,19 +70,61 @@ public enum PixelsWithheld
 /// </param>
 public sealed record ViewportIntersection(bool Intersects, double? Ratio = null);
 
-/// <summary>Upstream's <c>SemanticNode.states</c>: the flags of a node the harness reads.</summary>
-public sealed record EngineNodeStates(bool? Secure = null, bool? Hidden = null);
+/// <summary>
+/// Upstream's <c>SemanticNode.states</c>: the boolean states the platform reports. A null flag is absent: the platform does not say.
+/// <see cref="Readonly"/> is present only on a node that has a read-only state. <see cref="Empty"/> is whether the node holds nothing, reported on
+/// the nodes <c>Locate</c> returns, never in an observation, and never on a secure field.
+/// </summary>
+public sealed record EngineNodeStates(
+    bool? Checked = null,
+    bool? Disabled = null,
+    bool? Selected = null,
+    bool? Expanded = null,
+    bool? Pressed = null,
+    bool? Focused = null,
+    bool? Hidden = null,
+    bool? Secure = null,
+    bool? Readonly = null,
+    bool? Empty = null
+);
 
 /// <summary>
 /// Upstream's <c>SemanticNode</c> (<c>engine/contract.ts</c>): one node of an engine's tree. Named <c>EngineNode</c> because the port's IEngine
 /// already has a <see cref="SemanticNode"/>, which carries the port's own observation fields.
 /// </summary>
+/// <param name="Ref">Node reference, valid against the observation it came from.</param>
+/// <param name="Role">Semantic role.</param>
+/// <param name="Name">Accessible name, cut at <see cref="ObservationLimits.Name"/>.</param>
+/// <param name="Children">Child nodes.</param>
+/// <param name="States">Boolean states the platform reports.</param>
+/// <param name="Text">Visible text, cut at <see cref="ObservationLimits.Text"/>.</param>
+/// <param name="Value">Current input value; never reported for a secure field.</param>
+/// <param name="Selection">Text selected inside the node; absent when the selection is collapsed, and never reported for a secure field.</param>
+/// <param name="TestId">The node's test id, when the platform gives it one. The <c>testId</c> query resolves against this field.</param>
+/// <param name="InputPurpose">What a field takes: <c>username</c>, <c>password</c>, <c>one-time-code</c>, <c>generic-secret</c>, or <c>none</c>.</param>
+/// <param name="Level">Heading level of a heading node; absent elsewhere.</param>
+/// <param name="Attributes">Platform attributes, what <c>getAttribute</c> reads. The <c>placeholder</c> query reads <c>placeholder</c> from here.</param>
+/// <param name="Rect">The node's box in the top-level viewport's CSS pixels.</param>
+/// <param name="Origin">The point an offset into the node is measured from, in <paramref name="Rect"/>'s space, when it is not its top-left corner.</param>
+/// <param name="Selector">Platform selector that addresses this node within its own document, when the platform has one.</param>
+/// <param name="FramePath">Enclosing nested-document chain as selectors of each boundary node, outermost first.</param>
 public sealed record EngineNode(
     NodeRef Ref,
     string? Role = null,
     string? Name = null,
     IReadOnlyList<EngineNode>? Children = null,
-    EngineNodeStates? States = null
+    EngineNodeStates? States = null,
+    string? Text = null,
+    string? Value = null,
+    string? Selection = null,
+    string? TestId = null,
+    string? InputPurpose = null,
+    int? Level = null,
+    IReadOnlyDictionary<string, string>? Attributes = null,
+    BoundingBox? Rect = null,
+    Point? Origin = null,
+    string? Selector = null,
+    IReadOnlyList<string>? FramePath = null
 );
 
 /// <summary>

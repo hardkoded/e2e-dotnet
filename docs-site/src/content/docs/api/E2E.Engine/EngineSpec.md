@@ -345,9 +345,9 @@ public Func<EnginePrepareInfo, Task<EnginePrepareResult?>>? Prepare { get; init;
 ```
 
 
-Prepares the engine for a run.
+Prepares the engine for a run. Returns what prepare learned that the run must honour, or null when it bound nothing.
 
-**Value:** [Func&lt;EnginePrepareInfo, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
+**Value:** [Func&lt;EnginePrepareInfo, Task&lt;EnginePrepareResult&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 
 <a id="E2E_Engine_EngineSpec_ReadStyle_"></a>
 <a id="E2E_Engine_EngineSpec_ReadStyle"></a>
