@@ -75,7 +75,20 @@ internal sealed class RunningTest(FileGroup group, string title, long startedMs,
 
     public long StartedMs { get; } = startedMs;
 
-    public CurrentStep? Current { get; set; }
+    /// <summary>
+    /// Steps started and not yet ended, by step id, oldest first. A step can open inside another (an <c>onAction</c> hook's screenshot inside an
+    /// act) or beside it (<c>Promise.all</c>), so each phase updates the step it names.
+    /// </summary>
+    public OrderedDictionary<string, CurrentStep> Open { get; } = [];
+
+    /// <summary>The attempt whose steps <see cref="Open"/> holds. A retry starts no new pair, and a step of a timed-out attempt may never end.</summary>
+    public string? AttemptId { get; set; }
+
+    /// <summary>That attempt's index. The body of a timed-out attempt keeps running, so it can start a step after the retry began; a step of an older attempt is not shown.</summary>
+    public int? AttemptIndex { get; set; }
+
+    /// <summary>The step the live window shows for a pair: the one it started last of those still open (upstream's <c>currentStep</c>).</summary>
+    public CurrentStep? Current => Open.Count == 0 ? null : Open.GetAt(Open.Count - 1).Value;
 
     /// <summary>Finished agent steps across every attempt, oldest first. Shown under the test in the live window while it runs, nested under its line in the file block once it is done.</summary>
     public List<FinishedStep> Steps { get; } = steps;

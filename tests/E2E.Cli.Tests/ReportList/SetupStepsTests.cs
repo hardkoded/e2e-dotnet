@@ -106,6 +106,32 @@ public sealed class SetupStepsTests
         );
     }
 
+    [Fact]
+    public void Takes_down_a_setup_step_that_failed_with_a_run_error_so_an_interrupt_after_it_does_not_name_it()
+    {
+        var output = new LiveCapture();
+        var reporter = PlainReporter(output, live: true);
+        reporter.Handle(RunStarted());
+        var app = new AppSetupStep("target \"chromium\" command", "http://127.0.0.1:4310/");
+        reporter.Handle(new SetupEvent(app, SetupState.Started));
+        Assert.Contains("starting target \"chromium\" command", output.Chunks[^1], StringComparison.Ordinal);
+        reporter.Handle(
+            new RunErrorEvent(
+                new global::E2E.Reports.ReportError
+                {
+                    Category = ErrorCategory.Infrastructure,
+                    Code = "APP_UNREACHABLE",
+                    Message = "the app command exited with code 1",
+                    Retryable = false,
+                    Phase = ErrorPhase.Launch,
+                }
+            )
+        );
+        Assert.DoesNotContain("starting", output.Chunks[^1], StringComparison.Ordinal);
+        reporter.Handle(new RunInterruptedEvent(InterruptMode.Graceful));
+        Assert.DoesNotContain("interrupted while starting", string.Join('\n', output.Lines), StringComparison.Ordinal);
+    }
+
     /// <summary>Upstream's raw <c>chunks</c> sink: the lines a reporter wrote, colors kept.</summary>
     private sealed class Raw : IListReporterOutput
     {

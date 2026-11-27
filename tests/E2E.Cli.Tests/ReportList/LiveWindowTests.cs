@@ -40,6 +40,377 @@ public sealed partial class LiveWindowTests
         );
 
     [Fact]
+    public void Keeps_an_agent_step_running_after_a_step_nested_in_it_ends_and_routes_each_step_its_own_progress()
+    {
+        var output = new LiveCapture();
+        var reporter = Live(output);
+        reporter.Handle(RunStarted());
+        reporter.Handle(Plan(("tests/case.e2e.ts", 1)));
+        reporter.Handle(TestStarted("t1", "pays", "chromium"));
+        void Feed(string stepId, StepProgress progress) =>
+            reporter.Handle(
+                Step(
+                    "t1",
+                    progress with
+                    {
+                        Identity = new StepProgressIdentity("a1", 0, stepId, int.Parse(stepId[1..])),
+                    }
+                )
+            );
+        string Shown() => Frame(output.Chunks[^1]);
+        Feed(
+            "s0",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Start,
+                Kind = StepKind.Agent,
+                Api = "agent.act",
+                Label = "pay",
+            }
+        );
+
+        // An onAction hook takes a screenshot while the act runs.
+        Feed(
+            "s1",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Start,
+                Kind = StepKind.Locator,
+                Api = "screen.screenshot",
+                Label = "after tap",
+            }
+        );
+        Assert.Contains("screen.screenshot \"after tap\"", Shown(), StringComparison.Ordinal);
+        Feed(
+            "s0",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Activity,
+                Api = "agent.act",
+                Activity = StepActivity.Observe,
+            }
+        );
+        Feed(
+            "s1",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.End,
+                Kind = StepKind.Locator,
+                Api = "screen.screenshot",
+                Label = "after tap",
+                Status = StepStatus.Passed,
+                DurationMs = 5,
+                ModelCalls = 0,
+            }
+        );
+        Assert.Contains("agent.act \"pay\"", Shown(), StringComparison.Ordinal);
+        Assert.Contains("Observing", Shown(), StringComparison.Ordinal);
+        Feed(
+            "s0",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Activity,
+                Api = "agent.act",
+                Activity = StepActivity.Action,
+            }
+        );
+        Feed(
+            "s0",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Event,
+                Api = "agent.act",
+                Event = new StepEvent
+                {
+                    Kind = StepEventKind.Engine,
+                    Name = "tool:tap",
+                    Detail = "tap button \"Pay\"",
+                    StartedAt = DateTimeOffset.UnixEpoch,
+                    DurationMs = 27,
+                    Status = StepEventStatus.Passed,
+                },
+            }
+        );
+        Feed(
+            "s0",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Activity,
+                Api = "agent.act",
+                Activity = StepActivity.Action,
+            }
+        );
+        Assert.Contains("agent.act \"pay\"", Shown(), StringComparison.Ordinal);
+        Assert.Contains("tap button \"Pay\"", Shown(), StringComparison.Ordinal);
+        Assert.Contains("Acting", Shown(), StringComparison.Ordinal);
+        Assert.DoesNotContain("screen.screenshot", Shown(), StringComparison.Ordinal);
+        Feed(
+            "s0",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.End,
+                Kind = StepKind.Agent,
+                Api = "agent.act",
+                Label = "pay",
+                Status = StepStatus.Passed,
+                DurationMs = 900,
+                ModelCalls = 1,
+            }
+        );
+        Assert.DoesNotContain("Acting", Shown(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Keeps_the_newer_of_two_concurrent_steps_shown_when_the_older_one_ends_first()
+    {
+        var output = new LiveCapture();
+        var reporter = Live(output);
+        reporter.Handle(RunStarted());
+        reporter.Handle(Plan(("tests/case.e2e.ts", 1)));
+        reporter.Handle(TestStarted("t1", "pays", "chromium"));
+        void Feed(string stepId, StepProgress progress) =>
+            reporter.Handle(
+                Step(
+                    "t1",
+                    progress with
+                    {
+                        Identity = new StepProgressIdentity("a1", 0, stepId, int.Parse(stepId[1..])),
+                    }
+                )
+            );
+        string Shown() => Frame(output.Chunks[^1]);
+        // Promise.all: an assertion polls while an act runs beside it, and the assertion settles first.
+        Feed(
+            "s0",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Start,
+                Kind = StepKind.Assertion,
+                Api = "expect.toBeVisible",
+                Label = "locator(\"p\")",
+            }
+        );
+        Feed(
+            "s1",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Start,
+                Kind = StepKind.Agent,
+                Api = "agent.act",
+                Label = "pay",
+            }
+        );
+        Feed(
+            "s1",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Replay,
+                Api = "agent.act",
+                Active = true,
+            }
+        );
+        Feed(
+            "s0",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.End,
+                Kind = StepKind.Assertion,
+                Api = "expect.toBeVisible",
+                Label = "locator(\"p\")",
+                Status = StepStatus.Passed,
+                DurationMs = 5,
+                ModelCalls = 0,
+            }
+        );
+        Assert.Contains("agent.act \"pay\"", Shown(), StringComparison.Ordinal);
+        Assert.Contains("Replaying", Shown(), StringComparison.Ordinal);
+        Assert.DoesNotContain("expect.toBeVisible", Shown(), StringComparison.Ordinal);
+        Feed(
+            "s1",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Activity,
+                Api = "agent.act",
+                Activity = StepActivity.Action,
+            }
+        );
+        Feed(
+            "s1",
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Replay,
+                Api = "agent.act",
+                Active = false,
+            }
+        );
+        Assert.Contains("agent.act \"pay\"", Shown(), StringComparison.Ordinal);
+        Assert.Contains("Acting", Shown(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Drops_a_step_an_earlier_attempt_left_open_once_a_retry_starts_its_own()
+    {
+        var output = new LiveCapture();
+        var reporter = Live(output);
+        reporter.Handle(RunStarted());
+        reporter.Handle(Plan(("tests/case.e2e.ts", 1)));
+        reporter.Handle(TestStarted("t1", "pays", "chromium"));
+        void Feed(string attemptId, int stepIndex, StepProgress progress) =>
+            reporter.Handle(
+                Step(
+                    "t1",
+                    progress with
+                    {
+                        Identity = new StepProgressIdentity(
+                            attemptId,
+                            int.Parse(attemptId[1..]),
+                            $"{attemptId}:{stepIndex}",
+                            stepIndex
+                        ),
+                    }
+                )
+            );
+        string Shown() => Frame(output.Chunks[^1]);
+        // The first attempt times out with its act still running: no end ever comes.
+        Feed(
+            "a0",
+            0,
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Start,
+                Kind = StepKind.Agent,
+                Api = "agent.act",
+                Label = "pay",
+            }
+        );
+        Feed(
+            "a1",
+            0,
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Start,
+                Kind = StepKind.Locator,
+                Api = "locator.tap",
+                Label = "Pay",
+            }
+        );
+        Feed(
+            "a1",
+            0,
+            new StepProgress
+            {
+                Phase = StepProgressPhase.End,
+                Kind = StepKind.Locator,
+                Api = "locator.tap",
+                Label = "Pay",
+                Status = StepStatus.Passed,
+                DurationMs = 5,
+                ModelCalls = 0,
+            }
+        );
+        Assert.Contains("└── pays", Shown(), StringComparison.Ordinal);
+        Assert.DoesNotContain("agent.act", Shown(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Keeps_a_retry_shown_when_the_timed_out_attempt_starts_a_step_after_it_began()
+    {
+        var output = new LiveCapture();
+        var reporter = Live(output);
+        reporter.Handle(RunStarted());
+        reporter.Handle(Plan(("tests/case.e2e.ts", 1)));
+        reporter.Handle(TestStarted("t1", "pays", "chromium"));
+        void Feed(string attemptId, int stepIndex, StepProgress progress) =>
+            reporter.Handle(
+                Step(
+                    "t1",
+                    progress with
+                    {
+                        Identity = new StepProgressIdentity(
+                            attemptId,
+                            int.Parse(attemptId[1..]),
+                            $"{attemptId}:{stepIndex}",
+                            stepIndex
+                        ),
+                    }
+                )
+            );
+        string Shown() => Frame(output.Chunks[^1]);
+        Feed(
+            "a0",
+            0,
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Start,
+                Kind = StepKind.Agent,
+                Api = "agent.act",
+                Label = "old pay",
+            }
+        );
+        Feed(
+            "a1",
+            0,
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Start,
+                Kind = StepKind.Agent,
+                Api = "agent.act",
+                Label = "pay",
+            }
+        );
+        Feed(
+            "a1",
+            0,
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Activity,
+                Api = "agent.act",
+                Activity = StepActivity.Observe,
+            }
+        );
+        // The timed-out act's onAction hook still runs and takes a screenshot.
+        Feed(
+            "a0",
+            1,
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Start,
+                Kind = StepKind.Screen,
+                Api = "screen.screenshot",
+                Label = "after tap",
+            }
+        );
+        Assert.DoesNotContain("screen.screenshot", Shown(), StringComparison.Ordinal);
+        Feed(
+            "a0",
+            1,
+            new StepProgress
+            {
+                Phase = StepProgressPhase.End,
+                Kind = StepKind.Screen,
+                Api = "screen.screenshot",
+                Label = "after tap",
+                Status = StepStatus.Passed,
+                DurationMs = 5,
+                ModelCalls = 0,
+            }
+        );
+        Feed(
+            "a1",
+            0,
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Activity,
+                Api = "agent.act",
+                Activity = StepActivity.Action,
+            }
+        );
+        Assert.Contains("agent.act \"pay\"", Shown(), StringComparison.Ordinal);
+        Assert.Contains("Acting", Shown(), StringComparison.Ordinal);
+        Assert.DoesNotContain("old pay", Shown(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Shows_a_running_file_and_test_on_start_and_erases_the_window_before_a_result_prints()
     {
         var output = new LiveCapture();
