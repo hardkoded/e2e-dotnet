@@ -2,7 +2,6 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Globalization;
 using System.Text.Json.Nodes;
 using E2E.Engine;
 
@@ -513,24 +512,20 @@ public sealed class Device
     /// </summary>
     /// <exception cref="TestException"><c>INVALID_ARGUMENT</c>: a value that is not one of the three buttons. Nothing is sent to the device.</exception>
     public Task PressButtonAsync(HardwareButton button, CancellationToken cancellationToken = default) =>
-        RunAsync(
-            "device.pressButton",
-            Enum.IsDefined(button) ? button.WireName() : ((int)button).ToString(CultureInfo.InvariantCulture),
-            () =>
-            {
-                Buttons.RequireHardwareButton(button);
-                var input = _session.InputBudget("device.pressButton", cancellationToken);
-                return _session.ScreenCommandAsync(
-                    "device.pressButton",
-                    (client, token) =>
-                        input.SendAsync(
-                            signal => Buttons.PressButtonAsync(client, button, _session.Selection, signal),
-                            token
-                        ),
-                    cancellationToken
-                );
-            }
-        );
+        RunAsync("device.pressButton", Enum.IsDefined(button) ? button.WireName() : button.ToString(), () =>
+        {
+            Buttons.RequireHardwareButton(button);
+            var input = _session.InputBudget("device.pressButton", cancellationToken);
+            return _session.ScreenCommandAsync(
+                "device.pressButton",
+                (client, token) =>
+                    input.SendAsync(
+                        signal => Buttons.PressButtonAsync(client, button, _session.Selection, signal),
+                        token
+                    ),
+                cancellationToken
+            );
+        });
 
     /// <summary>Navigates back once (in-app back). It settles as <see cref="MobileOptions.Settle"/> and <see cref="MobileOptions.SettleMilliseconds"/> say, which a test's own steps do not.</summary>
     public Task BackAsync(CancellationToken cancellationToken = default) =>

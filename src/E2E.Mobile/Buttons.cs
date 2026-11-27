@@ -25,7 +25,7 @@ internal static class Buttons
     /// has <c>mute</c>, <c>sleep</c>, <c>wake</c>, and media keys; they are left out until a phone test needs them.
     /// Upstream's <c>HARDWARE_BUTTONS</c>.
     /// </summary>
-    private static readonly HardwareButton[] HardwareButtonNames =
+    private static readonly HardwareButton[] HardwareButtons =
     [
         HardwareButton.VolumeUp,
         HardwareButton.VolumeDown,
@@ -62,14 +62,14 @@ internal static class Buttons
     /// <summary>Throws <c>INVALID_ARGUMENT</c> unless <paramref name="button"/> is one of the hardware buttons. Upstream's <c>requireHardwareButton</c>.</summary>
     public static void RequireHardwareButton(HardwareButton button)
     {
-        if (Array.IndexOf(HardwareButtonNames, button) >= 0)
+        if (Array.IndexOf(HardwareButtons, button) >= 0)
         {
             return;
         }
 
         throw new TestException(
             "INVALID_ARGUMENT",
-            $"device.pressButton({(int)button}): not a hardware button; press one of {string.Join(", ", HardwareButtonNames.Select(WireName))}"
+            $"device.pressButton({(int)button}): not a hardware button; press one of {string.Join(", ", HardwareButtons.Select(WireName))}"
         );
     }
 }
