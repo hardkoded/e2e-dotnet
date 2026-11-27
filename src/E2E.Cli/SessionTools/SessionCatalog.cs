@@ -76,7 +76,8 @@ internal sealed class SessionCatalog
     /// target's app URL, which a navigation's test line is made relative to. <paramref name="projectRoot"/> is where a relative <c>screenshot</c> path
     /// resolves, and <paramref name="attemptDir"/> the attempt's artifact directory, where the engine writes a screenshot before <c>screenshot</c>
     /// copies it out. <paramref name="recorder"/> is the session's video recorder, which adds <c>start_recording</c> and <c>stop_recording</c>.
-    /// <paramref name="testRan"/> is the full name of the test the session ran first, which the test lines continue.
+    /// <paramref name="testRan"/> is the full name of the test the session ran first, which the test lines continue. <paramref name="attached"/> is whether the session is
+    /// attached to a held running test, and <paramref name="hasAgent"/> whether its agent has a model or executor, so the test lines advise <c>Agent.ActAsync</c>.
     /// <paramref name="actionKinds"/> is what the engine declared (<see cref="IEngineSession.ActionKinds"/>): <c>long_press</c>, <c>right_click</c>,
     /// <c>hover</c>, and <c>drag</c> are tools only where their kind is named. <paramref name="pointerKinds"/> is what the engine takes at a bare point
     /// (<see cref="IEngineSession.PointerActionKinds"/>), which the point tools (<c>tap_at</c> and the other <c>_at</c> tools) follow.
@@ -98,7 +99,9 @@ internal sealed class SessionCatalog
         IReadOnlyDictionary<string, AgentTool>? projectTools = null,
         string? platform = null,
         Action<string>? warn = null,
-        IReadOnlyList<ExecutorSecret>? secretHandles = null
+        IReadOnlyList<ExecutorSecret>? secretHandles = null,
+        bool attached = false,
+        bool hasAgent = false
     )
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -115,6 +118,8 @@ internal sealed class SessionCatalog
                 AppBase = appBase,
                 Fills = fills ?? new TestLineFills([], secrets),
                 TestRan = testRan,
+                Attached = attached,
+                HasAgent = hasAgent,
             }
         );
         // The presenter also holds the latest screenshot the session showed its coding agent, which a point tool reads its coordinates against.

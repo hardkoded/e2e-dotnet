@@ -52,7 +52,9 @@ internal sealed class TestLineHarness
         IReadOnlyList<Fake> screen,
         IReadOnlyList<Fake>? live = null,
         bool observed = true,
-        string? testRan = null
+        string? testRan = null,
+        bool attached = false,
+        bool hasAgent = false
     )
     {
         var listed = new Fake("root", "document", "Page", Children: [.. screen]).ToNode();
@@ -72,6 +74,8 @@ internal sealed class TestLineHarness
                     ["apiKey"]
                 ),
                 TestRan = testRan,
+                Attached = attached,
+                HasAgent = hasAgent,
                 Resolve = () =>
                     (expression, _) =>
                     {
