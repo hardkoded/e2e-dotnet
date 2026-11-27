@@ -449,3 +449,146 @@ public sealed class TestContext
         }
     }
 }
+
+/// <summary>Upstream's <c>FixtureScope</c> (<c>types/fixtures.ts</c>): how long a fixture lives.</summary>
+public static class FixtureScope
+{
+    /// <summary>One test attempt.</summary>
+    public const string Test = "test";
+
+    /// <summary>The worker.</summary>
+    public const string Worker = "worker";
+}
+
+/// <summary>
+/// How long a core fixture lives (upstream's <c>CoreFixtureScope</c>, <c>run/fixtures.ts</c>): one test attempt, the worker, or, for
+/// <see cref="Engine"/>, as long as the state behind the engine's own fixtures, which the engine declares (<c>isolation</c>).
+/// </summary>
+internal static class CoreFixtureScope
+{
+    public const string Test = "test";
+    public const string Worker = "worker";
+    public const string Engine = "engine";
+}
+
+/// <summary>
+/// What the built-in fixtures of a target are read from (upstream's <c>BuiltInTarget</c>): its name, its platform, its engine's name, fixtures,
+/// and isolation, and the fixture scopes of every target.
+/// </summary>
+internal sealed record BuiltInTarget(
+    string Name,
+    string Platform,
+    IReadOnlyDictionary<string, string> FixtureScopes,
+    ResolvedEngine? Engine = null
+)
+{
+    /// <summary>The target as <see cref="ResolvedTarget"/> holds it.</summary>
+    public static BuiltInTarget Of(ResolvedTarget target) =>
+        new(target.Name, target.Platform, target.FixtureScopes, target.Engine);
+}
+
+/// <summary>
+/// Upstream's <c>CORE_FIXTURES</c> table (<c>run/fixtures.ts</c>): the fixtures every attempt has, whatever its engine, each one's name and scope.
+/// Differences: the port builds a fixture's value where the session is built (<c>Create</c> has no home here), so the table holds the scope
+/// and, for the fixtures built from the target and the worker alone (<c>ofWorker</c>), how to build them.
+/// </summary>
+internal static class CoreFixtures
+{
+    /// <summary>Upstream's <c>CORE_FIXTURES</c>: each core fixture's scope; the value is its <c>ofWorker</c> builder, or null when an attempt builds it.</summary>
+    public static readonly IReadOnlyDictionary<
+        string,
+        (string Scope, Func<BuiltInTarget, IReadOnlyDictionary<string, object?>, object?>? OfWorker)
+    > Table = new Dictionary<string, (string, Func<BuiltInTarget, IReadOnlyDictionary<string, object?>, object?>?)>
+    {
+        ["agent"] = (CoreFixtureScope.Test, null),
+        ["app"] = (CoreFixtureScope.Engine, null),
+        ["screen"] = (CoreFixtureScope.Engine, null),
+        ["platform"] = (CoreFixtureScope.Worker, (target, _) => target.Platform),
+        ["request"] = (CoreFixtureScope.Test, null),
+        ["services"] = (CoreFixtureScope.Worker, (_, services) => services),
+        ["session"] = (CoreFixtureScope.Test, null),
+    };
+
+    /// <summary>The table's entry for <paramref name="name"/> (upstream's <c>coreFixture</c>), when it is a core fixture.</summary>
+    internal static (string Scope, Func<BuiltInTarget, IReadOnlyDictionary<string, object?>, object?>? OfWorker)? Get(
+        string name
+    ) => Table.TryGetValue(name, out var fixture) ? fixture : null;
+
+    /// <summary>Whether reading <paramref name="name"/> requires an attempt: every fixture except core fixtures derived from the target or worker (upstream's <c>needsAttempt</c>).</summary>
+    internal static bool NeedsAttempt(string name) => Get(name) is not { OfWorker: not null };
+}
+
+/// <summary>
+/// The built-in fixtures of a target (upstream's <c>BuiltInFixtures</c> and <c>builtInFixtures</c>, <c>run/fixtures.ts</c>): the core ones and the ones its
+/// engine contributes. The one place that knows their names, their scopes, and which of them need an attempt.
+/// </summary>
+internal sealed class BuiltInFixtures
+{
+    /// <summary>Fixtures other runners hand out, each pointed at the e2e way of doing the same thing (upstream's <c>FOREIGN_FIXTURE_HINTS</c>).</summary>
+    private static readonly Dictionary<string, string> ForeignFixtureHints = new()
+    {
+        ["page"] =
+            "there is no Playwright page: open the app with app.open() and find elements through screen; browser-only APIs are on the browser fixture of a Playwright target",
+        ["context"] =
+            "the browser context is owned by the engine: cookies, routes, and storage are on the browser fixture of a Playwright target",
+        ["driver"] =
+            "there is no WebDriver session: drive the device through app, screen, and (on an agent-device target) device",
+    };
+
+    private readonly BuiltInTarget _target;
+    private readonly IReadOnlyDictionary<string, object?> _services;
+    private readonly IReadOnlyList<string> _contributed;
+
+    private BuiltInFixtures(BuiltInTarget target, IReadOnlyDictionary<string, object?> services)
+    {
+        _target = target;
+        _services = services;
+        _contributed = target.Engine?.Fixtures ?? [];
+        Names = [.. CoreFixtures.Table.Keys.Concat(_contributed).Concat(target.FixtureScopes.Keys).Distinct()];
+    }
+
+    /// <summary>The target the fixtures are of, for an error to name.</summary>
+    public string TargetName => _target.Name;
+
+    /// <summary>Every built-in fixture name: the core ones, the engine's, then the ones only other targets have.</summary>
+    public IReadOnlyList<string> Names { get; }
+
+    /// <summary>Upstream's <c>builtInFixtures</c>: the built-in fixtures for <paramref name="target"/> with the worker's <paramref name="services"/> values.</summary>
+    public static BuiltInFixtures Of(BuiltInTarget target, IReadOnlyDictionary<string, object?>? services = null) =>
+        new(target, services ?? new Dictionary<string, object?>());
+
+    /// <summary>
+    /// How long <paramref name="name"/> lives: one test attempt or the worker. The engine's own fixtures, <c>app</c>, and <c>screen</c> live as long as the
+    /// state behind them, which the engine declares (<c>isolation</c>). A fixture only other targets have takes its scope from them. Null when no
+    /// target has a built-in fixture of that name.
+    /// </summary>
+    public string? Scope(string name)
+    {
+        var engineScope = _target.Engine?.Isolation == EngineIsolation.Worker ? FixtureScope.Worker : FixtureScope.Test;
+        var scope = CoreFixtures.Get(name)?.Scope
+            ?? (
+                _contributed.Contains(name) ? CoreFixtureScope.Engine
+                : _target.FixtureScopes.TryGetValue(name, out var shared) ? shared
+                : null
+            );
+        return scope == CoreFixtureScope.Engine ? engineScope : scope;
+    }
+
+    /// <summary>Whether reading <paramref name="name"/> requires an engine attempt, which is every built-in except those derived from the target or worker.</summary>
+    public bool NeedsAttempt(string name) =>
+        (_contributed.Contains(name) || !_target.FixtureScopes.ContainsKey(name)) && CoreFixtures.NeedsAttempt(name);
+
+    /// <summary>The value of a built-in that needs no attempt; null for any other name.</summary>
+    public object? Attemptless(string name) => CoreFixtures.Get(name)?.OfWorker?.Invoke(_target, _services);
+
+    /// <summary>Why the target has no fixture <paramref name="name"/>, beside the fixtures <paramref name="available"/> to the code that asked (upstream's <c>unknownFixtureMessage</c>).</summary>
+    public string Missing(string name, IReadOnlyList<string> available)
+    {
+        var contributed =
+            $"engine {_target.Engine?.Name ?? "none"} contributes {(_contributed.Count == 0 ? "no fixtures" : string.Join(", ", _contributed))}";
+        var hint = ForeignFixtureHints.TryGetValue(name, out var foreign)
+            ? $"; {foreign}"
+            : Suggestions.DidYouMean(name, available);
+        return $"target \"{_target.Name}\" has no \"{name}\" fixture; available: {string.Join(", ", available)} ({contributed}){hint}";
+    }
+}

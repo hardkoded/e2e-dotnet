@@ -23,7 +23,9 @@ public sealed record ResolvedCredential(string Name, string Username, Secret Pas
 internal sealed record ResolvedEngine(
     string Name,
     IReadOnlySet<string> Capabilities,
-    IReadOnlyList<Secret>? Secrets = null
+    IReadOnlyList<Secret>? Secrets = null,
+    string? Isolation = null,
+    IReadOnlyList<string>? Fixtures = null
 );
 
 /// <summary>
@@ -36,7 +38,14 @@ internal sealed record ResolvedTarget(
     AppConfig App,
     ResolvedEngine? Engine = null,
     EngineHandle? EngineHandle = null
-);
+)
+{
+    /// <summary>
+    /// Engine fixture scopes shared by all targets in the config (upstream's <c>fixtureScopes</c>). On a target without the fixture, the scope is
+    /// <see cref="FixtureScope.Worker"/> if <c>isolation: 'worker'</c> is set on every engine with the fixture, and <see cref="FixtureScope.Test"/> otherwise.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> FixtureScopes { get; init; } = new Dictionary<string, string>();
+}
 
 /// <summary>
 /// The resolved config as selection and the test filters read it (upstream's <c>ResolvedConfig</c>, <c>config/resolve.ts</c>). The port has
@@ -416,6 +425,25 @@ internal sealed record ResolvedConfig
             targets.Add(ResolveTarget(target));
         }
 
+        // Upstream's resolveTargets: the scope of an engine fixture is shared by every target.
+        var fixtureScopes = new Dictionary<string, string>();
+        foreach (var engine in targets.Select(target => target.Engine))
+        {
+            foreach (var fixture in engine?.Fixtures ?? [])
+            {
+                if (!fixtureScopes.TryGetValue(fixture, out var scope) || scope != FixtureScope.Test)
+                {
+                    fixtureScopes[fixture] =
+                        engine?.Isolation == EngineIsolation.Worker ? FixtureScope.Worker : FixtureScope.Test;
+                }
+            }
+        }
+
+        for (var index = 0; index < targets.Count; index++)
+        {
+            targets[index] = targets[index] with { FixtureScopes = fixtureScopes };
+        }
+
         CheckEngineSecrets(targets, config.Secrets, config.Credentials);
         return new ResolvedConfig
         {
@@ -450,7 +478,13 @@ internal sealed record ResolvedConfig
                 target.Name,
                 target.Platform,
                 target.App,
-                new ResolvedEngine(served.Name, served.Capabilities, served.Secrets),
+                new ResolvedEngine(
+                    served.Name,
+                    served.Capabilities,
+                    served.Secrets,
+                    served.Isolation,
+                    served.Fixtures?.Keys.ToList()
+                ),
                 served
             );
         }
