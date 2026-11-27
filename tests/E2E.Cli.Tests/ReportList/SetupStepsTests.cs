@@ -129,11 +129,7 @@ public sealed class SetupStepsTests
         );
         Assert.DoesNotContain("starting", output.Chunks[^1], StringComparison.Ordinal);
         reporter.Handle(new RunInterruptedEvent(InterruptMode.Graceful));
-        Assert.DoesNotContain(
-            "interrupted while starting",
-            string.Join('\n', output.Lines),
-            StringComparison.Ordinal
-        );
+        Assert.DoesNotContain("interrupted while starting", string.Join('\n', output.Lines), StringComparison.Ordinal);
     }
 
     /// <summary>Upstream's raw <c>chunks</c> sink: the lines a reporter wrote, colors kept.</summary>
