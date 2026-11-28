@@ -443,6 +443,8 @@ The key grammar of `press`, shared by every engine, is zero or more modifiers an
 - Named keys: `Enter`, `Escape`, `Tab`, `Backspace`, `Delete`, `Insert`, `Space`, `ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`, `Home`, `End`, `PageUp`, `PageDown`, `F1` to `F12`.
 - Any single printable character (`a`, `A`, `1`, `$`), typed as itself. A trailing `+` is the key: `Shift++` presses `+` with Shift held.
 
+The web engine presses a character that is not on a US keyboard (`é`, `中`) in Chromium only: Playwright has no key for it, so the engine sends it as CDP key events. The page gets the same `keydown`, `input`, and `keyup` as for any key, with an empty `code` and a `keyCode` of 0. In Firefox and WebKit it throws `UNSUPPORTED_CAPABILITY` before any key is sent; enter it with `FillAsync` or `PressSequentiallyAsync`.
+
 `Control+a`, `Shift+Tab`, `Enter`, `$`. `Ctrl+a` is outside the grammar. A platform without a key maps it or throws `UNSUPPORTED_CAPABILITY`; it never reinterprets the spelling. The parser (upstream's `parseKey`, `KeyGrammar.Parse`) and its `KEY_NAMES` are `internal` to the `E2E` assembly, so an engine outside it cannot call them; the harness rejects a key outside the grammar with `INVALID_ARGUMENT` before `PressAsync` or `LocatorAction.Press` reaches the engine, and an engine receives only valid spellings.
 
 ### App

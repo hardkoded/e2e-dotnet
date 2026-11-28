@@ -2676,6 +2676,9 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                     // An action on a node needs no observation after a recovery, as upstream's: a ref from before it is retired, and one a locate
                     // stored after it names an element of the page now.
                     var budget = Budget(action.GetType().Name.ToLowerInvariant(), cancellationToken, context.Timeout);
+                    var character = action is LocatorAction.Press typed
+                        ? CharacterPressing.RequireCharacterPress(typed.Key, _options.BrowserName)
+                        : null;
                     await RequireNoNewTwinAsync(node, budget).ConfigureAwait(false);
                     var (element, pin) = await FindElementAsync(node, action, budget).ConfigureAwait(false);
 
@@ -2697,7 +2700,19 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                             return;
                         }
 
-                        await budget.WithinAsync(DispatchAsync(element, action, budget)).ConfigureAwait(false);
+                        await budget
+                            .WithinAsync(
+                                character is null
+                                    ? DispatchAsync(element, action, budget)
+                                    : CharacterPressing.PressCharacterOnAsync(
+                                        new ElementTarget(element),
+                                        shown,
+                                        character,
+                                        budget,
+                                        Checkpoint(budget, cancellationToken)
+                                    )
+                            )
+                            .ConfigureAwait(false);
                     }
                     catch (Exception ex)
                         when (WebErrors.IsPlaywright(ex) && WebErrors.DispatchedInput(ex) && TabClosed(shown))
@@ -3031,12 +3046,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             ActedAsync(cancellationToken, () => GuardAsync("keyboard.press", cancellationToken, () =>
                 {
                     RequireObservation();
-                    return InputAsync(
-                        () => Page.Keyboard.PressAsync(key),
-                        "press " + key,
-                        cancellationToken,
-                        context.Timeout
-                    );
+                    return PressKeyAsync(key, cancellationToken, context.Timeout);
                 }));
 
         /// <summary>
@@ -3131,6 +3141,22 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             GuardAsync("keyboard.press", cancellationToken, () =>
                 InputAsync(() => Page.Keyboard.PressAsync(key), "press " + key, cancellationToken)
             );
+
+        // Sends one key to whatever holds focus: Playwright presses a key of its US layout, and the engine sends a character off it itself (upstream's `pressKey`).
+        private Task PressKeyAsync(string key, CancellationToken cancellationToken, TimeSpan? timeout)
+        {
+            var character = CharacterPressing.RequireCharacterPress(key, _options.BrowserName);
+            var page = Page;
+            return character is null
+                ? InputAsync(() => page.Keyboard.PressAsync(key), "press " + key, cancellationToken, timeout)
+                : InputAsync(
+                    budget =>
+                        CharacterPressing.PressCharacterAsync(page, character, Checkpoint(budget, cancellationToken)),
+                    "press " + key,
+                    cancellationToken,
+                    timeout
+                );
+        }
 
         public Task BackAsync(CancellationToken cancellationToken) =>
             BackAsync(OperationContext.Test, cancellationToken);
@@ -4918,8 +4944,16 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             new(timeout ?? _actionTimeout, label, cancellationToken, _seams.Clock, _operationStart.Value);
 
         /// <summary>Sends one keystroke or pointer event, with no element behind it, within its budget, and classifies its failure.</summary>
-        private async Task InputAsync(
+        private Task InputAsync(
             Func<Task> input,
+            string label,
+            CancellationToken cancellationToken,
+            TimeSpan? timeout = null
+        ) => InputAsync(_ => input(), label, cancellationToken, timeout);
+
+        /// <summary><see cref="InputAsync(Func{Task}, string, CancellationToken, TimeSpan?)"/> for an input that checks its own budget between steps.</summary>
+        private async Task InputAsync(
+            Func<OperationBudget, Task> input,
             string label,
             CancellationToken cancellationToken,
             TimeSpan? timeout = null
@@ -4928,7 +4962,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             var budget = Budget(label, cancellationToken, timeout);
             try
             {
-                await budget.WithinAsync(input()).ConfigureAwait(false);
+                await budget.WithinAsync(input(budget)).ConfigureAwait(false);
             }
             catch (Exception ex)
                 when (WebErrors.IsPlaywright(ex) || ex is EngineException { Code: EngineErrorCodes.OperationTimeout })
@@ -4936,6 +4970,14 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                 throw WebErrors.ClassifyInput(ex, label);
             }
         }
+
+        // A check for between the steps of one input: a delayed focus read or key must not continue input past the operation's end (upstream's `AttemptSession.checkpoint`).
+        private static Action Checkpoint(OperationBudget budget, CancellationToken cancellationToken) =>
+            () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                budget.ThrowIfExpired();
+            };
 
         /// <summary>Sends one action to the element, each Playwright call within what is left of the operation's budget.</summary>
         private async Task DispatchAsync(IElementHandle element, LocatorAction action, OperationBudget budget)
