@@ -4737,6 +4737,11 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                 }
 
                 ThrowPending();
+                if (_failure is not null)
+                {
+                    throw _failure;
+                }
+
                 var name = _browser.BrowserType.Name;
                 if (!BrowserConnection.IsBrowserName(name))
                 {

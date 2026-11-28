@@ -37,6 +37,7 @@ public sealed class BrowserIdentityInASerialGroupTests : E2ETest
     }
 
     [Test]
+    [DependsOnTest(nameof(The_first_member_reads_the_identity))]
     public void The_second_member_reads_the_same_browser()
     {
         Assert.That(Browser.Version, Is.EqualTo(_first));

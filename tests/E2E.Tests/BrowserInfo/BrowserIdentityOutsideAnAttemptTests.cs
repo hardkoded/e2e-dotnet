@@ -19,7 +19,7 @@ public sealed class BrowserIdentityOutsideAnAttemptTests
         var engine = new WebEngine(new WebEngineOptions());
         try
         {
-            var session = await StartAttemptAsync(engine, app.Url, artifactsDir);
+            await using var session = await StartAttemptAsync(engine, app.Url, artifactsDir);
             var browser = FixtureOf(session, app.Url, CancellationToken.None);
             Assert.NotEqual("", browser.Version);
             await session.DisposeAsync();
