@@ -1639,9 +1639,23 @@ public sealed class BrowserClock
     private async Task RunAsync(Func<ClockCall> call, CancellationToken cancellationToken)
     {
         var checkedCall = call();
-        await _browser
-            .Require("clock." + checkedCall.Name)
-            .ClockAsync(checkedCall, _browser.Token(cancellationToken))
+        var session = _browser.Require("clock." + checkedCall.Name);
+        var label = "browser.clock." + checkedCall.Name;
+        await session
+            .GuardAsync(label, _browser.Token(cancellationToken), async () =>
+            {
+                var token = _browser.Token(cancellationToken);
+                if (
+                    checkedCall.Method == ClockMethod.PauseAt
+                    && checkedCall.Ms
+                        < (await session.ClockNowAsync(token).ConfigureAwait(false) ?? double.NegativeInfinity)
+                )
+                {
+                    throw WebClock.PausedInThePast(label);
+                }
+
+                await session.ClockAsync(checkedCall, token).ConfigureAwait(false);
+            })
             .ConfigureAwait(false);
     }
 }
