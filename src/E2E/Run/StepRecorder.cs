@@ -1605,7 +1605,7 @@ internal sealed class StepRecorder
                 record.Id,
                 record.Index,
                 record.Actor,
-                record.Parent is { } parent ? _attempt.Id + ":" + parent.ToString(CultureInfo.InvariantCulture) : null
+                record.Parent is { } parent ? _attemptId + ":" + parent.ToString(CultureInfo.InvariantCulture) : null
             ),
         };
         _onProgress?.Invoke(progress);

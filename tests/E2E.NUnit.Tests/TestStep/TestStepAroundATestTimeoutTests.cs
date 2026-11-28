@@ -13,7 +13,8 @@ namespace E2E.NUnit.Tests.TestStep;
 /// NUnit run, in order, as upstream's run them one after the other in one worker. The first <c>it</c> is <c>Partial_</c>: upstream's call the timeout cuts
 /// ends <c>cancelled</c> with the code <c>CANCELLED</c>, and the port records a call a test timeout cuts as <c>failed</c> with the code <c>TEST_TIMEOUT</c> (as it
 /// does for a call outside any step), so the step around it is <c>failed</c> too. What the test checks of the step is the same: it ends after the call,
-/// holds no error of its own, and nothing is reported as not awaited.
+/// holds no error of its own, and nothing is reported as not awaited. The second <c>it</c> is <c>Partial_</c> too: NUnit awaits the timed-out method body to its end, so the
+/// late <c>Step</c> finishes before <c>Runs_next</c> starts and the test cannot show an overlap; it checks that <c>Runs_next</c> records only its own calls.
 /// </summary>
 public sealed class TestStepAroundATestTimeoutTests
 {
@@ -60,7 +61,7 @@ public sealed class TestStepAroundATestTimeoutTests
     }
 
     [Test]
-    public void Keeps_a_step_a_timed_out_body_calls_later_out_of_the_test_that_runs_then()
+    public void Partial_Keeps_a_step_a_timed_out_body_calls_later_out_of_the_test_that_runs_then()
     {
         Assert.That(
             (string?)

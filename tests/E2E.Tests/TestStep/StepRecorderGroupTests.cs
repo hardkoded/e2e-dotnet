@@ -370,7 +370,7 @@ public sealed class StepRecorderGroupTests
         );
         cut.Cancel();
         await Task.Delay(50);
-        Assert.True(steps.Busy);
+        Assert.False(pending.IsCompleted);
         guest!.End(new GuestResult(StepStatus.Cancelled, 1));
         Assert.Equal("CANCELLED", CodeOf(await pending));
         Assert.Equal(
@@ -399,7 +399,7 @@ public sealed class StepRecorderGroupTests
             }));
         cut.Cancel();
         await Task.Delay(50);
-        Assert.True(steps.Busy);
+        Assert.False(pending.IsCompleted);
         cleanup!.End(new GuestResult(StepStatus.Passed, 1));
         Assert.Equal("CANCELLED", CodeOf(await pending));
         Assert.Equal(
@@ -435,7 +435,7 @@ public sealed class StepRecorderGroupTests
         );
         cut.Cancel();
         await Task.Delay(50);
-        Assert.True(steps.Busy);
+        Assert.False(pending.IsCompleted);
         call.SetException(new TestException("CANCELLED", "the engine cut the call"));
         Assert.Equal("CANCELLED", CodeOf(await pending));
         Assert.Equal(
