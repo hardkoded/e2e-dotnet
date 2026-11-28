@@ -40,6 +40,9 @@ internal sealed class StepRecorder
     private readonly List<StepRecord> _steps = [];
     private readonly AsyncLocal<StepRecord?> _scope = new();
 
+    // The Step this code runs inside, with the ones around it. Apart from _scope: a step called in a Step is still a top-level step, held and verified as one.
+    private readonly AsyncLocal<ActiveGroup?> _groups = new();
+
     // Steps opened so far, the next step's index: _steps may have dropped its oldest.
     private int _opened;
 
@@ -198,10 +201,14 @@ internal sealed class StepRecorder
     public GuestRecord Guest(StepKind kind, string api, string label, string actor, SourceLocation? source)
     {
         StepRecord record;
+        var group = EnclosingGroup();
+        var ended = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_gate)
         {
-            record = File(kind, api, RedactText(label), actor, source, null, null);
+            record = File(kind, api, RedactText(label), actor, source, null, null, group?.Record.Index);
         }
+
+        RunsInside(group, ended.Task);
 
         Publish(
             record,
@@ -233,12 +240,14 @@ internal sealed class StepRecorder
                 }
 
                 PublishEnd(record);
+                ended.TrySetResult();
             }
         );
     }
 
-    // The last step of the test's own session, the one an event with no running step belongs to.
-    private StepRecord? LastOwnLocked() => _steps.LastOrDefault(OwnSteps.IsOwnStep);
+    // The last call on the test's own session, the one an event with no running step belongs to; a Step is a name over calls, not one.
+    private StepRecord? LastOwnLocked() =>
+        _steps.LastOrDefault(step => OwnSteps.IsOwnStep(step) && step.Kind != StepKind.Step);
 
     // Mints a step's record at the next index, started now in the running phase. Upstream's `file`. Holds _gate.
     private StepRecord File(
@@ -248,7 +257,8 @@ internal sealed class StepRecorder
         string? actor,
         SourceLocation? source,
         string? agent,
-        StepPhase? phase
+        StepPhase? phase,
+        int? parent
     )
     {
         var index = _opened++;
@@ -260,6 +270,7 @@ internal sealed class StepRecorder
             Api = api,
             Label = label,
             Actor = actor,
+            Parent = parent,
             Source = source,
             StartedAt = DateTimeOffset.UtcNow,
             Agent = agent,
@@ -280,49 +291,346 @@ internal sealed class StepRecorder
     {
         options ??= new StepRunOptions();
 
-        // A step the body starts after its own timeout cut the signal is refused, and not recorded: upstream's attempt has ended by then, so the
-        // timeline keeps the steps that ran.
-        if (_signal?.Invoke() is { IsCancellationRequested: true } cut)
+        // A step the body starts after its own timeout cut the signal is refused, and not recorded.
+        if (Refused<T>() is { } refused)
         {
-            // The close's abort carries its reason, as upstream's signal does; any other abort is a plain cancellation.
-            Exception? reason;
-            lock (_gate)
-            {
-                reason = _closeReason;
-            }
-
-            reason ??= _reason?.Invoke();
-            return reason is null ? Task.FromCanceled<T>(cut) : Task.FromException<T>(reason);
+            return refused;
         }
 
         // The label is published, reported, and traced as is: a secret the test spelled into an instruction or a locator stops here, once.
         var label = RedactText(rawLabel);
+        var group = EnclosingGroup();
         // Every step pays the capture, since the failing one is not known until it fails, and a report that names the line is worth it.
         var stack = new StackTrace(1, fNeedFileInfo: true);
 
         // A step inside another (an OnAction hook's) or inside an expect.poll read is part of what holds it, so only a top-level step waits.
         if (_hold is { Steps: true } hold && Holdable && Current() is null && !PollScopes.InsidePollRead())
         {
-            return RunHeld(hold, new HeldCall(kind, api, label, stack, options, new CancellationTokenSource()), body);
+            return RunHeld(
+                hold,
+                new HeldCall(group, kind, api, label, stack, options, new CancellationTokenSource()),
+                body
+            );
         }
 
-        return Start(kind, api, label, stack, body, options);
+        return Start(kind, api, label, stack, body, options, group);
     }
 
-    /// <summary>Records the step as started now and runs its body (upstream's <c>start</c>).</summary>
+    /// <summary>
+    /// Runs <paramref name="body"/> as one step the test names (<c>Step</c>). The steps <paramref name="body"/> starts are recorded as they would be
+    /// outside it, each with this step as its <see cref="StepRecord.Parent"/>, so the group itself is never held and verifies nothing. It fails with
+    /// what <paramref name="body"/> throws, keeping the error only when no step inside it already did. Upstream's <c>group</c>.
+    /// </summary>
+    public Task<T> GroupAsync<T>(string rawTitle, Func<Task<T>> body, StepGroupOptions? options = null)
+    {
+        options ??= new StepGroupOptions();
+        if (Refused<T>() is { } refused)
+        {
+            return refused;
+        }
+
+        var stack = new StackTrace(1, fNeedFileInfo: true);
+        var signal = _signal?.Invoke() ?? default;
+        var enclosing = EnclosingGroup();
+        var record = Open(
+            StepKind.Step,
+            StepApis.TestStepApi,
+            RedactText(rawTitle),
+            stack,
+            new StepRunOptions(),
+            enclosing
+        );
+        var group = new ActiveGroup(record, enclosing);
+        var task = ExecuteGroupAsync(group, body, options, signal);
+        lock (_gate)
+        {
+            if (_running.Contains(record.Id))
+            {
+                _pending[record.Id] = task;
+            }
+        }
+
+        RunsInside(enclosing, task);
+        return task;
+    }
+
+    /// <inheritdoc cref="GroupAsync{T}(string, Func{Task{T}}, StepGroupOptions?)"/>
+    public Task GroupAsync(string rawTitle, Func<Task> body, StepGroupOptions? options = null) =>
+        GroupAsync(
+            rawTitle,
+            async () =>
+            {
+                await body().ConfigureAwait(false);
+                return true;
+            },
+            options
+        );
+
+    // The rejection of a step started after the running phase's signal cut, or null when the step may start: the attempt has ended by then, so the
+    // timeline keeps the steps that ran.
+    private Task<T>? Refused<T>()
+    {
+        if (_signal?.Invoke() is not { IsCancellationRequested: true } cut)
+        {
+            return null;
+        }
+
+        // The close's abort carries its reason, as upstream's signal does; any other abort is a plain cancellation.
+        Exception? reason;
+        lock (_gate)
+        {
+            reason = _closeReason;
+        }
+
+        reason ??= _reason?.Invoke();
+        return reason is null ? Task.FromCanceled<T>(cut) : Task.FromException<T>(reason);
+    }
+
+    private async Task<T> ExecuteGroupAsync<T>(
+        ActiveGroup group,
+        Func<Task<T>> body,
+        StepGroupOptions options,
+        CancellationToken signal
+    )
+    {
+        var record = group.Record;
+        var started = Stopwatch.GetTimestamp();
+        try
+        {
+            // The change stays with this call and what it starts: the caller's own context is restored when the call yields.
+            _groups.Value = group;
+            return await CutGroupAsync(group, body(), signal, options.Signal).ConfigureAwait(false);
+        }
+        catch (Exception thrown)
+        {
+            var cause = NamedFailure(record, thrown);
+            if (IsAbandoned(record))
+            {
+                AbandonedWork.MarkRejection(cause);
+                if (ReferenceEquals(cause, thrown))
+                {
+                    throw;
+                }
+
+                ExceptionDispatchInfo.Throw(cause);
+            }
+
+            if (options.PassesThrough?.Invoke(thrown) != true)
+            {
+                record.Status = FailedStatus(cause);
+                bool again;
+                lock (_gate)
+                {
+                    again = group.Rethrown.Contains(thrown);
+                }
+
+                if (!again)
+                {
+                    record.Error = ErrorSerializer.Serialize(
+                        cause,
+                        _projectRoot,
+                        _redact,
+                        IsNamed(record, cause) ? record.Source : null
+                    );
+                }
+            }
+
+            Rethrown(group.Group, thrown);
+            if (!ReferenceEquals(cause, thrown))
+            {
+                Rethrown(group.Group, cause);
+                ExceptionDispatchInfo.Throw(cause);
+            }
+
+            throw;
+        }
+        finally
+        {
+            bool wasAbandoned;
+            lock (_gate)
+            {
+                _running.Remove(record.Id);
+                _owners.Remove(record.Id);
+                _pending.Remove(record.Id);
+                _named.Remove(record.Id);
+                _cutsOnClose.Remove(record.Id);
+                wasAbandoned = _abandoned.Remove(record.Id);
+            }
+
+            // An abandoned step reported its end when the body returned; what it did since is not the test's.
+            if (!wasAbandoned)
+            {
+                record.DurationMs = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+                PublishEnd(record);
+            }
+        }
+    }
+
+    // Waits for the group's work, or cuts it once the recorder's cancellation or the running phase's signal has fired and the calls running inside
+    // the group have ended. Their engine calls are cut by the same abort, and each keeps its own outcome: a group that ended first would leave them
+    // running past the body, to be recorded as not awaited. A group that waited for such a call does not record the cancellation again.
+    private async Task<T> CutGroupAsync<T>(
+        ActiveGroup group,
+        Task<T> work,
+        CancellationToken signal,
+        CancellationToken also
+    )
+    {
+        TaskCompletionSource<Exception>? closed;
+        lock (_gate)
+        {
+            _cutsOnClose.TryGetValue(group.Record.Id, out closed);
+        }
+
+        if (!_cancellation.CanBeCanceled && !signal.CanBeCanceled && !also.CanBeCanceled && closed is null)
+        {
+            return await work.ConfigureAwait(false);
+        }
+
+        var cancelled = new TestException(ErrorSerializer.Cancelled, group.Record.Api + " cancelled");
+        var cut = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cutting = 0;
+        void Cut()
+        {
+            if (Interlocked.Exchange(ref cutting, 1) == 0)
+            {
+                _ = CutAfterCallsInsideAsync(group, cancelled, cut);
+            }
+        }
+
+        using var own = _cancellation.Register(Cut);
+        using var session = signal.Register(Cut);
+        using var phase = also.Register(Cut);
+        var first = await Task.WhenAny(work, cut.Task, closed?.Task ?? cut.Task).ConfigureAwait(false);
+        if (first == work)
+        {
+            return await work.ConfigureAwait(false);
+        }
+
+        Observe(work);
+        throw closed is { Task.IsCompletedSuccessfully: true } ? await closed.Task.ConfigureAwait(false) : cancelled;
+    }
+
+    private async Task CutAfterCallsInsideAsync(ActiveGroup group, Exception cancelled, TaskCompletionSource cut)
+    {
+        Rethrown(group, cancelled, onlyWhenInside: true);
+
+        // A body may answer a cut call by starting another.
+        while (true)
+        {
+            Task[] inside;
+            lock (_gate)
+            {
+                inside = [.. group.Inside];
+            }
+
+            if (inside.Length == 0)
+            {
+                // .NET-only: the body's own continuation after the call it awaited can run after this one (on a synchronization context, or a
+                // pool thread that is busy), where upstream's microtask order puts it first. Give it a moment, so a call it starts in answer to the
+                // cut is seen. Only a cut group waits.
+                await Task.Delay(20).ConfigureAwait(false);
+                lock (_gate)
+                {
+                    if (group.Inside.Count == 0)
+                    {
+                        break;
+                    }
+                }
+
+                continue;
+            }
+
+            await Task.WhenAll(inside).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+        }
+
+        cut.TrySetResult();
+    }
+
+    // Keeps what a step inside the group threw, so the group does not record that error again.
+    private void Rethrown(ActiveGroup? group, object thrown, bool onlyWhenInside = false)
+    {
+        if (group is null)
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            if (!onlyWhenInside || group.Inside.Count > 0)
+            {
+                group.Rethrown.Add(thrown);
+            }
+        }
+    }
+
+    // Keeps `call` among what runs inside `group` until it settles.
+    private void RunsInside(ActiveGroup? group, Task call)
+    {
+        if (group is null)
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            group.Inside.Add(call);
+        }
+
+        _ = call.ContinueWith(
+            finished =>
+            {
+                lock (_gate)
+                {
+                    group.Inside.Remove(finished);
+                }
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default
+        );
+    }
+
+    // The innermost Step still running that this call is inside; one that ended is no parent to work it left behind.
+    private ActiveGroup? EnclosingGroup()
+    {
+        for (var group = _groups.Value; group is not null; group = group.Group)
+        {
+            lock (_gate)
+            {
+                if (_running.Contains(group.Record.Id) && !_abandoned.Contains(group.Record.Id))
+                {
+                    return group;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    // How a step that threw ended. A blocked verdict is a distinct outcome, not a product failure: the step's error names what stood in the way.
+    private static StepStatus FailedStatus(Exception cause) =>
+        string.Equals(ErrorSerializer.Classify(cause).Code, ErrorSerializer.Cancelled, StringComparison.Ordinal)
+            ? StepStatus.Cancelled
+        : cause is AgentException { Blocked: true } ? StepStatus.Blocked
+        : StepStatus.Failed;
+
+    /// <summary>Records the step as started now and runs its body (upstream's <c>start</c>); <paramref name="group"/> is the <c>Step</c> it runs inside.</summary>
     private Task<T> Start<T>(
         StepKind kind,
         string api,
         string label,
         StackTrace stack,
         Func<Task<T>> body,
-        StepRunOptions options
+        StepRunOptions options,
+        ActiveGroup? group
     )
     {
         // The signal is read once, before the step registers for close: a session that closes after that has its named error win in CutAsync.
         var signal = _signal?.Invoke() ?? default;
-        var record = Open(kind, api, label, stack, options);
-        var task = ExecuteAsync(record, body, options, signal);
+        var record = Open(kind, api, label, stack, options, group);
+        var task = ExecuteAsync(record, body, options, signal, group);
+        RunsInside(group, task);
         lock (_gate)
         {
             // A step that settled already has nothing to observe.
@@ -336,14 +644,21 @@ internal sealed class StepRecorder
     }
 
     /// <summary>Mints a step's record as started now and tells reporters (upstream's <c>open</c>).</summary>
-    private StepRecord Open(StepKind kind, string api, string label, StackTrace stack, StepRunOptions options)
+    private StepRecord Open(
+        StepKind kind,
+        string api,
+        string label,
+        StackTrace stack,
+        StepRunOptions options,
+        ActiveGroup? group
+    )
     {
         var source = _projectRoot is null ? null : Source.Locate(stack, _projectRoot);
         var phase = Phase ?? StepHooks.PhaseOf(stack);
         StepRecord record;
         lock (_gate)
         {
-            record = File(kind, api, label, null, source, options.Agent, phase);
+            record = File(kind, api, label, null, source, options.Agent, phase, group?.Record.Index);
 
             // Only a finished step is dropped, and only from the front, so a long-running one keeps its record.
             while (
@@ -512,7 +827,8 @@ internal sealed class StepRecorder
                 }
             }
 
-            return await Start(call.Kind, call.Api, call.Label, call.Stack, body, call.Options).ConfigureAwait(false);
+            return await Start(call.Kind, call.Api, call.Label, call.Stack, body, call.Options, call.Group)
+                .ConfigureAwait(false);
         }
     }
 
@@ -534,7 +850,8 @@ internal sealed class StepRecorder
         StepRecord record,
         Func<Task<T>> body,
         StepRunOptions options,
-        CancellationToken signal
+        CancellationToken signal,
+        ActiveGroup? group
     )
     {
         var started = Stopwatch.GetTimestamp();
@@ -580,11 +897,7 @@ internal sealed class StepRecorder
             record.DurationMs = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
             // A blocked verdict is a distinct outcome, not a product failure: the step's error names what stood in the way, and the report says so.
-            record.Status =
-                string.Equals(ErrorSerializer.Classify(cause).Code, ErrorSerializer.Cancelled, StringComparison.Ordinal)
-                    ? StepStatus.Cancelled
-                : cause is AgentException { Blocked: true } ? StepStatus.Blocked
-                : StepStatus.Failed;
+            record.Status = FailedStatus(cause);
             record.Error = ErrorSerializer.Serialize(
                 cause,
                 _projectRoot,
@@ -593,11 +906,13 @@ internal sealed class StepRecorder
             );
             if (!ReferenceEquals(cause, thrown))
             {
+                Rethrown(group, cause);
                 ExceptionDispatchInfo.Throw(cause);
             }
 
             if (!_redactThrown || _redact is null || record.Status == StepStatus.Cancelled)
             {
+                Rethrown(group, thrown);
                 throw;
             }
 
@@ -608,12 +923,14 @@ internal sealed class StepRecorder
                 // Classified too: an error with no code is a test failure with code ERROR, as ErrorSerializer.Classify reads it.
                 if (cause is E2EException or OperationCanceledException)
                 {
+                    Rethrown(group, thrown);
                     throw;
                 }
 
                 safe = new TestException(record.Error.Code, cause.Message, cause);
             }
 
+            Rethrown(group, safe);
             ExceptionDispatchInfo.Throw(safe);
             throw safe;
         }
@@ -698,7 +1015,7 @@ internal sealed class StepRecorder
         foreach (var call in heldCalls)
         {
             call.Cancel.Cancel();
-            var opened = Open(call.Kind, call.Api, call.Label, call.Stack, call.Options);
+            var opened = Open(call.Kind, call.Api, call.Label, call.Stack, call.Options, call.Group);
             lock (_gate)
             {
                 _pending[opened.Id] = call.Promise;
@@ -755,7 +1072,9 @@ internal sealed class StepRecorder
                 "STEP_NOT_AWAITED",
                 TextRules.WithHint(
                     owner + " returned before " + CallName(step) + more + " finished",
-                    "put `await` in front of every step call"
+                    step.Kind == StepKind.Step
+                        ? "put `await` in front of Step(); a fixture can't call use() inside one"
+                        : "put `await` in front of every step call"
                 )
             );
             first ??= error;
@@ -1280,7 +1599,14 @@ internal sealed class StepRecorder
 
         var progress = fact with
         {
-            Identity = new StepProgressIdentity(_attempt.Id, _attempt.Index, record.Id, record.Index, record.Actor),
+            Identity = new StepProgressIdentity(
+                _attempt.Id,
+                _attempt.Index,
+                record.Id,
+                record.Index,
+                record.Actor,
+                record.Parent is { } parent ? _attempt.Id + ":" + parent.ToString(CultureInfo.InvariantCulture) : null
+            ),
         };
         _onProgress?.Invoke(progress);
         _mirror?.Invoke(progress, record);
@@ -1314,6 +1640,7 @@ internal sealed class StepRecorder
 
 /// <summary>A step call waiting at its hold, kept so a body that returns without awaiting it still fails as <c>STEP_NOT_AWAITED</c> (upstream's <c>HeldCall</c>).</summary>
 internal sealed class HeldCall(
+    ActiveGroup? group,
     StepKind kind,
     string api,
     string label,
@@ -1322,6 +1649,9 @@ internal sealed class HeldCall(
     CancellationTokenSource cancel
 )
 {
+    /// <summary>The <c>Step</c> the call was made in, kept for a call recorded from outside it.</summary>
+    public ActiveGroup? Group { get; } = group;
+
     public StepKind Kind { get; } = kind;
 
     public string Api { get; } = api;
@@ -1348,4 +1678,29 @@ internal sealed class HeldPause(string api, string owner, CancellationTokenSourc
     public CancellationTokenSource Cancel { get; } = cancel;
 
     public Task Promise { get; set; } = Task.CompletedTask;
+}
+
+/// <summary>A running <c>Step</c>: what the recorder keeps about it while its body runs (upstream's <c>ActiveGroup</c>).</summary>
+internal sealed class ActiveGroup(StepRecord record, ActiveGroup? group)
+{
+    public StepRecord Record { get; } = record;
+
+    /// <summary>The <c>Step</c> this one runs inside.</summary>
+    public ActiveGroup? Group { get; } = group;
+
+    /// <summary>What the steps that failed inside it threw. Each is that step's error, which this one does not record again.</summary>
+    public HashSet<object> Rethrown { get; } = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>The calls still running directly inside it, a <c>Launch</c> session's included.</summary>
+    public HashSet<Task> Inside { get; } = [];
+}
+
+/// <summary>Per-call options for <see cref="StepRecorder.GroupAsync{T}"/> (upstream's <c>StepGroupOptions</c>).</summary>
+internal sealed record StepGroupOptions
+{
+    /// <summary>Whether a thrown value ends the test without failing it (a skip): the step it passes through then passes.</summary>
+    public Func<Exception, bool>? PassesThrough { get; init; }
+
+    /// <summary>Cuts the step when it aborts, as the engine cuts the calls inside it, beside what cuts any step.</summary>
+    public CancellationToken Signal { get; init; }
 }

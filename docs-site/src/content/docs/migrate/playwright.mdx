@@ -44,6 +44,7 @@ Playwright .NET has no config file: a test class overrides `ContextOptions()`, a
 | `Page.SetDefaultTimeout` | `actionTimeout` in the config, or the `ActionTimeout` override |
 | `Page.SetDefaultNavigationTimeout` | `timeout`, the test budget; `Browser.GotoAsync(url, new GotoOptions { Timeout })` overrides one call |
 | changing a running test's timeout from its body | `SetTimeout(TimeSpan)` on `E2ETest` (upstream's `test.setTimeout`), from the body or a set-up (`[SetUp]` on NUnit). It counts from the start of the attempt and replaces the configured `timeout` for that attempt. It is refused from a teardown, and there is no value for no timeout: pass a large one. Pass `[Timeout]` or the config `timeout` to set it ahead of time |
+| `test.step(title, body)` | `Step(title, body)` on `E2ETest`, from the body or a set-up; not around a fixture's `use()`, and a failed soft assertion inside does not fail the step; no `box`, `location`, or `timeout` options, no step argument, and no `test.step.skip` |
 | NUnit's `[Timeout]`, `Retry`, `NumberOfTestWorkers` | the same attributes and settings: the framework owns them, and the config `retries` key is checked and not used. See [defaults that differ](#defaults-that-differ) |
 | the `OutputDir` of a `PageTest` | `.e2e`, holding `results/` and the replay cache `cache/` |
 
@@ -327,7 +328,7 @@ Planned is on the roadmap. Not yet has no date. Not planned is left out on purpo
 | `Context.SetOfflineAsync()`, `SetGeolocationAsync()`, `Geolocation`, `Offline` | A route that aborts every request; a `Browser.AddInitScriptAsync` stub; `app.permissions` on the target for the permission |
 | `IgnoreHTTPSErrors`, `BypassCSP`, `Proxy`, `LaunchOptions` | Serve the app over `http`; start the browser yourself and attach with `WebEngineOptions.Connect` |
 | `Playwright.APIRequest`, the `Request` fixture | `HttpClient` |
-| `TestContext.AddTestAttachment` | Each call is already a named step in the report; `App.ScreenshotAsync(label)` attaches a screenshot |
+| `TestContext.AddTestAttachment` | `App.ScreenshotAsync(label)` attaches a screenshot |
 | `Page.PauseAsync()` | `E2E_HEADLESS=0` to watch, `e2e mcp` to drive the app from a coding agent |
 
 ### Not yet

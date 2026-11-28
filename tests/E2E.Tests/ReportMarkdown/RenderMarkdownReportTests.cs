@@ -229,6 +229,45 @@ public sealed class RenderMarkdownReportTests
             "**E** at step 1 of 1 on launch-1: `screen.tap only`, after 900ms",
             Render(Page(ReportRunStatus.Failed, [guest]))
         );
+
+        // A step inside a test.step says which, and a test.step that failed on its own reads as its title.
+        var error = ReportBuilders.Error("E", "m");
+        var nested = Named(
+            "three",
+            ResultStatus.Failed,
+            attempts:
+            [
+                Attempt(
+                    AttemptStatus.Failed,
+                    error: new ReportError("E", "m"),
+                    steps:
+                    [
+                        Step(0, "Log in", StepKind.Step, "test.step", StepStatus.Failed),
+                        Step(1, "only", status: StepStatus.Failed, error: error, parent: 0),
+                    ]
+                ),
+            ]
+        );
+        Assert.Contains(
+            "**E** at step 2 of 2 in \"Log in\": `screen.tap only`, after 900ms",
+            Render(Page(ReportRunStatus.Failed, [nested]))
+        );
+        var own = Named(
+            "four",
+            ResultStatus.Failed,
+            attempts:
+            [
+                Attempt(
+                    AttemptStatus.Failed,
+                    error: new ReportError("E", "m"),
+                    steps: [Step(0, "Log in", StepKind.Step, "test.step", StepStatus.Failed, error: error)]
+                ),
+            ]
+        );
+        Assert.Contains(
+            "**E** at step 1 of 1: `test.step` \"Log in\", after 900ms",
+            Render(Page(ReportRunStatus.Failed, [own]))
+        );
     }
 
     [Fact]

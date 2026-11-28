@@ -43,17 +43,20 @@ internal static class Ledger
     /// </summary>
     public static IReadOnlyList<PriorStep> ProjectPriorSteps(IEnumerable<StepRecord> records) =>
         [
-            .. records.Select(step =>
-            {
-                var replayed = step.Cache is { Mode: "self-finalized" };
-                return new PriorStep(
-                    step.Api,
-                    BoundedText(step.Label),
-                    step.Status,
-                    step.Explanation is null ? null : BoundedText(HandoffOf(step, replayed)),
-                    replayed
-                );
-            }),
+            // A Step is a name over the calls inside it, which are listed themselves.
+            .. records
+                .Where(step => step.Kind != StepKind.Step)
+                .Select(step =>
+                {
+                    var replayed = step.Cache is { Mode: "self-finalized" };
+                    return new PriorStep(
+                        step.Api,
+                        BoundedText(step.Label),
+                        step.Status,
+                        step.Explanation is null ? null : BoundedText(HandoffOf(step, replayed)),
+                        replayed
+                    );
+                }),
         ];
 
     /// <summary>

@@ -744,27 +744,32 @@ internal sealed partial class ListReporter
         {
             case Reports.StepProgressPhase.Start:
             {
-                var attemptId = progress.Identity?.AttemptId;
                 var attemptIndex = progress.Identity?.AttemptIndex;
                 if (attemptIndex < running.AttemptIndex)
                 {
                     break;
                 }
 
-                if (attemptId != running.AttemptId)
-                {
-                    running.Open.Clear();
-                    running.AttemptId = attemptId;
-                    running.AttemptIndex = attemptIndex;
-                }
-
+                running.AttemptIndex = attemptIndex;
                 running.Open.Remove(stepId);
-                running.Open[stepId] = new CurrentStep(
+                var parent = running.Open.GetValueOrDefault(progress.Identity?.ParentStepId ?? string.Empty);
+                var kind = progress.Kind ?? Reports.StepKind.Agent;
+                var call = new StepCall(
                     progress.Api,
                     progress.Label ?? string.Empty,
-                    progress.Kind ?? Reports.StepKind.Agent,
-                    progress.Identity?.Actor
+                    progress.Identity?.Actor,
+                    kind,
+                    progress.Identity is { } identity
+                        ? [.. parent?.Path ?? [attemptIndex ?? 0], identity.StepIndex]
+                        : null,
+                    parent is null ? [] : [.. parent.Groups, parent.Label]
                 );
+                running.Open[stepId] = new CurrentStep(call);
+                if (kind == Reports.StepKind.Step)
+                {
+                    List(running, new ListedStep(call, null));
+                }
+
                 _window.Redraw();
                 break;
             }
@@ -816,38 +821,58 @@ internal sealed partial class ListReporter
             case Reports.StepProgressPhase.End:
             {
                 running.Open.Remove(stepId);
-                if (progress.Kind != Reports.StepKind.Agent)
-                {
-                    _window.Redraw();
-                    break;
-                }
+                var kind = progress.Kind ?? Reports.StepKind.Agent;
 
-                // An exploration's planner and charter steps show as the exploration's own rows.
-                if (_explore is not null)
-                {
-                    break;
-                }
-
-                var finished = new FinishedStep(
-                    progress.Api,
-                    progress.Label ?? string.Empty,
-                    progress.Status is { } status ? Enum.Parse<StepStatus>(status.ToString()) : StepStatus.Passed,
-                    progress.DurationMs,
-                    progress.ModelCalls,
-                    progress.Identity?.Actor
+                // A step whose start was not shown (a timed-out attempt began it after the retry did) is listed by its own indexes, outside any Step.
+                var call = open?.Call
+                    ?? new StepCall(
+                        progress.Api,
+                        progress.Label ?? string.Empty,
+                        progress.Identity?.Actor,
+                        kind,
+                        progress.Identity is { } identity ? [identity.AttemptIndex, identity.StepIndex] : null,
+                        []
+                    );
+                var listed = new ListedStep(
+                    call,
+                    new StepOutcome(
+                        progress.Status is { } status ? Enum.Parse<StepStatus>(status.ToString()) : StepStatus.Passed,
+                        progress.DurationMs,
+                        progress.ModelCalls
+                    )
                 );
-                if (_live)
+                List(running, listed);
+                if (_live || !ListModel.PrintsAtEnd(kind))
                 {
-                    running.Steps.Add(finished);
                     _window.Redraw();
                 }
-                else
+                else if (_explore is null)
                 {
-                    Print(TestIndent + ListSteps.StepLine(_pc, finished, _pc.Dim(running.Title) + _separator));
+                    // Printed as it ends, away from the Step calls around it, so the line names them.
+                    var context = string.Join(
+                        _separator,
+                        new[] { running.Title }
+                            .Concat(listed.Groups.Select(title => ListSteps.FitLabel(title)))
+                            .Append(string.Empty)
+                            .Select(name => _pc.Dim(name))
+                    );
+                    Print(TestIndent + ListSteps.StepLine(_pc, listed, context));
                 }
 
                 break;
             }
+        }
+    }
+
+    /// <summary>
+    /// Lists a step under its running test: in the live window the kinds the scrollback keeps. An exploration's planner and charter steps show as
+    /// the exploration's own rows (upstream's <c>list</c>).
+    /// </summary>
+    private void List(RunningTest running, ListedStep step)
+    {
+        if (_live && _explore is null && ListModel.ListsUnderTest(step.Kind))
+        {
+            ListModel.ListStep(running.Steps, step);
         }
     }
 
@@ -880,7 +905,7 @@ internal sealed partial class ListReporter
 
         var key = PairKey(result.Test.Id, result.Agent, result.Target.Name, result.Repeat);
         FlushOutput(key);
-        var steps = _pairs.GetValueOrDefault(key)?.Steps ?? [];
+        var steps = ListModel.RecordedSteps(_pairs.GetValueOrDefault(key)?.Steps ?? []);
         _pairs.Remove(key);
         var group = Group(result.Test.File, result.Target.Name);
         var skippedAfter = Records.FailureBeforeSkip(result.Record);
@@ -1137,7 +1162,7 @@ internal sealed partial class ListReporter
 
         foreach (var step in line.Steps)
         {
-            Print(StepIndent + ListSteps.StepLine(_pc, step));
+            Print(StepIndent + ListSteps.StepLine(_pc, step, depth: step.Groups.Count));
         }
 
         foreach (var replay in line.Replays)

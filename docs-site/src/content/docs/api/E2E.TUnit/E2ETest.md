@@ -226,3 +226,58 @@ public Task StartE2ESessionAsync(TestContext context, CancellationToken cancella
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+<a id="E2E_TUnit_E2ETest_Step_"></a>
+<a id="E2E_TUnit_E2ETest_Step_System_String_System_Func_System_Threading_Tasks_Task__"></a>
+
+### `Step(string, Func<Task>)`
+
+
+```csharp
+public Task Step(string title, Func<Task> body)
+```
+
+
+Runs &lt;code class="paramref"&gt;body&lt;/code&gt; as one step named &lt;code class="paramref"&gt;title&lt;/code&gt; and returns what it returns (upstream's `test.step(title, body)`).
+Reports show the title, with the calls &lt;code class="paramref"&gt;body&lt;/code&gt; makes nested under it; steps nest. The step fails when &lt;code class="paramref"&gt;body&lt;/code&gt;
+throws, and the error goes on to the test. A blank title is a test error, `INVALID_ARGUMENT`; a call outside a test throws
+[InvalidOperationException](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception) where upstream has `COLLECTION_ERROR`, and one from code the test left running after it ended is cancelled.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `title` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `body` | [Func&lt;Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-1) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+<a id="E2E_TUnit_E2ETest_Step__1_System_String_System_Func_System_Threading_Tasks_Task___0___"></a>
+
+### `Step<T>(string, Func<Task<T>>)`
+
+
+```csharp
+public Task<T> Step<T>(string title, Func<Task<T>> body)
+```
+
+
+Runs &lt;code class="paramref"&gt;body&lt;/code&gt; as one step named &lt;code class="paramref"&gt;title&lt;/code&gt; and returns what it returns (upstream's `test.step(title, body)`).
+Reports show the title, with the calls &lt;code class="paramref"&gt;body&lt;/code&gt; makes nested under it; steps nest. The step fails when &lt;code class="paramref"&gt;body&lt;/code&gt;
+throws, and the error goes on to the test. A blank title is a test error, `INVALID_ARGUMENT`; a call outside a test throws
+[InvalidOperationException](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception) where upstream has `COLLECTION_ERROR`, and one from code the test left running after it ended is cancelled.
+
+**Type parameters**
+
+| Name | Description |
+| --- | --- |
+| `T` |  |
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `title` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `body` | [Func&lt;Task&lt;T&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-1) |  |
+
+**Returns:** [Task&lt;T&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)

@@ -392,22 +392,25 @@ public static class MarkdownReport
     /// <summary>
     /// <c>at step 6 of 6: `expect.toBeHidden getByRole(...)`, after 15.1s and 12 model calls</c>: where a failure happened, how long the
     /// step ran, and what the agent spent on it. A step that is not the agent's reads as the one call it was; an agent step's label is the
-    /// sentence the author wrote.
+    /// sentence the author wrote, and so is a <c>Step</c>'s. The <c>Step</c> around the step is named too: it is what the author called this part of the test.
     /// </summary>
     private static string StepClause(IReadOnlyList<ReportStep> steps, FailedStep at)
     {
         var calls = ModelCalls(at.Step);
         var spent = calls == 0 ? "" : " and " + Plural(calls, "model call");
-        var call =
-            at.Step.Kind == StepKind.Agent
-                ? Code(at.Step.Api, MaxIdChars) + " " + StepLabel(at.Step, MaxPathChars)
-                : Code(at.Step.Api + " " + at.Step.Label, MaxPathChars);
+        var call = FailureText.HasAuthoredLabel(at.Step)
+            ? Code(at.Step.Api, MaxIdChars) + " " + StepLabel(at.Step, MaxPathChars)
+            : Code(at.Step.Api + " " + at.Step.Label, MaxPathChars);
         // A step of a session the test opened beside its own says whose it is.
         var on = at.Step.Actor is null ? "" : " on " + Cell(at.Step.Actor, MaxIdChars);
+        // The Step around it is the name the author gave this part of the test.
+        var group = at.Step.Parent is { } parent ? steps.FirstOrDefault(step => step.Index == parent) : null;
+        var within = group is null ? "" : " in " + StepLabel(group, MaxIdChars);
         return "at step "
             + (at.Index + 1).ToString(CultureInfo.InvariantCulture)
             + " of "
             + steps.Count.ToString(CultureInfo.InvariantCulture)
+            + within
             + on
             + ": "
             + call

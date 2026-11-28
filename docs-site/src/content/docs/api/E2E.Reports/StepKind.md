@@ -108,3 +108,17 @@ Session = 5
 
 
 **Value:** [StepKind](./)
+
+<a id="E2E_Reports_StepKind_Step"></a>
+
+### Step
+
+
+```csharp
+Step = 7
+```
+
+
+A group of calls the test names with `Step(title, body)`.
+
+**Value:** [StepKind](./)

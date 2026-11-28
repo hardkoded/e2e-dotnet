@@ -87,6 +87,17 @@ public abstract class E2ETest : E2EFixture, ITestEndEventReceiver, ITestRegister
         E2E.Internal.TestTimeout.SetRunningTestTimeout(attempt, timeout);
     }
 
+    /// <summary>
+    /// Runs <paramref name="body"/> as one step named <paramref name="title"/> and returns what it returns (upstream's <c>test.step(title, body)</c>).
+    /// Reports show the title, with the calls <paramref name="body"/> makes nested under it; steps nest. The step fails when <paramref name="body"/>
+    /// throws, and the error goes on to the test. A blank title is a test error, <c>INVALID_ARGUMENT</c>; a call outside a test throws
+    /// <see cref="InvalidOperationException"/> where upstream has <c>COLLECTION_ERROR</c>, and one from code the test left running after it ended is cancelled.
+    /// </summary>
+    public Task<T> Step<T>(string title, Func<Task<T>> body) => E2E.Internal.TestStep.RunAsync(title, body);
+
+    /// <inheritdoc cref="Step{T}(string, Func{Task{T}})"/>
+    public Task Step(string title, Func<Task> body) => E2E.Internal.TestStep.RunAsync(title, body);
+
     [Before(HookType.Test)]
     public async Task StartE2ESessionAsync(TUnitContext context, CancellationToken cancellationToken)
     {

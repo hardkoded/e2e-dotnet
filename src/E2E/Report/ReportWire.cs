@@ -312,6 +312,7 @@ internal static partial class ReportWire
             ("api", step.Api),
             ("label", Clip(step.Label, 8192)),
             ("actor", step.Actor),
+            ("parent", step.Parent),
             ("source", Source(step.Source)),
             (
                 "phase",

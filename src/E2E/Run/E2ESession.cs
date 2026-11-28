@@ -863,6 +863,7 @@ public sealed class E2ESession : IAsyncDisposable
                         AttemptId = scope.AttemptId,
                         Guests = guests?.Offer,
                         SetTimeout = options.OffersGuests ? session.SetTimeoutOf(attemptTimeout) : null,
+                        Step = options.OffersGuests ? session.AttemptStep : null,
                         ToPass = options.Config?.ToPass,
                         AssertionTimeout = options.AssertionTimeout,
                         RecordSecondaryError = session.RecordSecondaryError,
@@ -896,6 +897,17 @@ public sealed class E2ESession : IAsyncDisposable
             throw;
         }
     }
+
+    /// <summary>
+    /// <c>Step</c> for this attempt, which records on its steps. A skip thrown inside a step leaves the step passed, and the step is cut with the
+    /// phase it runs in, since its body may wait on something no engine call cuts. Upstream's <c>attemptStep</c> (<c>internal/skip.ts</c>).
+    /// </summary>
+    private Task<object?> AttemptStep(string title, Func<Task<object?>> body) =>
+        _scope.Steps.GroupAsync(
+            title,
+            body,
+            new StepGroupOptions { PassesThrough = _ => RuntimeSkip is not null, Signal = _budget.Token }
+        );
 
     /// <summary>
     /// Names this session's attempt in the flow of the caller, for a later test of a serial group that shares the session: its setup does not start
@@ -1985,7 +1997,11 @@ public sealed class E2ESession : IAsyncDisposable
     /// <summary>The error of the first step that did not pass, as the exception the attempt's verdict is read from; null when every step passed.</summary>
     private Exception? Verdict()
     {
-        if (StepRecords.FirstOrDefault(step => step.Status != StepStatus.Passed) is not { } step)
+        // A Step a call failed in has no error of its own: the call after it does.
+        if (
+            StepRecords.FirstOrDefault(step => step.Status != StepStatus.Passed && step.Error is not null)
+            is not { } step
+        )
         {
             return null;
         }

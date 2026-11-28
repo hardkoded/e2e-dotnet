@@ -386,4 +386,35 @@ public sealed class RenderTracePageTests
         );
         Assert.DoesNotContain("Also skipped", Page([Failed()]), StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Marks_each_step_inside_a_test_step_once_per_one_around_it_and_keeps_the_numbers_flat()
+    {
+        var error = ReportBuilders.Error();
+        var body = Page([
+            Failed(
+                error,
+                [
+                    Step(0, StepKind.Step, "test.step", StepStatus.Failed, label: "Log in"),
+                    Step(1, StepKind.Step, "test.step", label: "Type the password", parent: 0),
+                    Step(2, api: "locator.fill", label: "Password", parent: 1),
+                    Step(3, api: "locator.tap", status: StepStatus.Failed, error: error, label: "Submit", parent: 0),
+                    Step(4, api: "app.back", label: ""),
+                ]
+            ),
+        ]);
+        var lines = body.Split('\n');
+        var at = Array.IndexOf(lines, "## Steps");
+        Assert.Equal(
+            [
+                "1. ✗ `test.step` \"Log in\"",
+                "2. ✓ ↳ `test.step` \"Type the password\"",
+                "3. ✓ ↳ ↳ `locator.fill` `Password`",
+                "4. ✗ ↳ `locator.tap` `Submit`",
+                "5. ✓ `app.back`",
+            ],
+            lines.Skip(at + 2).Take(5).Select(line => System.Text.RegularExpressions.Regex.Replace(line, @" \(.*$", ""))
+        );
+        Assert.Contains("**failed**", lines[at + 2], StringComparison.Ordinal);
+    }
 }

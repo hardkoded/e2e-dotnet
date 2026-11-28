@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Text;
 using E2E.Cli.Report;
 using E2E.Internal;
+using E2E.Reports;
 
 namespace E2E.Cli.Mcp;
 
@@ -135,7 +136,8 @@ internal static class TestOutcome
                         + ":"
                     : "Steps:"
             );
-            lines.AddRange(shown.Select(step => "  " + StepLine(step)));
+            var nesting = FailureText.NestingMarks(steps.Select(step => (step.Index, step.Parent)));
+            lines.AddRange(shown.Select(step => "  " + StepLine(step, nesting(step.Index))));
         }
 
         lines.Add(NextSteps(name, failure));
@@ -152,7 +154,7 @@ internal static class TestOutcome
         };
 
     /// <summary><c>7. ✗ locator.fill getByLabel('Name') LOCATOR_NOT_FOUND (tests/a.e2e.ts:13)</c>.</summary>
-    private static string StepLine(StepRecord step)
+    private static string StepLine(StepRecord step, string nesting)
     {
         var hook = step.Phase is { } phase
             ? " in " + (phase == StepPhase.BeforeEach ? "beforeEach" : "afterEach")
@@ -167,6 +169,7 @@ internal static class TestOutcome
             .Append(". ")
             .Append(Glyph(step.Status))
             .Append(' ')
+            .Append(nesting)
             .Append(step.Api)
             .Append(step.Label.Length == 0 ? string.Empty : " " + step.Label)
             .Append(hook)

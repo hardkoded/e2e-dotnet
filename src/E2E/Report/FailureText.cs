@@ -153,7 +153,7 @@ internal static partial class FailureText
         return lines;
     }
 
-    /// <summary>A step's label as the reader should see it: an agent step's is a sentence the author wrote, quoted; any other step's is the locator or value it was called with, which reads as code.</summary>
+    /// <summary>A step's label as the reader should see it: an agent step's and a <c>Step</c>'s is a sentence the author wrote, quoted; any other step's is the locator or value it was called with, which reads as code.</summary>
     public static string StepLabel(ReportStep step, int max = MaxLabelChars)
     {
         if (step.Label.Length == 0)
@@ -161,7 +161,25 @@ internal static partial class FailureText
             return "";
         }
 
-        return step.Kind == StepKind.Agent ? "\"" + Cell(step.Label, max) + "\"" : Code(step.Label, max);
+        return HasAuthoredLabel(step) ? "\"" + Cell(step.Label, max) + "\"" : Code(step.Label, max);
+    }
+
+    /// <summary>Whether the step's label is a sentence the author wrote, not the arguments of a call.</summary>
+    public static bool HasAuthoredLabel(ReportStep step) => step.Kind is StepKind.Agent or StepKind.Step;
+
+    /// <summary>
+    /// The mark a line of a numbered step list opens with: one <c>↳</c> per <c>Step</c> the step ran inside, and nothing outside any. The numbers
+    /// stay flat. A step follows the one it ran in, so one pass counts them. Reads the marks by step index.
+    /// </summary>
+    public static Func<int, string> NestingMarks(IEnumerable<(int Index, int? Parent)> steps)
+    {
+        var depths = new Dictionary<int, int>();
+        foreach (var (index, parent) in steps)
+        {
+            depths[index] = parent is { } at ? depths.GetValueOrDefault(at) + 1 : 0;
+        }
+
+        return index => string.Concat(Enumerable.Repeat("↳ ", depths.GetValueOrDefault(index)));
     }
 
     /// <summary>
@@ -962,6 +980,7 @@ internal static partial class FailureText
         {
             var videos = TimedVideos(told);
             lines.AddRange(["## Steps", ""]);
+            var nesting = NestingMarks(told.Steps.Select(step => (step.Index, step.Parent)));
             for (var index = 0; index < told.Steps.Count; index++)
             {
                 var step = told.Steps[index];
@@ -987,6 +1006,7 @@ internal static partial class FailureText
                         + ". "
                         + StepGlyph(step.Status)
                         + " "
+                        + nesting(step.Index)
                         + ReportFormat.WithActor(
                             step.Actor is null ? null : Cell(step.Actor, MaxIdChars),
                             Code(step.Api, MaxIdChars)
