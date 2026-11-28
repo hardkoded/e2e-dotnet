@@ -316,9 +316,21 @@ internal sealed class StandaloneHost
         // The attempt's own scope outlives the open: it ends the session when the host or its caller does.
         var scope = CancellationTokenSource.CreateLinkedTokenSource(_signal, cancellationToken);
         E2ESession? started = null;
+        // A launch whose ending of what it opened failed leaves isolation uncertain: the host retires as one whose session close failed does.
+        var launchErrors = new List<Exception>();
+        void OnCleanupFailure(Exception failure)
+        {
+            lock (launchErrors)
+            {
+                launchErrors.Add(failure);
+            }
+        }
+
         try
         {
-            started = await E2ESession.LaunchAsync(session, _workerEnv, scope.Token).ConfigureAwait(false);
+            started = await E2ESession
+                .LaunchAsync(session, _workerEnv, scope.Token, OnCleanupFailure)
+                .ConfigureAwait(false);
             if (scope.IsCancellationRequested)
             {
                 // An engine that ignored the cancel must not hand back a session nobody wants.
@@ -327,7 +339,17 @@ internal sealed class StandaloneHost
                     "opening the e2e session was cancelled"
                 );
                 started.Complete(cancelled, scope.Token);
-                await started.DisposeAsync().ConfigureAwait(false);
+                try
+                {
+                    await started.DisposeAsync().ConfigureAwait(false);
+                }
+#pragma warning disable CA1031 // The cancel stays the launch's error; ending what it opened failing is reported by the host.
+                catch (Exception cleanupFailure)
+#pragma warning restore CA1031
+                {
+                    OnCleanupFailure(cleanupFailure);
+                }
+
                 throw cancelled;
             }
 
@@ -343,11 +365,6 @@ internal sealed class StandaloneHost
         catch (Exception cause)
         {
             scope.Dispose();
-            lock (_gate)
-            {
-                _opening = null;
-            }
-
             if (
                 cause is OperationCanceledException
                 && !cancellationToken.IsCancellationRequested
@@ -357,8 +374,42 @@ internal sealed class StandaloneHost
                 cause = new EngineException(EngineErrorCodes.Cancelled, "opening the e2e session was cancelled", cause);
             }
 
+            await RetireAsync(launchErrors).ConfigureAwait(false);
+            lock (_gate)
+            {
+                _opening = null;
+            }
+
             result.SetException(cause);
         }
+    }
+
+    /// <summary>
+    /// Upstream's <c>openWorker</c> retirement of a failed launch whose cleanup failed: the failures are recorded, the host refuses another
+    /// session, and the engine finishes. The launch stays opening until it is done, so <see cref="CloseAsync"/> waits for it.
+    /// </summary>
+    private async Task RetireAsync(List<Exception> launchErrors)
+    {
+        Exception[] failures;
+        lock (launchErrors)
+        {
+            failures = [.. launchErrors];
+        }
+
+        if (failures.Length == 0)
+        {
+            return;
+        }
+
+        // Recorded before teardown counts its own failures.
+        lock (_gate)
+        {
+            _errors.AddRange(failures);
+            _unsafeToReuse = true;
+        }
+
+        await _hostEnd.CancelAsync().ConfigureAwait(false);
+        await _tearingDown.Value.ConfigureAwait(false);
     }
 
     private StandaloneAttempt Wrap(E2ESession session, CancellationTokenSource scope, bool hosted)

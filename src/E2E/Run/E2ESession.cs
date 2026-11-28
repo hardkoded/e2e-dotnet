@@ -241,7 +241,8 @@ public sealed class E2ESession : IAsyncDisposable
     internal static async Task<E2ESession> LaunchAsync(
         E2ESessionOptions options,
         IReadOnlyDictionary<string, string?>? env,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        Action<Exception>? onCleanupFailure = null
     )
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -890,10 +891,37 @@ public sealed class E2ESession : IAsyncDisposable
         {
             // The attempt never took ownership, so release what it started, and stop sharing what its scope learned.
             created?.ReleaseSessionLedger();
-            var cleanup = engine.DisposeAsync().AsTask();
-            await (
-                Bounded(options.CleanupTimeout) ? cleanup.WaitAsync(options.CleanupTimeout) : cleanup
-            ).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+            // A launch that fails ends what it opened; onCleanupFailure hears when that fails too, and the launch's own error is still the one thrown.
+            try
+            {
+                var cleanup = engine.DisposeAsync().AsTask();
+                await (
+                    Bounded(options.CleanupTimeout) ? cleanup.WaitAsync(options.CleanupTimeout) : cleanup
+                ).ConfigureAwait(false);
+            }
+#pragma warning disable CA1031 // Reported to the host, which retires itself; the launch's own error is the one thrown.
+            catch (Exception cleanupFailure)
+#pragma warning restore CA1031
+            {
+                onCleanupFailure?.Invoke(
+                    cleanupFailure is TimeoutException
+                        ? new EngineException(
+                            "ENVIRONMENT_UNAVAILABLE",
+                            "The engine did not shut down within the cleanup timeout ("
+                                + options.CleanupTimeout.TotalMilliseconds.ToString(
+                                    System.Globalization.CultureInfo.InvariantCulture
+                                )
+                                + " ms).",
+                            cleanupFailure
+                        )
+                        : ErrorSerializer.TranslateProvisioningError(
+                            cleanupFailure,
+                            " while ending the attempt",
+                            CancellationToken.None
+                        )
+                );
+            }
+
             timeout.Dispose();
             throw;
         }
