@@ -8,8 +8,8 @@ using MobileBenchmark.E2ETests.Fixtures;
 namespace MobileBenchmark.E2ETests.Controls;
 
 /// <summary>
-/// Upstream's <c>test.describe('control inventory')</c> of <c>controls.e2e.ts</c>, the Gestures section only: the app is
-/// a MAUI app with that section so far.
+/// Upstream's <c>test.describe('control inventory')</c> of <c>controls.e2e.ts</c>, the Fields section's name field and the
+/// Gestures section: the app is a MAUI app with those sections so far.
 /// </summary>
 public sealed class ControlInventoryTests : BenchmarkTest
 {
@@ -19,6 +19,24 @@ public sealed class ControlInventoryTests : BenchmarkTest
     /// <summary>Shows one of the scenario's sections; every control of it fits on screen.</summary>
     private async Task ShowSectionAsync(string name) =>
         await Screen.GetByTestId($"tab-{name.ToLowerInvariant()}").TapAsync();
+
+    [Test]
+    public async Task GetAttribute_reads_the_label_resource_id_and_class_an_Appium_suite_asks_for()
+    {
+        var field = Screen.GetByTestId("name-input");
+        Assert.That(await field.GetAttributeAsync("resource-id"), Is.EqualTo("name-input"));
+        await Expect.That(field).ToHaveAttributeAsync("label", "Name field");
+        if (Platform == MobilePlatform.Ios)
+        {
+            await Expect.That(field).ToHaveAttributeAsync("class", "TextField");
+            Assert.That(await field.GetAttributeAsync("content-desc"), Is.Null);
+        }
+        else
+        {
+            await Expect.That(field).ToHaveAttributeAsync("class", "android.widget.EditText");
+            await Expect.That(field).ToHaveAttributeAsync("content-desc", "Name field");
+        }
+    }
 
     [Test]
     public async Task A_long_press_lands_as_one()
