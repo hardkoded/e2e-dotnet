@@ -12,8 +12,14 @@
       <Label x:Name="ColorScheme" AutomationId="color-scheme" Text="scheme: light" />
       <Label x:Name="Orientation" AutomationId="orientation" Text="orientation: portrait" />
 
-      <!-- The section tabs. This port has the Gestures and Device sections. -->
+      <!-- The section tabs. This port has the Fields, Gestures and Device sections. -->
       <HorizontalStackLayout Spacing="8">
+        <Button
+          AutomationId="tab-fields"
+          Text="Fields"
+          SemanticProperties.Description="Fields"
+          Clicked="OnFieldsTabClicked"
+        />
         <Button
           AutomationId="tab-gestures"
           Text="Gestures"
@@ -27,6 +33,18 @@
           Clicked="OnDeviceTabClicked"
         />
       </HorizontalStackLayout>
+
+      <!-- Text fields: a labeled field with a placeholder and a default value, and the echo of what it holds. -->
+      <VerticalStackLayout x:Name="FieldsSection" Spacing="12">
+        <Entry
+          AutomationId="name-input"
+          SemanticProperties.Description="Name field"
+          Placeholder="Type your name"
+          Text="Ada Lovelace"
+          TextChanged="OnNameChanged"
+        />
+        <Label x:Name="NameEcho" AutomationId="name-echo" Text="name: Ada Lovelace" />
+      </VerticalStackLayout>
 
       <!-- Pointer surfaces: a long-press target and a double-tap target that echo the gesture. -->
       <VerticalStackLayout x:Name="GesturesSection" Spacing="12" IsVisible="False">

@@ -4,7 +4,7 @@ The tests that drive [`apps/MobileBenchmark`](../MobileBenchmark) with `MobileEn
 
 | Directory | Upstream | What it runs |
 | --- | --- | --- |
-| `Controls` | `controls.e2e.ts`, `describe('control inventory')` | The Gestures section of the Control Inventory: long press, double tap, and `TapAsync(new TapOptions { Count = 3 })`. No model. |
+| `Controls` | `controls.e2e.ts`, `describe('control inventory')` | The Fields and Gestures sections of the Control Inventory: `GetAttributeAsync`, long press, double tap, and `TapAsync(new TapOptions { Count = 3 })`. No model. |
 | `DeviceFixture` | `device-fixture.e2e.ts`, `describe('device fixture')` | The `Device` fixture against the Control Inventory's Device section, the Login Form deep link, and the app lifecycle. No model. |
 
 All tests are in the `RealModel` and `Device` categories, so `TestCategory!=RealModel` skips them, and CI does too. They need a booted simulator or emulator and the app's build; see [`samples/MobileApp.E2ETests`](../../samples/MobileApp.E2ETests/README.md) for the prerequisites and `E2E_MOBILE_*` variables.
@@ -16,4 +16,4 @@ dotnet test apps/MobileBenchmark.E2ETests
 
 ## Not ported yet
 
-The app has the Gestures section of one scenario. The rest of upstream's mobile benchmark app and suites are tracked in the follow-up issue linked from the pull request.
+The app has the Fields (name field only) and Gestures sections of one scenario. The rest of upstream's mobile benchmark app and suites are tracked in the follow-up issue linked from the pull request.

@@ -70,7 +70,7 @@ Turns on CI mode:
 - `retries` defaults to 1.
 - `cache.mode` defaults to `read-only`, unless a custom `cache.store` is set.
 
-Upstream also defaults `workers` to 1, treats a focused test as `ONLY_IN_CI`, and ignores `reuseExisting` in CI. The port has no such settings (it runs under NUnit or xUnit, which set their own parallelism).
+Upstream also defaults `workers` to 1, and ignores `reuseExisting` in CI. In CI a run refuses a test marked `[Only]` with `ONLY_IN_CI`. The port has no `workers` or `reuseExisting` settings (it runs under NUnit or xUnit, which set their own parallelism).
 
 ### Test selection and run options (.NET-only)
 

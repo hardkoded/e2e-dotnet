@@ -3,9 +3,9 @@ using System.Diagnostics;
 namespace MobileBenchmark;
 
 /// <summary>
-/// Upstream's Control Inventory scenario, the Gestures and Device sections: a long-press target and a double-tap target that echo the
-/// gesture, and the count of taps that arrived with the gap between the last two; the system color scheme, the orientation, the network state,
-/// a position read on demand, and the outcome of a biometric prompt.
+/// Upstream's Control Inventory scenario: the Fields section's name field, the Gestures section (a long-press target and a double-tap target that echo the
+/// gesture, and the count of taps that arrived with the gap between the last two) and the Device section (the system color scheme, the orientation, the network state,
+/// a position read on demand, and the outcome of a biometric prompt).
 /// </summary>
 public partial class ControlInventory : ContentPage
 {
@@ -23,17 +23,25 @@ public partial class ControlInventory : ContentPage
         Unloaded += (_, _) => Unsubscribe();
     }
 
-    private void OnGesturesTabClicked(object? sender, EventArgs e)
-    {
-        DeviceSection.IsVisible = false;
-        GesturesSection.IsVisible = true;
-    }
+    private void OnFieldsTabClicked(object? sender, EventArgs e) => ShowSection(FieldsSection);
+
+    private void OnGesturesTabClicked(object? sender, EventArgs e) => ShowSection(GesturesSection);
 
     private void OnDeviceTabClicked(object? sender, EventArgs e)
     {
-        GesturesSection.IsVisible = false;
-        DeviceSection.IsVisible = true;
+        ShowSection(DeviceSection);
         ShowNetwork();
+    }
+
+    private void OnNameChanged(object? sender, TextChangedEventArgs e) =>
+        NameEcho.Text = string.IsNullOrEmpty(e.NewTextValue) ? "name:" : $"name: {e.NewTextValue}";
+
+    /// <summary>Shows one of the scenario's sections and hides the others.</summary>
+    private void ShowSection(View section)
+    {
+        FieldsSection.IsVisible = section == FieldsSection;
+        GesturesSection.IsVisible = section == GesturesSection;
+        DeviceSection.IsVisible = section == DeviceSection;
     }
 
     private void Subscribe()
