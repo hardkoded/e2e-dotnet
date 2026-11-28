@@ -1640,15 +1640,22 @@ public sealed class BrowserClock
     {
         var checkedCall = call();
         var session = _browser.Require("clock." + checkedCall.Name);
-        var token = _browser.Token(cancellationToken);
-        if (
-            checkedCall.Method == ClockMethod.PauseAt
-            && checkedCall.Ms < (await session.ClockNowAsync(token).ConfigureAwait(false) ?? double.NegativeInfinity)
-        )
-        {
-            throw WebClock.PausedInThePast("browser.clock." + checkedCall.Name);
-        }
+        var label = "browser.clock." + checkedCall.Name;
+        await session
+            .GuardAsync(label, _browser.Token(cancellationToken), async () =>
+            {
+                var token = _browser.Token(cancellationToken);
+                if (
+                    checkedCall.Method == ClockMethod.PauseAt
+                    && checkedCall.Ms
+                        < (await session.ClockNowAsync(token).ConfigureAwait(false) ?? double.NegativeInfinity)
+                )
+                {
+                    throw WebClock.PausedInThePast(label);
+                }
 
-        await session.ClockAsync(checkedCall, token).ConfigureAwait(false);
+                await session.ClockAsync(checkedCall, token).ConfigureAwait(false);
+            })
+            .ConfigureAwait(false);
     }
 }

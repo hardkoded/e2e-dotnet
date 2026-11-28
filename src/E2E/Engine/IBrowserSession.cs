@@ -218,8 +218,14 @@ public interface IBrowserSession : IEngineSession
         );
 
     /// <summary>
+    /// Runs <paramref name="work"/> as one guarded operation (upstream's <c>surface.guard</c>): an error latched on an unawaited path
+    /// is raised first, and every call inside shares the operation's budget. A session with no guard runs the work as it is.
+    /// </summary>
+    Task GuardAsync(string label, CancellationToken cancellationToken, Func<Task> work) => work();
+
+    /// <summary>
     /// The latest time a page clock of the attempt's context reads, across every frame, or null when none has one yet (upstream's
-    /// <c>surface.clockNow</c>). A session that does not override it fails with <c>UNSUPPORTED_CAPABILITY</c>.
+    /// <c>surface.clockNow</c>), called inside <see cref="GuardAsync"/>. A session that does not override it fails with <c>UNSUPPORTED_CAPABILITY</c>.
     /// </summary>
     Task<double?> ClockNowAsync(CancellationToken cancellationToken) =>
         Task.FromException<double?>(

@@ -4194,10 +4194,9 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
         /// Playwright installs the clock before a call can fail. The log is the one this attempt started with, so a call that resolves
         /// after its step timed out never reaches the next attempt's.
         /// </summary>
-        public Task ClockAsync(ClockCall call, CancellationToken cancellationToken)
+        public async Task ClockAsync(ClockCall call, CancellationToken cancellationToken)
         {
             var label = "browser.clock." + call.Name;
-            return GuardAsync(label, cancellationToken, async () =>
             {
                 var budget = Budget(label, cancellationToken);
                 try
@@ -4218,26 +4217,25 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                 {
                     throw WebClock.TranslateClockError(ex, label, call.Method);
                 }
-            });
+            }
         }
 
         /// <summary>
         /// The latest time a page clock of the current context reads, across every frame, or null when none has one yet. Playwright runs a
         /// call in every frame and fails it when one frame refuses, so the latest decides (upstream's <c>surface.clockNow</c>).
         /// </summary>
-        public Task<double?> ClockNowAsync(CancellationToken cancellationToken) =>
-            GuardAsync<double?>("browser.clock.pauseAt", cancellationToken, async () =>
+        public async Task<double?> ClockNowAsync(CancellationToken cancellationToken)
+        {
+            var budget = Budget("browser.clock.pauseAt", cancellationToken);
+            try
             {
-                var budget = Budget("browser.clock.pauseAt", cancellationToken);
-                try
-                {
-                    return await budget.WithinAsync(ClockNowCoreAsync()).ConfigureAwait(false);
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    throw WebClock.TranslateClockError(ex, "browser.clock.pauseAt", ClockMethod.PauseAt);
-                }
-            });
+                return await budget.WithinAsync(ClockNowCoreAsync()).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                throw WebClock.TranslateClockError(ex, "browser.clock.pauseAt", ClockMethod.PauseAt);
+            }
+        }
 
         // Reads the clock of every frame of the current context.
         private async Task<double?> ClockNowCoreAsync()
@@ -5512,7 +5510,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             }
         }
 
-        private Task GuardAsync(string label, CancellationToken cancellationToken, Func<Task> work) =>
+        public Task GuardAsync(string label, CancellationToken cancellationToken, Func<Task> work) =>
             GuardAsync(label, cancellationToken, async () =>
             {
                 await work().ConfigureAwait(false);
