@@ -347,9 +347,12 @@ internal sealed class RunServices : IAppProcesses
                                 }
                             }
                         }
-                        catch
+                        catch (Exception cause)
                         {
-                            // Nobody is left to report to.
+                            // Nobody is left to report to: the run stopped waiting for this service.
+                            System.Diagnostics.Debug.WriteLine(
+                                "service " + service.Name + " failed to stop late: " + cause.Message
+                            );
                         }
                     },
                     TaskScheduler.Default
@@ -394,7 +397,8 @@ internal sealed class RunServices : IAppProcesses
             }
             catch (ObjectDisposedException)
             {
-                // Stopped already.
+                // Stopped already: there is nothing left to cancel.
+                return;
             }
         }
 
