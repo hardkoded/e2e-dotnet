@@ -25,6 +25,12 @@ internal sealed record PublishedAttempt
     /// </summary>
     public Func<TimeSpan, bool>? SetTimeout { get; init; }
 
+    /// <summary>
+    /// Runs the body as one named step of the attempt (<c>Step</c>; upstream's <c>step</c>). Null where the attempt runs no e2e test. The body's
+    /// result is boxed, as a field cannot be generic: <see cref="E2E.Internal.TestStep.RunAsync{T}"/> unboxes it.
+    /// </summary>
+    public Func<string, Func<Task<object?>>, Task<object?>>? Step { get; init; }
+
     /// <summary>The config default for a poll's <c>Timeout</c> (upstream's <c>assertionTimeout</c>). Null where the attempt names none.</summary>
     public TimeSpan? AssertionTimeout { get; init; }
 

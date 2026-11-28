@@ -44,6 +44,10 @@ public sealed class ReportV1SchemaTests
         var violations = ReportSchema.Violations(ReportSchema.ReadJson("fixtures", "report-v1.invalid.json"));
         Assert.NotEmpty(violations);
         Assert.Contains(violations, each => each.Location == "/run/durationMs" && each.Keyword == "minimum");
+        Assert.Contains(violations, each =>
+            each.Keyword == "minimum"
+            && System.Text.RegularExpressions.Regex.IsMatch(each.Location, @"/steps/\d+/parent\z")
+        );
     }
 
     [Fact]

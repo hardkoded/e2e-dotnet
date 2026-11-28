@@ -24,6 +24,12 @@ internal static class ListSteps
     /// <summary>Columns a step line spends around its label: the quotes and the space before the tail.</summary>
     private const int LabelChrome = 3;
 
+    /// <summary>A <c>Step</c> that has not ended.</summary>
+    private const string FRunning = "◌";
+
+    /// <summary>What each <c>Step</c> around a step indents its line by.</summary>
+    private const string DepthIndent = "  ";
+
     /// <summary>A finished model turn.</summary>
     private const string FModel = "•";
 
@@ -43,33 +49,52 @@ internal static class ListSteps
     /// <summary>Longest tool call act the live window names, in bytes.</summary>
     private const int MaxActBytes = 60;
 
-    /// <summary>One-line, quoted step label; <paramref name="maxColumns"/> clips it further to fit a row (upstream's <c>quotedLabel</c>).</summary>
-    public static string QuotedLabel(string label, int maxColumns = MaxStepLabelColumns)
+    /// <summary>One-line step label; <paramref name="maxColumns"/> clips it further to fit a row (upstream's <c>fitLabel</c>).</summary>
+    public static string FitLabel(string label, int maxColumns = MaxStepLabelColumns)
     {
         var max = Math.Min(MaxStepLabelColumns, Math.Max(MinStepLabelColumns, maxColumns));
-        return $"\"{Format.FitColumns(TextRules.Collapse(label), max)}\"";
+        return Format.FitColumns(TextRules.Collapse(label), max);
     }
 
+    /// <summary>One-line, quoted step label; <paramref name="maxColumns"/> clips it further to fit a row (upstream's <c>quotedLabel</c>).</summary>
+    public static string QuotedLabel(string label, int maxColumns = MaxStepLabelColumns) =>
+        $"\"{FitLabel(label, maxColumns)}\"";
+
     /// <summary>
-    /// One finished agent step: outcome glyph, api, quoted label, then duration, model calls, and a non-passed status (upstream's <c>stepLine</c>).
-    /// <paramref name="context"/> is the text before the api, naming the test when the line prints away from it; <paramref name="maxWidth"/> is the
-    /// printed width the line may take, so the label is clipped and the tail stays on the row.
+    /// One listed step: outcome glyph, api, quoted label, then duration, model calls, and a non-passed status (upstream's <c>stepLine</c>). A
+    /// <c>Step</c> is its title alone, with nothing after it while it runs. <paramref name="context"/> is the text before the api, naming the test
+    /// when the line prints away from it; <paramref name="maxWidth"/> is the printed width the line may take, so the label is clipped and the tail
+    /// stays on the row; <paramref name="depth"/> is how many <c>Step</c> calls the line is drawn under: it is indented once per one.
     /// </summary>
-    public static string StepLine(Colors pc, FinishedStep step, string context = "", int? maxWidth = null)
+    public static string StepLine(Colors pc, ListedStep step, string context = "", int? maxWidth = null, int depth = 0)
     {
-        var passed = step.Status == StepStatus.Passed;
-        var glyph = passed ? pc.Green(Format.Check) : pc.Red(Format.Cross);
-        var calls =
-            step.ModelCalls > 0
-                ? $" · {step.ModelCalls} model call{(step.ModelCalls == 1 ? string.Empty : "s")}"
-                : string.Empty;
-        var outcome = passed ? string.Empty : " " + StepNames.Of(step.Status);
-        var head = $"{glyph} {context}{pc.Dim(ReportFormat.WithActor(step.Actor, step.Api))} ";
-        var tail = pc.Dim($"{Format.FormatTime(TimeSpan.FromMilliseconds(step.DurationMs))}{calls}{outcome}");
+        var outcome = step.Outcome;
+        var glyph =
+            outcome is null ? pc.Dim(FRunning)
+            : outcome.Status == StepStatus.Passed ? pc.Green(Format.Check)
+            : pc.Red(Format.Cross);
+        var titled = step.Kind == Reports.StepKind.Step;
+        var call = titled ? "" : pc.Dim(ReportFormat.WithActor(step.Actor, step.Api)) + " ";
+        var head = string.Concat(Enumerable.Repeat(DepthIndent, depth)) + $"{glyph} {context}{call}";
+        var tail = "";
+        if (outcome is not null)
+        {
+            var calls =
+                outcome.ModelCalls > 0
+                    ? $" · {outcome.ModelCalls} model call{(outcome.ModelCalls == 1 ? string.Empty : "s")}"
+                    : string.Empty;
+            var status = outcome.Status == StepStatus.Passed ? string.Empty : " " + StepNames.Of(outcome.Status);
+            tail = pc.Dim($"{Format.FormatTime(TimeSpan.FromMilliseconds(outcome.DurationMs))}{calls}{status}");
+        }
+
+        // A title takes no quotes.
+        var chrome = titled ? LabelChrome - 2 : LabelChrome;
         var room = maxWidth is { } width
-            ? width - Format.VisibleWidth(head) - Format.VisibleWidth(tail) - LabelChrome
+            ? width - Format.VisibleWidth(head) - Format.VisibleWidth(tail) - chrome
             : MaxStepLabelColumns;
-        return $"{head}{QuotedLabel(step.Label, room)} {tail}";
+        return head
+            + (titled ? FitLabel(step.Label, room) : QuotedLabel(step.Label, room))
+            + (tail.Length == 0 ? "" : " " + tail);
     }
 
     /// <summary>

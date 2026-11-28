@@ -192,7 +192,9 @@ internal sealed class RunningTree(Colors pc, Func<string, string> badge)
         var current = StepRows(test, maxEvents, budget, now);
         var room = budget - current.Count;
         var maxWidth = Format.TerminalColumns() - LiveWindow.WidthMargin - DetailIndent.Length;
-        var rendered = test.Steps.Select(step => ListSteps.StepLine(pc, step, maxWidth: maxWidth)).ToList();
+        var rendered = test
+            .Steps.Select(step => ListSteps.StepLine(pc, step, maxWidth: maxWidth, depth: step.Groups.Count))
+            .ToList();
         List<string> finished = [];
         if (room > 0)
         {

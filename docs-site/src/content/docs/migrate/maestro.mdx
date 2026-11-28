@@ -133,6 +133,7 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | `assertScreenshot: { path, thresholdPercentage }` | `Expect.That(Screen).ToHaveScreenshotAsync(name, new ScreenshotOptions { MaxDiffPixelRatio = ... })`. The port documents it for the web engine only and has no device run of it, so keep the Maestro assertion until you have checked it on your device |
 | `takeScreenshot`, `startRecording`, `stopRecording` | `App.ScreenshotAsync("label")`, `App.StartRecordingAsync(new RecordingOptions { Name = "..." })`, `App.StopRecordingAsync()` |
 | `assertWithAI`, `assertNoDefectsWithAI`, `extractTextWithAI` | `Agent.AssertAsync("...", new AssertOptions { Vision = VisionMode.On })`, `Agent.ExtractAsync<T>("...")`; the type is the schema |
+| `label` on a command | `Step("label", body)` on `E2ETest` around the call; reports show the label with the call under it |
 | `runFlow: file.yaml`, `onFlowStart`, `onFlowComplete` | a method on the test class or a base class; `[SetUp]`, `[TearDown]` (NUnit), `InitializeAsync`, `DisposeAsync` (xUnit v3) |
 | `runFlow: { when: { visible } }` | `if (await locator.IsVisibleAsync()) { ... }`, see [Rewrite selectors](#rewrite-selectors) |
 | `repeat`, `runScript`, `evalScript`, `${output.x}`, `http.get` | C# in the test: loops, variables, and `HttpClient` |
@@ -155,7 +156,6 @@ Planned is on the roadmap, and Not yet has no date. Not planned is left out on p
 | `permissions: { all }`, the grant-all default, names such as `bluetooth` and `storage` | Name each permission in `app.permissions`, or accept the prompt with `Device.AlertAsync(AlertAction.Accept)` |
 | `inputText` and `pressKey: Enter` with no field, `eraseText: N`, `pressKey: backspace`, `tab` | `FillAsync` or `PressAsync` on the field's locator; `FillAsync` a shortened `InputValueAsync()` to erase; tap the next field for Tab |
 | `addMedia` | On an iOS simulator, `xcrun simctl addmedia` on `Device.UnstableRaw.DeviceId` (the simulator's UDID) before `App.OpenAsync()`; Android is unchecked. `OpenAsync` restarts the app, so import the media before the flow navigates to the picker, or navigate back to it afterwards. See [Photos for a picker test](/get-started/mobile/#photos-for-a-picker-test) |
-| `label` on a command | `-`. The call names each step |
 | `scrollUntilVisible: { centerElement, visibilityPercentage }` | No exact match. After it resolves, read `BoundingBoxAsync()`, then `Screen.SwipeAsync` with `Momentum.Slow` if the node is off center |
 | Device logs and crash reports beside a failure | `adb logcat` or `xcrun simctl spawn <udid> log stream`, collected in a `[SetUp]` or `InitializeAsync` |
 | `maestro hierarchy` as a terminal command | A one-line test that calls `Screen.DebugAsync()` |

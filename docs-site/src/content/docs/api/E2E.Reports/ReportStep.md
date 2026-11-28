@@ -261,6 +261,21 @@ True when at least one semantic observation in the step was truncated (serialize
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
+<a id="E2E_Reports_ReportStep_Parent_"></a>
+<a id="E2E_Reports_ReportStep_Parent"></a>
+
+### Parent
+
+
+```csharp
+public int? Parent { get; init; }
+```
+
+
+The index of the `Step` the step ran inside; null for a step outside one.
+
+**Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
+
 <a id="E2E_Reports_ReportStep_Phase_"></a>
 <a id="E2E_Reports_ReportStep_Phase"></a>
 

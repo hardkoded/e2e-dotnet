@@ -565,6 +565,9 @@ public enum StepKind
     App,
     Session,
     Resource,
+
+    /// <summary>A group of calls the test names with <c>Step(title, body)</c>.</summary>
+    Step,
 }
 
 /// <summary>How a step ended.</summary>
@@ -612,6 +615,9 @@ public sealed record ReportStep
     /// they joined it (<c>launch-1</c>). Null for a step of the test's own session.
     /// </summary>
     public string? Actor { get; init; }
+
+    /// <summary>The index of the <c>Step</c> the step ran inside; null for a step outside one.</summary>
+    public int? Parent { get; init; }
 
     public ReportSource Source { get; init; } = new();
 

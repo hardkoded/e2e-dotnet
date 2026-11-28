@@ -32,12 +32,14 @@ public enum StepActivity
 /// <param name="StepId">The step's id.</param>
 /// <param name="StepIndex">The step's index.</param>
 /// <param name="Actor">The session the step ran on when it is not the test's own, such as <c>launch-1</c>; absent for the test's own session.</param>
+/// <param name="ParentStepId">The id of the <c>Step</c> the step runs inside; absent for a step outside one.</param>
 public sealed record StepProgressIdentity(
     string AttemptId,
     int AttemptIndex,
     string StepId,
     int StepIndex,
-    string? Actor = null
+    string? Actor = null,
+    string? ParentStepId = null
 );
 
 /// <summary>

@@ -30,6 +30,16 @@ internal enum StepKind
     App,
     Session,
     Resource,
+
+    /// <summary>A group of calls the test names with <c>Step(title, body)</c>; its label is the title.</summary>
+    Step,
+}
+
+/// <summary>Names of the steps the runner itself records (upstream's <c>TEST_STEP_API</c>).</summary>
+internal static class StepApis
+{
+    /// <summary>The api of a step the test names with <c>Step</c>, the one step of kind <see cref="StepKind.Step"/>.</summary>
+    public const string TestStepApi = "test.step";
 }
 
 /// <summary>How a step ended. A step still running is <see cref="Passed"/> until it fails.</summary>
@@ -273,6 +283,9 @@ internal sealed class StepRecord
     /// </summary>
     public string? Actor { get; init; }
 
+    /// <summary>The index of the <c>Step</c> the step ran inside; null for a step outside one.</summary>
+    public int? Parent { get; init; }
+
     /// <summary>The test line the step was called from; null when no project line was on the stack.</summary>
     public SourceLocation? Source { get; init; }
 
@@ -343,12 +356,14 @@ internal static class OwnSteps
 /// <param name="StepId">The step's id.</param>
 /// <param name="StepIndex">The step's index.</param>
 /// <param name="Actor">The session the step ran on when it is not the test's own; see <see cref="StepRecord.Actor"/>.</param>
+/// <param name="ParentStepId">The id of the <c>Step</c> the step runs inside; see <see cref="StepRecord.Parent"/>.</param>
 internal sealed record StepProgressIdentity(
     string AttemptId,
     int AttemptIndex,
     string StepId,
     int StepIndex,
-    string? Actor = null
+    string? Actor = null,
+    string? ParentStepId = null
 );
 
 /// <summary>What a progress notification says.</summary>
