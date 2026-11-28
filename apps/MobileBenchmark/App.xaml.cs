@@ -62,7 +62,11 @@ public partial class App : Application
         try
         {
             await shell.GoToAsync(route);
-            _pendingLink = null;
+            // A newer link may have replaced this one while the navigation ran; only this link's own slot is cleared.
+            if (ReferenceEquals(_pendingLink, uri))
+            {
+                _pendingLink = null;
+            }
         }
         catch (Exception error)
         {
