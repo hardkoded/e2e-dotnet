@@ -508,7 +508,7 @@ internal sealed class AttemptArtifacts
                         MediaType = mediaType,
                         StartedAt = startedAt,
                         Actor = registration?.Actor,
-                        Redaction = ArtifactPaths.RedactionByKind(kind),
+                        Redaction = ArtifactRedaction.Incomplete,
                         Producer = ProducerOf(stepId),
                     }
                 );
@@ -552,7 +552,6 @@ internal sealed class AttemptArtifacts
         }
     }
 
-    // Runs on the registering thread up to its first await, so a download's redaction label is on its record when Register returns.
     private async Task RunAsync(
         int index,
         ArtifactKind kind,
@@ -565,14 +564,15 @@ internal sealed class AttemptArtifacts
     )
     {
         var token = _options.CancellationToken;
+        var redaction = ArtifactPaths.RedactionByKind(kind);
         if (ledger is not null && Secrecy.RedactsDownloads(ledger) && ArtifactPaths.IsTextLike(mediaType))
         {
-            var redaction = ArtifactPaths.RedactDownload(absolute, ledger);
-            Update(index, record => record with { Redaction = redaction });
+            redaction = ArtifactPaths.RedactDownload(absolute, ledger);
         }
 
         // Without a store the file is streamed for its size and digest only; with one it is read whole, since the store needs the bytes
-        // anyway, and hashed from that same buffer. A file that never appeared is recorded without size or digest either way.
+        // anyway, and hashed from that same buffer. A file that never appeared stays without path, size, or digest, and keeps its incomplete
+        // redaction either way.
         if (_options.Store is not { } store)
         {
             if (await ArtifactPaths.MeasureAsync(absolute, token).ConfigureAwait(false) is not { } measured)
@@ -580,7 +580,15 @@ internal sealed class AttemptArtifacts
                 return;
             }
 
-            Update(index, record => record with { Path = reportPath, Size = measured.Size, Sha256 = measured.Sha256 });
+            Update(index, record =>
+                record with
+                {
+                    Path = reportPath,
+                    Size = measured.Size,
+                    Sha256 = measured.Sha256,
+                    Redaction = redaction,
+                }
+            );
             return;
         }
 
@@ -596,7 +604,15 @@ internal sealed class AttemptArtifacts
         }
 
         var sha256 = Convert.ToHexStringLower(SHA256.HashData(bytes));
-        Update(index, record => record with { Path = reportPath, Size = bytes.LongLength, Sha256 = sha256 });
+        Update(index, record =>
+            record with
+            {
+                Path = reportPath,
+                Size = bytes.LongLength,
+                Sha256 = sha256,
+                Redaction = redaction,
+            }
+        );
         ArtifactRedaction labelled;
         lock (_gate)
         {
