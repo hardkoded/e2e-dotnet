@@ -23,10 +23,15 @@ public partial class ControlInventory : ContentPage
         Unloaded += (_, _) => Unsubscribe();
     }
 
-    private void OnGesturesTabClicked(object? sender, EventArgs e) => GesturesSection.IsVisible = true;
+    private void OnGesturesTabClicked(object? sender, EventArgs e)
+    {
+        DeviceSection.IsVisible = false;
+        GesturesSection.IsVisible = true;
+    }
 
     private void OnDeviceTabClicked(object? sender, EventArgs e)
     {
+        GesturesSection.IsVisible = false;
         DeviceSection.IsVisible = true;
         ShowNetwork();
     }
@@ -86,7 +91,7 @@ public partial class ControlInventory : ContentPage
         try
         {
             var status = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
-            if (status != PermissionStatus.Granted)
+            if (status is not (PermissionStatus.Granted or PermissionStatus.Restricted))
             {
                 LocationStatus.Text = "location: permission denied";
                 return;
