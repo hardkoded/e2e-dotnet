@@ -992,7 +992,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         var action = new LocatorAction.ScrollTo(edge);
         CheckAction(action);
         var deadline = DeadlineFor(timeout);
-        var budgetMs = (long)Math.Round((deadline.EndsAt - Clock.GetUtcNow()).TotalMilliseconds);
+        var budgetMs = (long)(timeout ?? ActionTimeout).TotalMilliseconds;
         var target = expression is null ? "" : ": " + expression.Describe();
         Exception? NotReached(Exception cause) =>
             cause

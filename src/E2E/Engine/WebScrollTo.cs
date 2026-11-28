@@ -67,6 +67,20 @@ internal static class WebScrollTo
                 TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
                 TaskScheduler.Default
             );
+            // A handle that arrives after the budget gave up on it is owned by no one: release it.
+            var abandoned = false;
+            _ = call.ContinueWith(
+                late =>
+                {
+                    if (Volatile.Read(ref abandoned) && late.Result is IJSHandle handle)
+                    {
+                        WebSupport.DisposeQuietly(handle);
+                    }
+                },
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnRanToCompletion | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default
+            );
             try
             {
                 return await call.WaitAsync(
@@ -76,6 +90,7 @@ internal static class WebScrollTo
             }
             catch (TimeoutException) when (!call.IsFaulted)
             {
+                Volatile.Write(ref abandoned, true);
                 throw OutOfBudget();
             }
         }
