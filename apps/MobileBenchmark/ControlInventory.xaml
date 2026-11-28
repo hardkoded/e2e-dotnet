@@ -9,8 +9,14 @@
     <VerticalStackLayout Padding="24" Spacing="12">
       <Label Text="Plain controls, every state exposed" AutomationId="inventory-header" />
 
-      <!-- The section tabs. This port has the Gestures section only. -->
+      <!-- The section tabs. This port has the Fields and Gestures sections. -->
       <HorizontalStackLayout Spacing="8">
+        <Button
+          AutomationId="tab-fields"
+          Text="Fields"
+          SemanticProperties.Description="Fields"
+          Clicked="OnFieldsTabClicked"
+        />
         <Button
           AutomationId="tab-gestures"
           Text="Gestures"
@@ -18,6 +24,18 @@
           Clicked="OnGesturesTabClicked"
         />
       </HorizontalStackLayout>
+
+      <!-- Text fields: a labeled field with a placeholder and a default value, and the echo of what it holds. -->
+      <VerticalStackLayout x:Name="FieldsSection" Spacing="12">
+        <Entry
+          AutomationId="name-input"
+          SemanticProperties.Description="Name field"
+          Placeholder="Type your name"
+          Text="Ada Lovelace"
+          TextChanged="OnNameChanged"
+        />
+        <Label x:Name="NameEcho" AutomationId="name-echo" Text="name: Ada Lovelace" />
+      </VerticalStackLayout>
 
       <!-- Pointer surfaces: a long-press target and a double-tap target that echo the gesture. -->
       <VerticalStackLayout x:Name="GesturesSection" Spacing="12" IsVisible="False">

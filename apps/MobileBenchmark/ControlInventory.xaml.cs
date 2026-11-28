@@ -3,7 +3,7 @@ using System.Diagnostics;
 namespace MobileBenchmark;
 
 /// <summary>
-/// Upstream's Control Inventory scenario, the Gestures section only: a long-press target and a double-tap target that echo the
+/// Upstream's Control Inventory scenario, the Fields section's name field and the Gestures section: a long-press target and a double-tap target that echo the
 /// gesture, and the count of taps that arrived with the gap between the last two.
 /// </summary>
 public partial class ControlInventory : ContentPage
@@ -20,7 +20,18 @@ public partial class ControlInventory : ContentPage
         InitializeComponent();
     }
 
-    private void OnGesturesTabClicked(object? sender, EventArgs e) => GesturesSection.IsVisible = true;
+    private void OnFieldsTabClicked(object? sender, EventArgs e) => ShowSection(fields: true);
+
+    private void OnGesturesTabClicked(object? sender, EventArgs e) => ShowSection(fields: false);
+
+    private void OnNameChanged(object? sender, TextChangedEventArgs e) =>
+        NameEcho.Text = string.IsNullOrEmpty(e.NewTextValue) ? "name:" : $"name: {e.NewTextValue}";
+
+    private void ShowSection(bool fields)
+    {
+        FieldsSection.IsVisible = fields;
+        GesturesSection.IsVisible = !fields;
+    }
 
     private void OnHoldMePressed(object? sender, EventArgs e) => _held.Restart();
 
