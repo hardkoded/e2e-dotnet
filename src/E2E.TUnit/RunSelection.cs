@@ -159,13 +159,33 @@ internal static class RunSelection
                             is { } fixme
                             ? E2E.Internal.Skip.FixmeReason(fixme.Reason)
                             : OutrightSkip(method) ?? OutrightSkip(type),
-                        method.IsDefined(typeof(FixmeAttribute), true)
+                        method.IsDefined(typeof(FixmeAttribute), true),
+                        Only: IsOnly(type, method)
                     )
                 );
             }
         }
 
         return found;
+    }
+
+    // A focused fixture, or one nested in a focused fixture, focuses its tests (upstream's describe.only reaches nested groups).
+    private static bool IsOnly(Type type, MethodInfo method)
+    {
+        if (method.IsDefined(typeof(OnlyAttribute), true))
+        {
+            return true;
+        }
+
+        for (var around = (Type?)type; around is not null; around = around.DeclaringType)
+        {
+            if (around.IsDefined(typeof(OnlyAttribute), true))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // A type that fails to load (a missing optional dependency) is not a test the run could start.

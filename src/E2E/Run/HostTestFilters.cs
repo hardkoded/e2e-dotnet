@@ -20,6 +20,7 @@ namespace E2E;
 /// <param name="SkipReason">Why the test is skipped outright (<c>[Ignore]</c>, or the reason <c>fixme</c> of a test marked <c>[Fixme]</c>); null when it is not.</param>
 /// <param name="Fixme">Whether the test is registered fixme with the host's <c>[Fixme]</c> (upstream's <c>test.fixme(title, fn)</c>); it runs far enough to report the cause <c>fixme</c>.</param>
 /// <param name="Serial">Whether the test is a member of a serial group; a fixme test in one is a collection error.</param>
+/// <param name="Only">Whether the test, or a fixture around it, is focused with the host's <c>[Only]</c> (upstream's <c>test.only</c> and <c>describe.only</c>); the run keeps only focused tests.</param>
 /// <param name="FailError">Why the test's <c>fail</c> marks are refused at collection (a bad value, or a mark on, inside, or around a serial group); null when they are fine.</param>
 internal sealed record DiscoveredTest(
     string Key,
@@ -30,7 +31,8 @@ internal sealed record DiscoveredTest(
     string? SkipReason = null,
     bool Fixme = false,
     bool Serial = false,
-    string? FailError = null
+    string? FailError = null,
+    bool Only = false
 );
 
 /// <summary>
@@ -450,7 +452,10 @@ internal static class HostTestFilters
                     Tags = [.. test.Tags.Distinct(StringComparer.Ordinal)],
                     File = file,
                     Id = id,
-                    Mode = test.Fixme ? TestMode.Fixme : TestMode.Normal,
+                    Mode =
+                        test.Fixme ? TestMode.Fixme
+                        : test.Only ? TestMode.Only
+                        : TestMode.Normal,
                     Options = new ResolvedTestOptions(
                         null,
                         [],
