@@ -8,7 +8,7 @@ namespace E2E.Engine;
 /// Picks the engine of a config target for <c>e2e explore</c> and <c>e2e mcp</c>. There is no upstream counterpart: upstream's config
 /// holds a live engine handle, and the port's <c>e2e.config.json</c> names a platform instead. The platform decides: <c>web</c> is a
 /// <see cref="WebEngine"/>, <c>ios</c> and <c>android</c> are built by <c>mobile</c>, which <c>E2E.Mobile</c> supplies, and <c>windows</c>
-/// by <c>windows</c>, which <c>E2E.WinApp</c> supplies.
+/// by <c>windows</c>, which <c>E2E.WinApp</c> supplies, and <c>macos</c> by <c>macos</c>, which <c>E2E.Desktop</c> supplies.
 /// </summary>
 internal static class TargetEngines
 {
@@ -17,7 +17,8 @@ internal static class TargetEngines
         TargetConfig target,
         bool? headless,
         Func<TargetConfig, IEngine>? mobile,
-        Func<TargetConfig, IEngine>? windows = null
+        Func<TargetConfig, IEngine>? windows = null,
+        Func<TargetConfig, IEngine>? macos = null
     )
     {
         ArgumentNullException.ThrowIfNull(target);
@@ -52,9 +53,16 @@ internal static class TargetEngines
                     $"target \"{target.Name}\" has platform windows, but this host has no Windows app engine; use the e2e tool on Windows, or set ExploreOptions.Engine."
                 )
             ).Invoke(target),
+            "macos" => (
+                macos
+                ?? throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    $"target \"{target.Name}\" has platform macos, but this host has no macOS desktop engine; use the e2e tool on macOS, or set ExploreOptions.Engine."
+                )
+            ).Invoke(target),
             _ => throw new ConfigurationException(
                 "INVALID_CONFIG",
-                $"target \"{target.Name}\" has platform {target.Platform}; the platform must be web, ios, android, or windows"
+                $"target \"{target.Name}\" has platform {target.Platform}; the platform must be web, ios, android, windows, or macos"
             ),
         };
 

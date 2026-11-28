@@ -25,7 +25,7 @@ public sealed class TheBuiltCliAndTheBundledSkillTests
             var unknown = await RunAsync(dir, "guide", "nope");
             Assert.Equal(2, unknown.Code);
             Assert.Contains(
-                "unknown topic \"nope\"; topics: agent, bug-bash, debugging, explore, host, mcp, mobile, running, setup, windows, writing-tests, writing-tests-nunit, writing-tests-tunit, writing-tests-xunit",
+                "unknown topic \"nope\"; topics: agent, bug-bash, debugging, explore, host, macos, mcp, mobile, running, setup, windows, writing-tests, writing-tests-nunit, writing-tests-tunit, writing-tests-xunit",
                 unknown.Stderr,
                 StringComparison.Ordinal
             );

@@ -52,7 +52,8 @@ internal sealed class SessionHostOptions
 
     /// <summary>Creates the engine of one session: the target's, and whether the session shows its UI. The platform of the target picks the engine.</summary>
     public Func<TargetConfig, bool, IEngine> CreateEngine { get; init; } =
-        (target, headed) => TargetEngines.Create(target, !headed, DeviceTargets.Create, WindowsTargets.Create);
+        (target, headed) =>
+            TargetEngines.Create(target, !headed, DeviceTargets.Create, WindowsTargets.Create, MacosTargets.Create);
 
     /// <summary>The credentials of the hosted device services the session may lease from, redacted wherever the server returns or logs text.</summary>
     public Func<IReadOnlyList<Secret>> Credentials { get; init; } = DeviceTargets.Credentials;

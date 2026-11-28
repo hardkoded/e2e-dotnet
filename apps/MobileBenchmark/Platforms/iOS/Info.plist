@@ -43,6 +43,21 @@
 			</array>
 		</dict>
 	</dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>dev.e2e.benchmark</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>e2e-benchmark</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>The Control Inventory reads the device's position on demand.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>The Control Inventory unlocks with Face ID.</string>
 	<key>XSAppIconAssets</key>
 	<string>Assets.xcassets/appicon.appiconset</string>
 </dict>

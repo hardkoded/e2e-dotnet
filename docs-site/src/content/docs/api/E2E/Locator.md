@@ -1059,6 +1059,12 @@ public Task PressAsync(string key, ActionOptions? options = null, CancellationTo
 ```
 
 
+Presses a key on the node: zero or more modifiers and one key, joined with `+`, as [KeyGrammar](/api/E2E.Engine/KeyGrammar/) lists them.
+`Shift++` presses `+`. On the web engine, a character that is not on a US keyboard (`é`, `中`) is pressed in
+Chromium only. The page gets the same `keydown`, `input`, and `keyup` as for any key, with an empty `code` and a
+`keyCode` of 0. In Firefox and WebKit it fails with `UNSUPPORTED_CAPABILITY`; enter it with `FillAsync` or
+`PressSequentiallyAsync`.
+
 **Parameters**
 
 | Name | Type | Description |

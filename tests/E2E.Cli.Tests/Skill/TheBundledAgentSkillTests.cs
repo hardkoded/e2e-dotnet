@@ -37,6 +37,7 @@ public sealed class TheBundledAgentSkillTests
                 "debugging",
                 "explore",
                 "host",
+                "macos",
                 "mcp",
                 "mobile",
                 "running",

@@ -8,8 +8,11 @@
   <ScrollView>
     <VerticalStackLayout Padding="24" Spacing="12">
       <Label Text="Plain controls, every state exposed" AutomationId="inventory-header" />
+      <!-- What the device tells the app: the system color scheme and the window's orientation. -->
+      <Label x:Name="ColorScheme" AutomationId="color-scheme" Text="scheme: light" />
+      <Label x:Name="Orientation" AutomationId="orientation" Text="orientation: portrait" />
 
-      <!-- The section tabs. This port has the Fields and Gestures sections. -->
+      <!-- The section tabs. This port has the Fields, Gestures and Device sections. -->
       <HorizontalStackLayout Spacing="8">
         <Button
           AutomationId="tab-fields"
@@ -22,6 +25,12 @@
           Text="Gestures"
           SemanticProperties.Description="Gestures"
           Clicked="OnGesturesTabClicked"
+        />
+        <Button
+          AutomationId="tab-device"
+          Text="Device"
+          SemanticProperties.Description="Device"
+          Clicked="OnDeviceTabClicked"
         />
       </HorizontalStackLayout>
 
@@ -51,6 +60,26 @@
         </HorizontalStackLayout>
         <Label x:Name="GestureStatus" AutomationId="gesture-status" Text="gesture: none" />
         <Label x:Name="TapCount" AutomationId="tap-count" Text="0 taps" />
+      </VerticalStackLayout>
+
+      <!-- What the device tells the app: the network state, a position read on demand, and the outcome of a biometric prompt. -->
+      <VerticalStackLayout x:Name="DeviceSection" Spacing="12" IsVisible="False">
+        <Label x:Name="NetworkState" AutomationId="network-state" Text="network: unknown" />
+        <Label x:Name="NetworkType" AutomationId="network-type" Text="network type: unknown" />
+        <Button
+          AutomationId="read-location"
+          Text="Read location"
+          SemanticProperties.Description="Read location"
+          Clicked="OnReadLocationClicked"
+        />
+        <Label x:Name="LocationStatus" AutomationId="location-status" Text="location: idle" />
+        <Button
+          AutomationId="unlock-biometrics"
+          Text="Unlock with biometrics"
+          SemanticProperties.Description="Unlock with biometrics"
+          Clicked="OnUnlockBiometricsClicked"
+        />
+        <Label x:Name="BiometricsStatus" AutomationId="biometrics-status" Text="biometrics: locked" />
       </VerticalStackLayout>
     </VerticalStackLayout>
   </ScrollView>

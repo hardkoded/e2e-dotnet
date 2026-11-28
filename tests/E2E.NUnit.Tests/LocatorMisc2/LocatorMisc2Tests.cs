@@ -167,15 +167,17 @@ public sealed class LocatorMisc2Tests : PlaywrightTest
         await Expect.That(Browser.Locator("#text")).ToHaveValueAsync("Hello");
     }
 
+    // Playwright throws on 'ё' and '😊' too. The e2e key grammar takes any single character, so in Chromium the web engine presses the
+    // ones Playwright has no key for.
     [Test]
-    public async Task Press_should_throw_on_unknown_keys()
+    public async Task Press_should_throw_on_unknown_keys_and_type_characters_off_the_US_layout()
     {
-        await Browser.GotoAsync(Content("<input type='text' value='hello' />"));
+        await Browser.GotoAsync(Content("<input type='text' />"));
         var locator = Screen.GetByRole("textbox");
-        foreach (var key in new[] { "NotARealKey", "ё", "😊" })
-        {
-            var error = await Assert.CatchAsync(() => locator.PressAsync(key));
-            Assert.That(error!.Message, Does.Contain(key));
-        }
+        var error = await Assert.CatchAsync(() => locator.PressAsync("NotARealKey"));
+        Assert.That(error!.Message, Does.Contain("NotARealKey"));
+        await locator.PressAsync("ё");
+        await locator.PressAsync("😊");
+        await Expect.That(locator).ToHaveValueAsync("ё😊");
     }
 }

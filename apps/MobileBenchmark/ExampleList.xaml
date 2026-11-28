@@ -14,6 +14,12 @@
         SemanticProperties.Description="Control Inventory. The deterministic contract surface: plain controls with every state exposed, one exercise per runner verb. Not a hard surface."
         Clicked="OnControlInventoryClicked"
       />
+      <Button
+        AutomationId="Login Form"
+        Text="Login Form"
+        SemanticProperties.Description="Login Form. A two-field form that validates a hardcoded account."
+        Clicked="OnLoginFormClicked"
+      />
     </VerticalStackLayout>
   </ScrollView>
 </ContentPage>
