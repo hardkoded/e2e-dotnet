@@ -420,6 +420,122 @@ internal static class PageScript
         }
         """;
 
+    // The container a scroll toward args.edge moves (upstream's scrollContainer in scroll-to.ts): the element that scrolls along the edge's
+    // axis from `start` (itself, or its nearest ancestor across slots and open and closed shadow roots), or for the screen the page, else what is
+    // under the viewport's center; null when nothing does. Run with the :root element, a located node, or an element handle as `start`.
+    public const string ScrollContainer = """
+        (start, args) => {
+          // A node out of the document has no ancestor that scrolls; the page is not its container.
+          if (!start.isConnected) throw new Error(args.detached);
+          const vertical = args.edge === "top" || args.edge === "bottom";
+          const doc = start.ownerDocument;
+          const view = doc.defaultView ?? window;
+          const scrolling = doc.scrollingElement ?? doc.documentElement;
+          const closedRoots = globalThis[Symbol.for("e2e.closedShadowRoots")];
+          const overflowOf = (style) => (vertical ? style.overflowY : style.overflowX);
+          // Any containment stops the body's overflow from reaching the viewport: `contain`, and a container type, which applies it without
+          // showing in `contain`. Of the container types only `scroll-state` applies none, and an older browser has no `containerType`.
+          const contained = (style) =>
+            style.contain !== "none" || (style.containerType ?? "normal").split(" ").some((type) => type !== "normal" && type !== "scroll-state");
+
+          // The viewport takes the root element's overflow, or the body's when the root's is visible on both axes and neither has
+          // containment; the body then does not scroll itself.
+          const rootStyle = view.getComputedStyle(doc.documentElement);
+          const bodyStyle = doc.body === null ? undefined : view.getComputedStyle(doc.body);
+          const bodyGivesOverflow = bodyStyle !== undefined && rootStyle.overflowX === "visible" && rootStyle.overflowY === "visible"
+            && !contained(rootStyle) && !contained(bodyStyle);
+          const viewportScrolls = () => {
+            const overflow = overflowOf(bodyGivesOverflow && bodyStyle !== undefined ? bodyStyle : rootStyle);
+            return overflow !== "hidden" && overflow !== "clip";
+          };
+          const scrolls = (element) => {
+            const room = vertical ? element.scrollHeight - element.clientHeight : element.scrollWidth - element.clientWidth;
+            if (room < 1) return false;
+            if (element === scrolling) return viewportScrolls();
+            if (element === doc.body && bodyGivesOverflow) return false;
+            const overflow = overflowOf(view.getComputedStyle(element));
+            return overflow === "auto" || overflow === "scroll" || overflow === "overlay";
+          };
+          // A closed shadow root hides its slots from `assignedSlot`; the registry of closed roots finds them.
+          const slotOf = (element) => {
+            if (element.assignedSlot !== null) return element.assignedSlot;
+            const root = element.parentElement === null ? undefined : closedRoots?.get(element.parentElement);
+            return root === undefined ? null : [...root.querySelectorAll("slot")].find((slot) => slot.assignedNodes().includes(element)) ?? null;
+          };
+          const parentOf = (element) => {
+            const slot = slotOf(element);
+            if (slot !== null) return slot;
+            if (element.parentElement !== null) return element.parentElement;
+            const parent = element.parentNode;
+            // A shadow root by its node type: a page can replace the global `ShadowRoot`.
+            return parent !== null && parent.nodeType === 11 && "host" in parent ? parent.host : null;
+          };
+
+          let from = start;
+          // The screen is the page when the page scrolls along the axis, as a test migrated from `cy.scrollTo` expects; an inner pane that
+          // happens to sit under the center is scrolled only through a locator.
+          if (args.fromCenter && scrolls(scrolling)) return scrolling;
+          if (args.fromCenter) {
+            // The element under the viewport's center, inside open and closed shadow roots. A frame there is not entered: its document is not this one.
+            const x = view.innerWidth / 2;
+            const y = view.innerHeight / 2;
+            from = doc.elementFromPoint(x, y);
+            while (from !== null) {
+              const root = from.shadowRoot ?? closedRoots?.get(from);
+              const inner = root?.elementFromPoint(x, y) ?? null;
+              if (inner === null || inner === from) break;
+              from = inner;
+            }
+          }
+          for (let element = from; element !== null; element = parentOf(element)) {
+            if (scrolls(element)) return element;
+            if (element === scrolling) break;
+          }
+          return scrolls(scrolling) ? scrolling : null;
+        }
+        """;
+
+    // One jump of a container toward an edge, then its position after the next rendered frame (upstream's jumpOnce in scroll-to.ts). A hidden
+    // document renders no frames, so it reads at once; a frame that renders none while out of view (a cross-origin iframe) reads after 100 ms.
+    // The waits use the native timers Playwright's clock keeps, as NextRenderedFrame does, so a paused clock holds none.
+    public const string ScrollJump = """
+        (container, edge) => {
+          if (!container.isConnected) return Promise.resolve({ state: "detached", from: 0, extent: 0 });
+          const vertical = edge === "top" || edge === "bottom";
+          const view = container.ownerDocument.defaultView ?? window;
+          const extentOf = () => (vertical ? container.scrollHeight : container.scrollWidth);
+          const offsetOf = () => (vertical ? container.scrollTop : container.scrollLeft);
+          const start = offsetOf();
+          // Past the end on purpose: the browser clamps the offset, and the sign covers a container whose offsets run negative
+          // (right-to-left, column-reverse).
+          const far = extentOf();
+          const offset = edge === "top" || edge === "left" ? -far : far;
+          // `instant` overrides `scroll-behavior: smooth`, so the offset is read where it landed.
+          container.scrollTo(vertical ? { top: offset, behavior: "instant" } : { left: offset, behavior: "instant" });
+          const extent = extentOf();
+          const landed = offsetOf();
+          // Content that loads at the end grows the extent; a scroll handler that pulls the container back moves the offset. Either means the
+          // end was not held.
+          const read = () => ({
+            state: landed === start && extentOf() === extent && offsetOf() === landed ? "settled" : "moved",
+            from: far,
+            extent: extentOf(),
+          });
+          if (container.ownerDocument.visibilityState === "hidden") return Promise.resolve(read());
+          return new Promise((resolve) => {
+            let done = false;
+            const finish = () => {
+              if (done) return;
+              done = true;
+              resolve(read());
+            };
+            const timers = view.__pwClock?.builtins ?? view;
+            timers.requestAnimationFrame(() => timers.setTimeout(finish, 0));
+            timers.setTimeout(finish, 100);
+          });
+        }
+        """;
+
     // Where a wheel reaches an element in a top-level document, and the box it read when it was not blocked (upstream's wheelAim).
     public const string WheelAim = """
         (element) => {

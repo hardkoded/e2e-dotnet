@@ -61,6 +61,17 @@ public static class EngineSessions
         return new EngineSession(options, TimeProvider.System);
     }
 
+    /// <summary>
+    /// <see cref="CreateEngineSession(EngineSessionOptions)"/> on <paramref name="clock"/>. .NET-only: upstream's tests move the budget's clock with
+    /// <c>vi.spyOn(Date, 'now')</c>, which a <see cref="TimeProvider"/> stands in for.
+    /// </summary>
+    internal static ITargetSession CreateEngineSession(EngineSessionOptions options, TimeProvider clock)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(clock);
+        return new EngineSession(options, clock);
+    }
+
     /// <summary>Counts the secure nodes of a tree, as the redaction counts of an observation do.</summary>
     internal static int CountSecure(EngineNode node)
     {
@@ -457,8 +468,47 @@ public static class EngineSessions
                 throw Unsupported("swipe gestures");
             }
 
-            var target = _root ?? (await ObserveAsync(operation).ConfigureAwait(false)).Root;
-            await PerformAsync(target, new LocatorAction.Swipe(direction, momentum), operation).ConfigureAwait(false);
+            var swipe = new LocatorAction.Swipe(direction, momentum);
+            if (_root is { } known)
+            {
+                await PerformAsync(known, swipe, operation).ConfigureAwait(false);
+                return;
+            }
+
+            var startedAt = _clock.GetTimestamp();
+            var observed = (await ObserveAsync(operation).ConfigureAwait(false)).Root;
+            await PerformAsync(observed, swipe, LeftSince(operation, startedAt)).ConfigureAwait(false);
+        }
+
+        public async Task<NodeRef> RootRefAsync(OperationContext operation) =>
+            _root ?? (await ObserveAsync(operation).ConfigureAwait(false)).Root;
+
+        /// <summary>
+        /// <paramref name="operation"/> with what is left of its budget since <paramref name="startedAt"/>, for the second call of a step that first
+        /// observes for the root ref: the timeout bounds the whole step, so the observe's time comes out of the action's. An observe that spent all
+        /// of it leaves nothing to send the action with. Upstream's <c>leftSince</c>.
+        /// </summary>
+        private OperationContext LeftSince(OperationContext operation, long startedAt)
+        {
+            if (operation.Timeout is not { } timeout)
+            {
+                return operation;
+            }
+
+            var left = timeout - _clock.GetElapsedTime(startedAt);
+            if (left <= TimeSpan.Zero)
+            {
+                throw new EngineException(
+                    EngineErrorCodes.OperationTimeout,
+                    "the first observation spent the whole budget; nothing was sent",
+                    retryable: false
+                );
+            }
+
+            return operation with
+            {
+                Timeout = left,
+            };
         }
 
         public async Task PerformAtAsync(Point point, PointerAction action, OperationContext operation)

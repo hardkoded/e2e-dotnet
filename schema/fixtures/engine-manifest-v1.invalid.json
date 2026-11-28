@@ -5,5 +5,9 @@
   "methods": [
     "engine/viewportIntersection"
   ],
-  "fileApps": "yes"
+  "fileApps": "yes",
+  "actions": [
+    "scrollTo",
+    "scrollToEdge"
+  ]
 }

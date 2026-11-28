@@ -736,6 +736,7 @@ public sealed class E2ESession : IAsyncDisposable
                     ViewportIntersection = engine.MeasuresViewport ? engine.ViewportIntersectionAsync : null,
                     Perform = engine.PerformAsync,
                     PerformAt = engine.PerformAtAsync,
+                    ScrollTo = (edge, operation, token) => engine.ScrollToAsync(edge, operation, token),
                     TypeText = engine.TypeTextAsync,
                     Cancellation = () => budget.Token,
                     ActionTimeout = options.ActionTimeout,

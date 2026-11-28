@@ -47,6 +47,7 @@ public sealed class DeviceActions : IDeviceActions
         "hover",
         "dragTo",
         "swipe",
+        "scrollTo",
     ];
 
     /// <summary>
@@ -78,7 +79,11 @@ public sealed class DeviceActions : IDeviceActions
         ArgumentNullException.ThrowIfNull(action);
 
         // The harness's token does not abort at the action timeout, so each input enforces its own budget.
-        var input = session.InputBudget(KindOf(action), cancellationToken);
+        // A scroll to an edge runs as long as the operation's budget says, however many drags that takes.
+        var input =
+            action is LocatorAction.ScrollTo && context.Timeout is { } scrollBudget
+                ? session.InputBudget(KindOf(action), scrollBudget, cancellationToken)
+                : session.InputBudget(KindOf(action), cancellationToken);
 
         // The observation root is the screen: a swipe on it scrolls the whole viewport, which is the one action a screen
         // takes. It sends no amount and keeps agent-device's default for every momentum: agent-device centres the
@@ -86,10 +91,29 @@ public sealed class DeviceActions : IDeviceActions
         // in bottom chrome (a sticky footer, a tab bar) that swallows the drag.
         if (node.Ref == SnapshotProjection.RootId)
         {
+            if (action is LocatorAction.ScrollTo screenScroll)
+            {
+                if (context.Origin == OperationOrigin.Test)
+                {
+                    await session.WaitOutTransitionAsync(input, cancellationToken).ConfigureAwait(false);
+                }
+
+                var screenBefore = session.LatestScreen;
+                await session
+                    .ActAsync(
+                        "perform scrollTo",
+                        (client, token) => session.ScrollToEdgeAsync(client, null, screenScroll.Edge, input, token),
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
+                session.MarkAction(screenBefore);
+                return;
+            }
+
             if (action is not LocatorAction.Swipe screenSwipe)
             {
                 throw DeviceSupport.NotActionable(
-                    $"the screen root takes swipe only, not {KindOf(action)}; act on a node"
+                    $"the screen root takes swipe and scrollTo only, not {KindOf(action)}; act on a node"
                 );
             }
 
@@ -304,6 +328,11 @@ public sealed class DeviceActions : IDeviceActions
                         input,
                         cancellationToken
                     )
+                    .ConfigureAwait(false);
+                break;
+            case LocatorAction.ScrollTo scroll:
+                await session
+                    .ScrollToEdgeAsync(client, target, scroll.Edge, input, cancellationToken)
                     .ConfigureAwait(false);
                 break;
             case LocatorAction.LongPress hold:
@@ -878,6 +907,7 @@ public sealed class DeviceActions : IDeviceActions
             LocatorAction.Focus => "focus",
             LocatorAction.ScrollIntoView => "scrollIntoView",
             LocatorAction.Swipe => "swipe",
+            LocatorAction.ScrollTo => "scrollTo",
             LocatorAction.SecondaryTap => "secondaryTap",
             LocatorAction.LongPress => "longPress",
             LocatorAction.Hover => "hover",

@@ -410,10 +410,10 @@
       "baselinedAt": "2026-11-18T15:41:48.2140308+00:00"
     },
     {
-      "hash": "254ae64c9e7cc5d6",
+      "hash": "9e78dc10f5089c9a",
       "ruleId": "SW003",
       "filePath": "src/E2E/Engine/WebEngine.cs",
-      "lineNumber": 2717,
+      "lineNumber": 2723,
       "codeSnippet": "catch (Exception ex)\n                        when (WebErrors.IsPlaywright(ex) && WebErrors.DispatchedInput(ex) && TabClosed(shown))\n                    {\n                        // The input went out and its own tab closed: closing was what it did.\n                    }",
       "message": "Empty catch block swallows exceptions without handling",
       "baselinedAt": "2026-11-18T15:41:48.2140358+00:00"

@@ -448,6 +448,17 @@ lines you changed:
   `LOCATOR_NOT_FOUND` when the deadline expires first (a swipe it cut short
   included) and `INVALID_LOCATOR` for a target made by another screen (topic
   `writing-tests`).
+- To reach the end of a page or a list, `Screen.ScrollToAsync(ScrollEdge.Bottom)` scrolls it to an
+  edge (`Top`, `Bottom`, `Left`, `Right`) as far as it goes, and `Locator.ScrollToAsync(edge)` scrolls that node or
+  its nearest ancestor that scrolls along the axis. `ActionOptions.Timeout` bounds the whole scroll. On the web
+  the screen scrolls the page, else the pane under the viewport's center, with the page's own scroll API (no
+  wheel event, `scroll-behavior: smooth` skipped), and follows content that grows at the end. On a device it
+  drags from the middle of the node's box (the screen on `Screen`; locate the list, not a row), up to three drags
+  between reads, until a drag moves nothing; a spinner does not count as movement, and a list with
+  pull-to-refresh refreshes on `Top`. It fails `ACTION_FAILED` (`scrollTo('bottom') did not reach the edge within
+  30000ms (...)`) when the timeout comes first, `INVALID_ARGUMENT` for an unknown edge or a frame's screen
+  (call it on a locator inside the frame), and `UNSUPPORTED_CAPABILITY` on the Windows engine, which does not
+  declare the `scrollTo` action. To reach a row a feed loads, use `ScrollUntilVisibleAsync` (topic `writing-tests`).
 - On the web, a swipe is a wheel gesture, as a person scrolls: the viewport swipe wheels by a share of the
   viewport, and a node swipe moves the pointer over the node and wheels by a share of its box. A node that
   nothing scrollable holds scrolls nothing. `Expect.Soft(screen)` keeps a screenshot failure like `Expect.Soft(locator)`.

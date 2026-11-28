@@ -1123,6 +1123,30 @@ public Task ScrollIntoViewAsync(ActionOptions? options = null, CancellationToken
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_Locator_ScrollToAsync_"></a>
+<a id="E2E_Locator_ScrollToAsync_E2E_Engine_ScrollEdge_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
+
+### ScrollToAsync(ScrollEdge, ActionOptions?, CancellationToken)
+
+
+```csharp
+public Task ScrollToAsync(ScrollEdge edge, ActionOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+Scrolls the node, or its nearest ancestor that scrolls along the edge's axis, to &lt;code class="paramref"&gt;edge&lt;/code&gt;, as far as it goes. See
+`ScrollToAsync`. Upstream's `locator.scrollTo(edge)`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `edge` | [ScrollEdge](/api/E2E.Engine/ScrollEdge/) |  |
+| `options` | [ActionOptions](/api/E2E/ActionOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Locator_ScrollUntilVisibleAsync_"></a>
 <a id="E2E_Locator_ScrollUntilVisibleAsync_E2E_Locator_E2E_ScrollUntilVisibleOptions_System_Threading_CancellationToken_"></a>
 

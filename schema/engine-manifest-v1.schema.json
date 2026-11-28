@@ -96,7 +96,8 @@
           "swipe",
           "blur",
           "setInputFilePayloads",
-          "multiTap"
+          "multiTap",
+          "scrollTo"
         ]
       }
     },

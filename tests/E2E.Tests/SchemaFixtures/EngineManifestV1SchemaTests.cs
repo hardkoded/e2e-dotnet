@@ -42,7 +42,7 @@ public sealed class EngineManifestV1SchemaTests
     }
 
     [Fact]
-    public void Rejects_the_invalid_fixture_for_viewportIntersection_without_engine_observe_and_for_a_non_boolean_fileApps()
+    public void Rejects_the_invalid_fixture_for_viewportIntersection_without_engine_observe_a_non_boolean_fileApps_and_an_unknown_action_kind()
     {
         var invalid = ReportSchema.ReadJson("fixtures", "engine-manifest-v1.invalid.json");
 
@@ -50,6 +50,9 @@ public sealed class EngineManifestV1SchemaTests
         var errors = Validate.Errors(invalid);
         Assert.Contains(("/methods", "contains"), errors);
         Assert.Contains(("/fileApps", "type"), errors);
+        Assert.Contains(("/actions/1", "enum"), errors);
+        // `scrollTo`, the newest kind, is in the enum; only the made-up kind beside it fails.
+        Assert.DoesNotContain(errors, error => error.Item1 == "/actions/0");
     }
 
     [Fact]

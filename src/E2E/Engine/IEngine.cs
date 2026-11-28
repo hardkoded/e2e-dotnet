@@ -581,6 +581,14 @@ public interface IEngineSession : IAsyncDisposable
     ) => SwipeAsync(direction, momentum, cancellationToken);
 
     /// <summary>
+    /// <see cref="LocatorAction.ScrollTo"/> on the screen: upstream performs it on the observation root (<c>perform(rootRef, scrollTo, operation)</c>),
+    /// which this interface has no node for, as for <see cref="SwipeAsync(ScrollDirection, Momentum?, OperationContext, CancellationToken)"/>. An engine
+    /// that lists <c>scrollTo</c> in <see cref="ActionKinds"/> overrides it. The default refuses it, as an engine that does not declare the action does.
+    /// </summary>
+    Task ScrollToAsync(ScrollEdge edge, OperationContext context, CancellationToken cancellationToken) =>
+        Unsupported("scrollTo");
+
+    /// <summary>
     /// Goes back one entry in the session history. With no earlier entry it does nothing.
     /// Engines that declare <see cref="EngineCapabilities.History"/> implement it.
     /// </summary>

@@ -123,6 +123,31 @@ await Screen.GetByTestId("feed").ScrollUntilVisibleAsync(row, new ScrollUntilVis
 
 `Timeout` is its own default, not `actionTimeout`, and bounds the whole scroll, each swipe included. `LOCATOR_NOT_FOUND` means the deadline expired first, a swipe it cut short included. `INVALID_LOCATOR` means `target` was made by another target's screen.
 
+## Scrolling to an edge
+
+`Screen.ScrollToAsync(edge)` scrolls the page or a list to an edge, as far as it goes: `ScrollEdge.Top`, `Bottom`, `Left`, or `Right`. Use it for Cypress `cy.scrollTo('bottom')`, Detox `scrollTo('bottom')`, or Appium `scrollToEnd()`. `Locator.ScrollToAsync(edge)` scrolls that node, or its nearest ancestor that scrolls along the edge's axis. On a device, it scrolls whatever moves under a drag inside the node's box, so locate the list, not a row.
+
+```csharp
+await Screen.ScrollToAsync(ScrollEdge.Bottom);
+await Expect.That(Screen.GetByRole("contentinfo")).ToBeInViewportAsync();
+
+await Screen.GetByTestId("feed").ScrollToAsync(ScrollEdge.Top, new ActionOptions { Timeout = TimeSpan.FromSeconds(60) });
+```
+
+- On the web, `Screen` scrolls the page. When the page itself does not scroll, as in an app shell, it scrolls the scroll container under the viewport's center; an iframe there is not entered, so call it on a locator inside the frame. It sets the offset with the page's own scroll API, so `scroll-behavior: smooth` is skipped and no wheel event fires.
+- On a device, it drags toward the edge from the middle of the container (the screen on `Screen`), up to three drags at a time, until a drag moves nothing. A spinner (a `progressbar` or `status` node) does not count as movement. A list of 45 screens takes about 22 s on an Android emulator and 50 s on an iOS simulator, so give a very long list a longer `Timeout`.
+- Content that grows when the end is reached is followed: the web jumps again until a jump moves nothing, a device drags again while the list changes. Neither waits for a slow load. To reach a row a feed loads, use `ScrollUntilVisibleAsync`.
+- On a device, a drag that lands on something that does not scroll moves nothing, so it reads as the edge.
+- On a device, the last drag runs past the edge, so `ScrollToAsync(ScrollEdge.Top)` on a list with pull-to-refresh refreshes it. Content that changes on its own inside the container, such as a timer or an auto-advancing carousel, reads as movement and keeps it dragging until the timeout: call it on the list, not the screen.
+- The timeout is `ActionTimeout`, and it bounds the whole scroll.
+- A frame's screen refuses it. Call it on a locator inside the frame.
+
+| Throws | When |
+| --- | --- |
+| `INVALID_ARGUMENT` | An edge it does not know, or a frame's screen. |
+| `ACTION_FAILED` | The edge was not reached before the timeout: `scrollTo('bottom') did not reach the edge within 30000ms (the content was still moving after 24 drags when the budget ran out)`. The parentheses hold the engine's reason. |
+| `UNSUPPORTED_CAPABILITY` | The engine does not list `scrollTo` in its action kinds, as the Windows engine does not. |
+
 ## Errors
 
 A locator reports an engine failure in the test's own codes, with the engine's error as `InnerException`: `NOT_ACTIONABLE`, `ACTION_MAY_HAVE_COMMITTED`, and `OPERATION_TIMEOUT` are `ACTION_FAILED`, a stale node or a missing frame is `LOCATOR_NOT_FOUND`, an ambiguous frame is `LOCATOR_AMBIGUOUS`, and `INVALID_STATE` is `APP_NOT_OPEN`. `ACTION_FAILED` is also what `InputValueAsync()` throws on a node with no value (a heading, a button) and `IsCheckedAsync()` on a node with no checked state; a field with no value still reads `""`, and a checkable role with no state reported still reads `false`. `EVALUATE_FAILED` is what `Browser.EvaluateAsync` throws when the evaluated code threw, what a `Browser.Clock` call throws when a page timer it ran threw, and also when the page deleted or replaced a JavaScript built-in (such as `Map`) that the engine's in-page code needs, which fails later evaluates and locators. `EvaluateAsync` itself keeps working when code deletes `Array`, `JSON`, `Map`, or `Object` during the call. `CANCELLED` and `ENGINE_FAILURE` keep their codes (category `infrastructure`), and `UNSUPPORTED_CAPABILITY` is a `ConfigurationException`. A `locator.WaitForAsync` that runs out fails with `LOCATOR_NOT_FOUND` (`locator did not become <state>: <locator>`), not `TIMEOUT`, and a pass verifies the acts before it. A stale node found by an action is looked up again, within the action timeout, before the action fails.

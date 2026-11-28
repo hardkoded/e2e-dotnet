@@ -16,11 +16,12 @@ namespace E2E.Tests.SurfaceOf;
 public sealed class SurfaceOfTests
 {
     [Fact]
-    public async Task Declares_support_for_blur_and_multiTap_on_web()
+    public async Task Declares_support_for_blur_multiTap_and_scrollTo_on_web()
     {
         await using var web = await StartAsync();
         Assert.Contains("blur", web.ActionKinds);
         Assert.Contains("multiTap", web.ActionKinds);
+        Assert.Contains("scrollTo", web.ActionKinds);
     }
 
     [Fact]

@@ -1037,6 +1037,31 @@ Task<EngineScreenshot> ScreenshotAsync(TimeSpan timeout, CancellationToken cance
 
 **Returns:** [Task&lt;EngineScreenshot&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
+<a id="E2E_Engine_IEngineSession_ScrollToAsync_"></a>
+<a id="E2E_Engine_IEngineSession_ScrollToAsync_E2E_Engine_ScrollEdge_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### ScrollToAsync(ScrollEdge, OperationContext, CancellationToken)
+
+
+```csharp
+Task ScrollToAsync(ScrollEdge edge, OperationContext context, CancellationToken cancellationToken)
+```
+
+
+[LocatorAction.ScrollTo](/api/E2E.Engine/LocatorAction.ScrollTo/) on the screen: upstream performs it on the observation root (`perform(rootRef, scrollTo, operation)`),
+which this interface has no node for, as for `SwipeAsync`. An engine
+that lists `scrollTo` in [ActionKinds](#E2E_Engine_IEngineSession_ActionKinds) overrides it. The default refuses it, as an engine that does not declare the action does.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `edge` | [ScrollEdge](/api/E2E.Engine/ScrollEdge/) |  |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Engine_IEngineSession_SettleAttemptAsync_"></a>
 <a id="E2E_Engine_IEngineSession_SettleAttemptAsync_System_TimeSpan_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
 

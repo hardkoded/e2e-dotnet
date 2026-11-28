@@ -41,6 +41,7 @@ public sealed class ManifestTests
                 "hover",
                 "dragTo",
                 "swipe",
+                "scrollTo",
             ],
             DeviceActions.NodeActionKinds
         );

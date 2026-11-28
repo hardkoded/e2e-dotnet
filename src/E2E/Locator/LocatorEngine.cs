@@ -62,6 +62,13 @@ internal sealed class LocatorEngineOptions
     /// <summary>One action on a node (upstream's <c>session.perform</c>), with the context that says who acts.</summary>
     public required Func<SemanticNode, LocatorAction, OperationContext, CancellationToken, Task> Perform { get; init; }
 
+    /// <summary>
+    /// <see cref="LocatorAction.ScrollTo"/> on the screen: upstream's <c>session.rootRef</c> followed by <c>session.perform(root, scrollTo)</c>, which
+    /// the port's engines take as one call (as <see cref="IEngineSession.SwipeAsync(ScrollDirection, Momentum?, OperationContext, CancellationToken)"/>
+    /// does for the viewport swipe). Null when the engine has no such action.
+    /// </summary>
+    public Func<ScrollEdge, OperationContext, CancellationToken, Task>? ScrollTo { get; init; }
+
     /// <summary>One pointer action at a viewport point (upstream's <c>session.performAt</c>); null when the engine has none.</summary>
     public Func<Point, PointerAction, OperationContext, CancellationToken, Task>? PerformAt { get; init; }
 
@@ -215,6 +222,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
             LocatorAction.Blur => "blur",
             LocatorAction.ScrollIntoView => "scrollIntoView",
             LocatorAction.Swipe => "swipe",
+            LocatorAction.ScrollTo => "scrollTo",
             LocatorAction.SecondaryTap => "secondaryTap",
             LocatorAction.LongPress => "longPress",
             LocatorAction.Hover => "hover",
@@ -905,7 +913,8 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         LocatorAction action,
         Deadline deadline,
         CancellationToken token,
-        bool anyState = false
+        bool anyState = false,
+        Func<Exception, Exception?>? performFailure = null
     )
     {
         var started = Clock.GetTimestamp();
@@ -940,7 +949,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
                 }
                 catch (Exception ex) when (!token.IsCancellationRequested)
                 {
-                    var translated = TranslateLocatorError(ex, expression);
+                    var translated = performFailure?.Invoke(ex) ?? TranslateLocatorError(ex, expression);
                     if (ReferenceEquals(translated, ex))
                     {
                         throw;
@@ -964,6 +973,121 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
 
             await Task.Delay(Time.PollDelay(Clock.GetElapsedTime(pollStarted)), Clock, token).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// Scrolls a container to an edge within one deadline: the node <paramref name="expression"/> names, or the screen's container when there is
+    /// none. A scroll that ran out of budget (an engine timeout, or input that may have landed) did not reach the edge; an engine stops a little
+    /// before the deadline, so that is said whether or not it has passed, with the engine's reason, which tells a list still moving from a stuck
+    /// read, and names the step's timeout rather than the time the engine took. Only the scroll's own failure is read that way: a locate or a first
+    /// observation that ran out stays what it was. Upstream's <c>scrollTo</c>.
+    /// </summary>
+    internal async Task ScrollToAsync(
+        LocatorExpression? expression,
+        ScrollEdge edge,
+        TimeSpan? timeout,
+        CancellationToken token
+    )
+    {
+        var action = new LocatorAction.ScrollTo(edge);
+        CheckAction(action);
+        var deadline = DeadlineFor(timeout);
+        var budgetMs = (long)(timeout ?? ActionTimeout).TotalMilliseconds;
+        var target = expression is null ? "" : ": " + expression.Describe();
+        Exception? NotReached(Exception cause) =>
+            cause
+                is EngineException
+                {
+                    Code: EngineErrorCodes.OperationTimeout or EngineErrorCodes.ActionMayHaveCommitted
+                } engine
+                ? new TestException(
+                    "ACTION_FAILED",
+                    $"scrollTo('{EdgeName(edge)}') did not reach the edge within {budgetMs.ToString(CultureInfo.InvariantCulture)}ms ({engine.Message}){target}",
+                    cause
+                )
+                : null;
+
+        if (expression is null)
+        {
+            await ScrollScreenToAsync(action, deadline, NotReached, token).ConfigureAwait(false);
+            return;
+        }
+
+        await PerformUntilAsync(expression, action, deadline, token, performFailure: NotReached).ConfigureAwait(false);
+    }
+
+    /// <summary>The name of an edge as a test spells it: <c>top</c>, <c>bottom</c>, <c>left</c>, <c>right</c>.</summary>
+    internal static string EdgeName(ScrollEdge edge) =>
+        edge switch
+        {
+            ScrollEdge.Top => "top",
+            ScrollEdge.Bottom => "bottom",
+            ScrollEdge.Left => "left",
+            ScrollEdge.Right => "right",
+            _ => throw new ArgumentOutOfRangeException(nameof(edge), edge, "unknown scroll edge"),
+        };
+
+    /// <summary>The screen's <c>scrollTo</c>, recorded as an engine event like a node action. Upstream's <c>scrollScreenTo</c>.</summary>
+    private async Task ScrollScreenToAsync(
+        LocatorAction.ScrollTo action,
+        Deadline deadline,
+        Func<Exception, Exception?> notReached,
+        CancellationToken token
+    )
+    {
+        var startedAt = DateTimeOffset.UtcNow;
+        var stamp = Stopwatch.GetTimestamp();
+        var detail = $"scrollTo {EdgeName(action.Edge)} on the screen";
+        void Record(StepEventStatus status, string? code) =>
+            Steps?.RecordEvent(
+                new StepEvent
+                {
+                    Kind = StepEventKind.Engine,
+                    Name = "scrollTo",
+                    StartedAt = startedAt,
+                    DurationMs = (long)Stopwatch.GetElapsedTime(stamp).TotalMilliseconds,
+                    Status = status,
+                    Code = code,
+                    Detail = detail,
+                }
+            );
+
+        var scroll = options.ScrollTo
+            ?? throw new EngineException(
+                EngineErrorCodes.UnsupportedCapability,
+                "scroll is not supported by this engine."
+            );
+        if (deadline.Expired(Clock.GetUtcNow()))
+        {
+            var late = LateAction("scrollTo", "the screen");
+            Record(StepEventStatus.Failed, late.Code);
+            throw late;
+        }
+
+        try
+        {
+            await AppNotOpen
+                .GuardAsync(() =>
+                    scroll(action.Edge, OperationWithin(deadline), token == default ? options.Cancellation() : token)
+                )
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            var failure = token.IsCancellationRequested ? ex : notReached(ex) ?? TranslateLocatorError(ex);
+            Record(
+                token.IsCancellationRequested ? StepEventStatus.Cancelled : StepEventStatus.Failed,
+                ErrorSerializer.Classify(failure).Code
+            );
+            if (ReferenceEquals(failure, ex))
+            {
+                throw;
+            }
+
+            throw failure;
+        }
+
+        Record(StepEventStatus.Passed, null);
     }
 
     /// <summary>

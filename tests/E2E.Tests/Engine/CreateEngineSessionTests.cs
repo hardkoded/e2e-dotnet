@@ -288,6 +288,97 @@ public sealed class CreateEngineSessionTests
         );
     }
 
+    private static readonly OperationContext OneSecond = Snapshot.Operation with { Timeout = TimeSpan.FromSeconds(1) };
+
+    /// <summary>A session over an engine whose every observation takes <paramref name="observe"/> on <paramref name="clock"/>, keeping the budget each action gets.</summary>
+    private static ITargetSession SlowSession(
+        TimeSpan observe,
+        Microsoft.Extensions.Time.Testing.FakeTimeProvider clock,
+        List<TimeSpan?> budgets
+    ) =>
+        EngineSessions.CreateEngineSession(
+            new EngineSessionOptions
+            {
+                Engine = EngineManifest.DefineEngine(
+                    Toy() with
+                    {
+                        Observe = (_, _) =>
+                        {
+                            clock.Advance(observe);
+                            return Task.FromResult(
+                                new EngineSnapshot(
+                                    new EngineNode(new NodeRef("screen", ""), Role: "root", Children: []),
+                                    Snapshot.Viewport
+                                )
+                            );
+                        },
+                        Actions = ["swipe"],
+                        Perform = (_, _, operation) =>
+                        {
+                            budgets.Add(operation.Timeout);
+                            return Task.CompletedTask;
+                        },
+                    }
+                ),
+                TargetName = "toy-target",
+            },
+            clock
+        );
+
+    [Fact]
+    public async Task Gives_a_first_screen_swipe_only_what_the_observation_left_of_the_timeout()
+    {
+        var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider();
+        var budgets = new List<TimeSpan?>();
+        var session = SlowSession(TimeSpan.FromMilliseconds(300), clock, budgets);
+
+        await session.SwipeAsync(ScrollDirection.Down, null, OneSecond);
+
+        var budget = Assert.Single(budgets);
+        Assert.InRange(budget!.Value, TimeSpan.Zero.Add(TimeSpan.FromTicks(1)), TimeSpan.FromMilliseconds(720));
+    }
+
+    [Fact]
+    public async Task Sends_no_screen_swipe_once_the_first_observation_spent_the_timeout()
+    {
+        var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider();
+        var budgets = new List<TimeSpan?>();
+        var session = SlowSession(TimeSpan.FromMilliseconds(300), clock, budgets);
+
+        await Assert.ThrowsAnyAsync<Exception>(() =>
+            session.SwipeAsync(ScrollDirection.Down, null, OneSecond with { Timeout = TimeSpan.FromMilliseconds(100) })
+        );
+
+        Assert.Empty(budgets);
+    }
+
+    [Fact]
+    public async Task Gives_a_swipe_on_a_root_it_already_knows_the_whole_budget_however_the_clock_moves()
+    {
+        var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider();
+        var budgets = new List<TimeSpan?>();
+        var session = SlowSession(TimeSpan.Zero, clock, budgets);
+        await session.ObserveAsync(OneSecond);
+
+        // No observation runs, so no time comes out of the budget: each clock read is a second later.
+        clock.AutoAdvanceAmount = TimeSpan.FromSeconds(1);
+        await session.SwipeAsync(ScrollDirection.Down, null, OneSecond);
+
+        Assert.Equal<TimeSpan?>([OneSecond.Timeout], budgets);
+    }
+
+    [Fact]
+    public async Task Names_the_observation_root_ref_observing_first_when_nothing_named_it_yet()
+    {
+        var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider();
+        var session = SlowSession(TimeSpan.Zero, clock, []);
+
+        var root = await session.RootRefAsync(OneSecond);
+
+        Assert.Equal(new NodeRef("screen", "b1"), root);
+        Assert.Equal(root, await session.RootRefAsync(OneSecond));
+    }
+
     [Fact]
     public async Task Carries_the_engine_location_and_viewport_onto_the_observation()
     {

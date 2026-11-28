@@ -365,6 +365,28 @@ Reads the requested, allow-listed rendered properties of a node without changing
 
 **Returns:** [Task&lt;IReadOnlyDictionary&lt;string, string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
+<a id="E2E_Engine_ITargetSession_RootRefAsync_"></a>
+<a id="E2E_Engine_ITargetSession_RootRefAsync_E2E_Engine_OperationContext_"></a>
+
+### RootRefAsync(OperationContext)
+
+
+```csharp
+Task<NodeRef> RootRefAsync(OperationContext operation)
+```
+
+
+The observation root's ref, which a screen-wide action such as [LocatorAction.ScrollTo](/api/E2E.Engine/LocatorAction.ScrollTo/) is performed on; observes first when no
+observation has named it yet. Upstream's `rootRef`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `operation` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+
+**Returns:** [Task&lt;NodeRef&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
 <a id="E2E_Engine_ITargetSession_SettleAsync_"></a>
 <a id="E2E_Engine_ITargetSession_SettleAsync_E2E_Engine_OperationContext_"></a>
 

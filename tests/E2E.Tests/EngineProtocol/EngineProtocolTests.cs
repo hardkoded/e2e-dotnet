@@ -79,6 +79,26 @@ public sealed class EngineProtocolTests
     }
 
     [Fact]
+    public async Task Advertises_scrollTo_and_carries_its_edge_over_JSON_RPC_unchanged()
+    {
+        var performed = new ConcurrentQueue<LocatorAction>();
+        Func<NodeRef, LocatorAction, OperationContext, Task> perform = (_, action, _) =>
+        {
+            performed.Enqueue(action);
+            return Task.CompletedTask;
+        };
+        var (_, remote) = Of(Toy(toy => toy with { Actions = ["swipe", "scrollTo"], Perform = perform }));
+        Assert.Contains("scrollTo", remote.Actions!);
+        await remote.Init!(InitInfo());
+        var action = new LocatorAction.ScrollTo(ScrollEdge.Bottom);
+
+        await remote.Perform!(new NodeRef("root", "1"), action, Operation());
+
+        Assert.Equal<LocatorAction>(action, Assert.Single(performed));
+        await remote.Dispose!(DisposeContext());
+    }
+
+    [Fact]
     public async Task Carries_a_read_request_and_computed_values_through_JSON_RPC()
     {
         var calls = new ConcurrentQueue<(NodeRef Ref, IReadOnlyList<string> Properties, OperationContext Operation)>();

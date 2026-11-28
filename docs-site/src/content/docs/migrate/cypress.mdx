@@ -106,6 +106,7 @@ For xUnit v3, use `E2E.XUnit.V3`, `[Fact]`, and `[Trait("TestCategory", "RealMod
 | `cy.contains('text')`, `cy.contains('li', 'text')` | `Screen.GetByText("text", exact: false)`, `Screen.GetByRole("listitem").Filter("text")` |
 | `.click()`, `.dblclick()`, `.clear()`, `.check()`, `.uncheck()`, `.focus()`, `.blur()`, `.first()`, `.last()`, `.scrollIntoView()` | `.TapAsync()` (or `.ClickAsync()`), `.DoubleTapAsync()` (or `.DblClickAsync()`), `.ClearAsync()`, `.CheckAsync()`, `.UncheckAsync()`, `.FocusAsync()`, `.BlurAsync()`, `.First()`, `.Last()`, `.ScrollIntoViewAsync()` |
 | `.rightclick()`, `.eq(n)`, `.selectFile(path)` | `.SecondaryTapAsync()`, `.Nth(n)`, `.SetInputFilesAsync(path)` |
+| `cy.scrollTo('bottom')`, `cy.get('.feed').scrollTo('right')` | `Screen.ScrollToAsync(ScrollEdge.Bottom)`, `Screen.GetByTestId("feed").ScrollToAsync(ScrollEdge.Right)`. An edge only: for a position such as `cy.scrollTo(0, 500)`, use `Browser.EvaluateAsync<object?>("() => { scrollTo(0, 500); return null; }")` |
 | `.type('text')`, `.type('{enter}')`, `.clear().type('text')` | `.PressSequentiallyAsync("text")` appends with key events, `.PressAsync("Enter")`, `.FillAsync("text")` |
 | `.select('Pro')` | `.SelectOptionAsync("Pro")` matches the label; a value or an index needs the option object |
 | `.should('be.visible')`, `be.checked`, `be.disabled`, `be.focused`, `exist` | `await Expect.That(locator).ToBeVisibleAsync()`, `ToBeCheckedAsync()`, `ToBeDisabledAsync()`, `ToBeFocusedAsync()`, `ToBeAttachedAsync()` |
@@ -130,7 +131,7 @@ Planned gaps are on the roadmap, and Not yet gaps have no date. Not planned gaps
 | `.find('css')`, `.filter('css')`, `.not('css')` | Chain a `GetBy*` query, or write one selector: `Browser.Locator("li.active >> .title")` |
 | `.invoke()`, `.its()`, `.then($el => ...)`, `.should($el => ...)` | `GetAttributeAsync()`, `TextContentAsync()`, `InputValueAsync()`, else `Browser.EvaluateAsync<T>` |
 | `have.class`, `have.css`, `have.prop`, `be.empty` | `Expect.That(Browser).ToHaveClassAsync(locator, new Regex("..."))`, `Expect.That(locator).ToHaveTextAsync("")`; else read the value with `Browser.EvaluateAsync<T>` |
-| `.trigger()`, `cy.scrollTo()` | `HoverAsync()`, `DragToAsync()`, `ScrollIntoViewAsync()`; for other synthetic events use `Browser.EvaluateAsync<T>` |
+| `.trigger()` | `HoverAsync()`, `DragToAsync()`; for other synthetic events use `Browser.EvaluateAsync<T>` |
 | `cy.intercept({ headers })` and other header matchers | Check `route.Request.Headers` in the handler, else call `route.FallbackAsync()` |
 | `cy.wait('@alias')`, `.its('request.body')`, `@alias.all` | Start `Browser.WaitForResponseAsync` or `Browser.WaitForRequestAsync` before the action with a pattern or predicate, then parse the raw `PostData` string on `response.Request` or the returned `WebRequest`. For `@alias.all`, record each request in a `Browser.RouteAsync` handler |
 | `Cypress.on('uncaught:exception')` | An app error doesn't fail a test. To fail on one, collect `window.onerror` in `Browser.AddInitScriptAsync`, then assert the list is empty with `Browser.EvaluateAsync<T>` |
