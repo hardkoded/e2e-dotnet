@@ -1,0 +1,19 @@
+{
+  "targets": [
+    {
+      "name": "calculator",
+      "platform": "macos",
+      "app": { "bundleId": "com.apple.calculator" }
+    }
+  ],
+  "actionTimeout": 15000,
+  "assertionTimeout": 10000,
+  "agents": {
+    "default": {
+      "model": "claude-sonnet-5.5",
+      "provider": "copilot",
+      "context": "Calculator is the macOS calculator. It opens in basic mode with a display above the number and operator buttons."
+    }
+  },
+  "cache": { "dir": ".e2e/cache" }
+}

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>E2E.Desktop.TUnit</RootNamespace>
+    <AssemblyName>E2E.Desktop.TUnit</AssemblyName>
+    <PackageId>E2E.Desktop.TUnit</PackageId>
+    <Description>DesktopTest for the E2E .NET port: a ready base class that drives a native macOS app through the accessibility tree.</Description>
+    <PackageTags>e2e;testing;agent;macos;accessibility;tunit</PackageTags>
+    <IsPackable>true</IsPackable>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\E2E.TUnit\E2E.TUnit.csproj" />
+    <ProjectReference Include="..\E2E.Desktop\E2E.Desktop.csproj" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

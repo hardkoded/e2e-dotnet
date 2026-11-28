@@ -65,6 +65,7 @@ export default defineConfig({
                         { label: "Mobile", slug: "get-started/mobile" },
                         { label: ".NET MAUI", slug: "get-started/maui" },
                         { label: "Windows", slug: "get-started/windows" },
+                        { label: "macOS", slug: "get-started/macos" },
                     ],
                 },
                 {

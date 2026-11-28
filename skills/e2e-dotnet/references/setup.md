@@ -12,6 +12,7 @@
 - Browser permissions
 - Mobile targets
 - Windows targets
+- macOS targets
 - Done when
 
 ## Requirements
@@ -169,7 +170,7 @@ unknown key fails with `INVALID_CONFIG`.
 
 | Key | Default | Notes |
 | --- | --- | --- |
-| `targets` | a `web` target with no URL | One entry: `name`, `platform` (`web`, `ios`, `android`, or `windows`), and `app.url` (a web target; port `0` takes a free port) with an optional `app.command` and `app.readyUrl` that start the app (below), or `app.appPath` and `app.bundleId` (a device or Windows target). Any target takes `app.identity` and `app.environment` (below); a device target takes `app.linkBase`, the base `App.OpenAsync(path)` joins a path to (see topic `mobile`); a device or Windows target takes `app.launchArguments` (a device target also takes the object form, `LaunchArgumentValues` in code), and a device or web target `app.permissions` (below). A URL without a scheme gets `https://` (`http://` for localhost); plain HTTP is allowed on loopback hosts only, and userinfo, a query, or a fragment is `INVALID_APP_URL`. Without a URL, `App.OpenAsync` takes absolute URLs only on a browser target; a device target with `app.linkBase` also opens a path, joined to that base. |
+| `targets` | a `web` target with no URL | One entry: `name`, `platform` (`web`, `ios`, `android`, `windows`, or `macos`), and `app.url` (a web target; port `0` takes a free port) with an optional `app.command` and `app.readyUrl` that start the app (below), or `app.appPath` and `app.bundleId` (a device or Windows target). Any target takes `app.identity` and `app.environment` (below); a device target takes `app.linkBase`, the base `App.OpenAsync(path)` joins a path to (see topic `mobile`); a device, Windows, or macOS target takes `app.launchArguments` (a device or macOS target also takes the object form, `LaunchArgumentValues` in code), and a device or web target `app.permissions` (below). A URL without a scheme gets `https://` (`http://` for localhost); plain HTTP is allowed on loopback hosts only, and userinfo, a query, or a fragment is `INVALID_APP_URL`. Without a URL, `App.OpenAsync` takes absolute URLs only on a browser target; a device target with `app.linkBase` also opens a path, joined to that base. |
 | `timeout` | `120000` | Per test, ms. |
 | `launchTimeout` | `60000` | Engine start, ms. |
 | `actionTimeout` | `30000` | Each locator action and engine operation, ms. |
@@ -507,6 +508,10 @@ iOS and Android are driven by `MobileEngine` in the `E2E.Mobile` project. Instal
 ## Windows targets
 
 Windows desktop apps are driven by `WinAppEngine` in the `E2E.WinApp` project, through Windows UI Automation. Install `E2E.WinApp.NUnit`, `E2E.WinApp.XUnit.V3`, or `E2E.WinApp.TUnit`, declare the app as `"targets": [{ "platform": "windows", "app": { "appPath": "bin/MyApp.exe", "bundleId": "MyApp" } }]` (`appPath` is the executable to launch, `bundleId` its process name), and derive from its `WinAppTest`. It runs on Windows only and needs an unlocked desktop for keys and clicks. The UI Automation library ships Windows assets only, so a test project on plain `net10.0` adds `<AssetTargetFallback>$(AssetTargetFallback);net10.0-windows7.0</AssetTargetFallback>` and `NU1701` to `NoWarn`. For the `Window` fixture, the agent tools, and known limits, read [windows.md](windows.md).
+
+## macOS targets
+
+Native macOS apps are driven by `DesktopEngine` in the `E2E.Desktop` project, through the macOS Accessibility API. Install `E2E.Desktop.NUnit`, `E2E.Desktop.XUnit.V3`, or `E2E.Desktop.TUnit`, declare the app as `"targets": [{ "platform": "macos", "app": { "appPath": "build/MyApp.app" } }]` (`appPath` is a built `.app` bundle; `bundleId` names an installed app instead), and derive from its `DesktopTest`. It runs on macOS only, and the app that starts the tests needs the Accessibility permission (and Screen Recording, for screenshots). For the `Desktop` fixture, the options, and known limits, read [macos.md](macos.md).
 
 ## Done when
 

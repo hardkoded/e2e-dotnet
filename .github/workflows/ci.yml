@@ -101,6 +101,10 @@ jobs:
           dotnet pack src/E2E.WinApp.NUnit/E2E.WinApp.NUnit.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.WinApp.XUnit.V3/E2E.WinApp.XUnit.V3.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.WinApp.TUnit/E2E.WinApp.TUnit.csproj -c Release --no-build -o artifacts --nologo
+          dotnet pack src/E2E.Desktop/E2E.Desktop.csproj -c Release --no-build -o artifacts --nologo
+          dotnet pack src/E2E.Desktop.NUnit/E2E.Desktop.NUnit.csproj -c Release --no-build -o artifacts --nologo
+          dotnet pack src/E2E.Desktop.XUnit.V3/E2E.Desktop.XUnit.V3.csproj -c Release --no-build -o artifacts --nologo
+          dotnet pack src/E2E.Desktop.TUnit/E2E.Desktop.TUnit.csproj -c Release --no-build -o artifacts --nologo
 
   windows:
     name: windows-build-test

@@ -414,7 +414,13 @@ internal static partial class Doctor
         var create = options.CreateEngine
             ?? (
                 (target, headed) =>
-                    TargetEngines.Create(target, headed ? false : null, DeviceTargets.Create, WindowsTargets.Create)
+                    TargetEngines.Create(
+                        target,
+                        headed ? false : null,
+                        DeviceTargets.Create,
+                        WindowsTargets.Create,
+                        MacosTargets.Create
+                    )
             );
         var items = new List<TargetItem>();
         foreach (var selected in Selector.SelectTargets(declared, options.Targets))
