@@ -410,6 +410,13 @@ such as `"Ctrl+a"`, `"ab"`, or `""`, fails with `INVALID_ARGUMENT` before the
 locator is resolved, on every engine; the agent's `press` is checked the same way
 before any action is performed.
 
+On the web engine, a character that is not on a US keyboard (`"é"`, `"中"`) is
+pressed in Chromium only. The page gets the same `keydown`, `input`, and `keyup`
+as for any key, with an empty `code` and a `keyCode` of 0, and modifiers work
+(`"Control+é"`). In Firefox and WebKit it fails with `UNSUPPORTED_CAPABILITY`
+before any key is sent; enter it with `FillAsync` or `PressSequentiallyAsync`
+there.
+
 `FillAsync` sets the value with no key events. When the app reacts to
 keystrokes (autocomplete, a masked input), use `PressSequentiallyAsync(text)`:
 it focuses the one matching field and types through the engine's keyboard,

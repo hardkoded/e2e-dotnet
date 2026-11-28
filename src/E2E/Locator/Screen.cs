@@ -1110,6 +1110,13 @@ public sealed class Locator
         return [.. points];
     }
 
+    /// <summary>
+    /// Presses a key on the node: zero or more modifiers and one key, joined with <c>+</c>, as <see cref="KeyGrammar"/> lists them.
+    /// <c>Shift++</c> presses <c>+</c>. On the web engine, a character that is not on a US keyboard (<c>é</c>, <c>中</c>) is pressed in
+    /// Chromium only. The page gets the same <c>keydown</c>, <c>input</c>, and <c>keyup</c> as for any key, with an empty <c>code</c> and a
+    /// <c>keyCode</c> of 0. In Firefox and WebKit it fails with <c>UNSUPPORTED_CAPABILITY</c>; enter it with <c>FillAsync</c> or
+    /// <c>PressSequentiallyAsync</c>.
+    /// </summary>
     public Task PressAsync(string key, ActionOptions? options = null, CancellationToken cancellationToken = default) =>
         ActAsync(new LocatorAction.Press(key), options, cancellationToken);
 
