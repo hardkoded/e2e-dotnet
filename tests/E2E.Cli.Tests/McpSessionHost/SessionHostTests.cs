@@ -590,7 +590,7 @@ public sealed class SessionHostTests : IAsyncLifetime
         );
         var text = await device.OpenAsync(new Mcp.OpenSessionOptions());
         Assert.Contains("App: com.example.greeter, launched fresh.", text, StringComparison.Ordinal);
-        Assert.Matches(@"\n\nScreen: revision \S+, path /, \d+ nodes, not listed\..*$", text);
+        Assert.Matches(@"\n\nScreen: revision \S+, path /, \d+ nodes, not listed\..*\z", text);
         Assert.Equal(["restart", "observe"], fake.Operations.Take(2));
         await device.CloseAsync("done");
     }

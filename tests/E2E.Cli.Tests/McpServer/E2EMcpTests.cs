@@ -185,7 +185,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         );
         Assert.Matches(
             new Regex(
-                @"\n\nScreen: revision b\d+, path /, \d+ nodes, not listed\..*$",
+                @"\n\nScreen: revision b\d+, path /, \d+ nodes, not listed\..*\z",
                 RegexOptions.None,
                 TimeSpan.FromSeconds(5)
             ),
@@ -488,7 +488,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
             new() { ["target"] = "web", ["config"] = "e2e.config.json" }
         );
         Assert.False(reopened.IsError, reopened.Text);
-        Assert.Matches(@"\n\nScreen: revision b\d+, path /, \d+ nodes, not listed\..*$", reopened.Text);
+        Assert.Matches(@"\n\nScreen: revision b\d+, path /, \d+ nodes, not listed\..*\z", reopened.Text);
         var closed = await _served.InvokeAsync("close_session");
         Assert.False(closed.IsError, closed.Text);
     }

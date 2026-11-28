@@ -1106,7 +1106,10 @@ public sealed partial class Agent
     }
 
     /// <summary>The screen a session is on, as its coding agent would see it, without presenting it (upstream's catalog <c>context.observe</c>).</summary>
-    internal async Task<ExecutorObservation> ObserveScreenAsync(CancellationToken token) =>
+    internal Task<ExecutorObservation> ObserveScreenAsync(CancellationToken token) =>
+        _scope.Track(ObserveViewAsync(token));
+
+    private async Task<ExecutorObservation> ObserveViewAsync(CancellationToken token) =>
         _feed.View(
             _feed.PreparedOf(await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false)),
             _scope
