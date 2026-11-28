@@ -4188,8 +4188,8 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
 
         /// <summary>
         /// Runs one clock call on the current context and logs it for a context that replaces this one (upstream's <c>surface.clock</c>,
-        /// inside <c>runClock</c>'s guard). A <c>pauseAt</c> is compared with the page clock first: Playwright logs a call for the next
-        /// documents before it runs it, so a time it refused would still move them. The call is logged whether it succeeds or fails, and a
+        /// inside <c>runClock</c>'s guard). The caller compares a <c>pauseAt</c> with <see cref="ClockNowAsync"/> first: Playwright logs a
+        /// call for the next documents before it runs it, so a time it refused would still move them. The call is logged whether it succeeds or fails, and a
         /// replacement context replays what a new document would. The attempt counts as using the clock from the start of the call:
         /// Playwright installs the clock before a call can fail. The log is the one this attempt started with, so a call that resolves
         /// after its step timed out never reaches the next attempt's.
@@ -4202,18 +4202,6 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                 var budget = Budget(label, cancellationToken);
                 try
                 {
-                    if (
-                        call.Method == ClockMethod.PauseAt
-                        && call.Ms
-                            < (
-                                await budget.WithinAsync(ClockNowCoreAsync()).ConfigureAwait(false)
-                                ?? double.NegativeInfinity
-                            )
-                    )
-                    {
-                        throw WebClock.PausedInThePast(label);
-                    }
-
                     var setup = _documentSetup;
                     var clock = RequireContext().Clock;
                     _clockState.Used = true;
@@ -4237,6 +4225,21 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
         /// The latest time a page clock of the current context reads, across every frame, or null when none has one yet. Playwright runs a
         /// call in every frame and fails it when one frame refuses, so the latest decides (upstream's <c>surface.clockNow</c>).
         /// </summary>
+        public Task<double?> ClockNowAsync(CancellationToken cancellationToken) =>
+            GuardAsync<double?>("browser.clock.pauseAt", cancellationToken, async () =>
+            {
+                var budget = Budget("browser.clock.pauseAt", cancellationToken);
+                try
+                {
+                    return await budget.WithinAsync(ClockNowCoreAsync()).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    throw WebClock.TranslateClockError(ex, "browser.clock.pauseAt", ClockMethod.PauseAt);
+                }
+            });
+
+        // Reads the clock of every frame of the current context.
         private async Task<double?> ClockNowCoreAsync()
         {
             var frames = RequireContext().Pages.SelectMany(page => page.Frames).ToArray();
