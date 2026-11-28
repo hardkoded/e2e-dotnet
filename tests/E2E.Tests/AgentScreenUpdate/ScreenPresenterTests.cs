@@ -79,6 +79,22 @@ public sealed class ScreenPresenterTests
     }
 
     [Fact]
+    public void Names_the_first_screen_without_listing_it_and_reports_later_changes_against_it()
+    {
+        var presenter = new ScreenPresenter();
+        Assert.Equal("revision b1, path /, 6 nodes", presenter.Unlisted(Screen("b1", Home, "/")));
+        Assert.Contains(
+            "Screen unchanged since revision b1",
+            presenter.Update(Screen("b2", Home, "/")),
+            StringComparison.Ordinal
+        );
+        var changed = presenter.Update(Screen("b3", [.. Home, " #new button \"New\""], "/"));
+        Assert.Contains("Screen changes since revision b2", changed, StringComparison.Ordinal);
+        Assert.Contains("added #new button \"New\"", changed, StringComparison.Ordinal);
+        Assert.DoesNotContain(Home[1], changed, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Sends_the_first_screen_whole_with_its_revision_path_and_size()
     {
         var presenter = new ScreenPresenter();

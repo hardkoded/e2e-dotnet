@@ -130,6 +130,21 @@ internal static partial class Tools
     }
 
     /// <summary>
+    /// What a session's opening says of its first screen: which one it is, that later results are changes against it, and the tool that
+    /// shows it (upstream's <c>firstScreenLine</c>).
+    /// </summary>
+    public static string FirstScreenLine(ScreenPresenter screen, ExecutorObservation observation)
+    {
+        ArgumentNullException.ThrowIfNull(screen);
+        ArgumentNullException.ThrowIfNull(observation);
+        var named = "Screen: " + screen.Unlisted(observation);
+        return observation.TreeUnavailable
+            ? named + "; call {tool: \"screenshot\"} shows it."
+            : named
+                + ", not listed. Action results report changes against it; call {tool: \"observe\"} lists its nodes.";
+    }
+
+    /// <summary>
     /// One catalog line: the name, the argument names (<c>?</c> marks an optional one), the first sentence of
     /// the description, and the read-only mark. <c>- tap {target}: Tap or click one node.</c>
     /// </summary>

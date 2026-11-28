@@ -132,7 +132,7 @@ public sealed class SessionHostTests : IAsyncLifetime
         var second = SessionId(opened[1]);
         Assert.NotEqual(first, second);
         Assert.Contains(
-            $"Pass session \"{first}\" to every tools, call, and close_session; with several sessions open, a call without it fails.",
+            $"Pass session \"{first}\" to tools, call, and close_session.",
             opened[0],
             StringComparison.Ordinal
         );
@@ -243,7 +243,7 @@ public sealed class SessionHostTests : IAsyncLifetime
         Assert.Contains($"Session {id} closed (done)", await closing, StringComparison.Ordinal);
         Assert.Equal(await closing, await again);
         Assert.Contains(
-            "button \"Submit\"",
+            "\n\nScreen: revision ",
             await single.OpenAsync(new Mcp.OpenSessionOptions()),
             StringComparison.Ordinal
         );
@@ -350,7 +350,7 @@ public sealed class SessionHostTests : IAsyncLifetime
         Assert.Equal(1, fake.Disposes);
         broken = false;
         Assert.Contains(
-            "button \"Submit\"",
+            "\n\nScreen: revision ",
             await flaky.OpenAsync(new Mcp.OpenSessionOptions()),
             StringComparison.Ordinal
         );
@@ -590,7 +590,7 @@ public sealed class SessionHostTests : IAsyncLifetime
         );
         var text = await device.OpenAsync(new Mcp.OpenSessionOptions());
         Assert.Contains("App: com.example.greeter, launched fresh.", text, StringComparison.Ordinal);
-        Assert.Contains("button \"Greet\"", text, StringComparison.Ordinal);
+        Assert.Matches(@"\n\nScreen: revision \S+, path /, \d+ nodes, not listed\..*\z", text);
         Assert.Equal(["restart", "observe"], fake.Operations.Take(2));
         await device.CloseAsync("done");
     }
