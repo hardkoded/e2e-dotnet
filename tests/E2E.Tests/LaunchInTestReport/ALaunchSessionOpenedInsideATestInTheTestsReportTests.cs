@@ -180,12 +180,12 @@ public sealed class ALaunchSessionOpenedInsideATestInTheTestsReportTests : IAsyn
             new InMemoryTest("uses the session a worker fixture opened", async session =>
             {
                 await session.App.OpenAsync();
-                await ((Session)Phone.Value!).App.OpenAsync("/worker-first");
+                await _phoneSession!.App.OpenAsync("/worker-first");
             }) { WorkerFixtures = [Phone] },
             new InMemoryTest("uses that fixture again", async session =>
             {
                 await session.App.OpenAsync();
-                await ((Session)Phone.Value!).App.OpenAsync("/worker-second");
+                await _phoneSession!.App.OpenAsync("/worker-second");
             }) { WorkerFixtures = [Phone] },
             new InMemoryTest("times out while a step of the second session waits", async session =>
             {
@@ -248,14 +248,23 @@ public sealed class ALaunchSessionOpenedInsideATestInTheTestsReportTests : IAsyn
         ];
 
     // A worker fixture is set up inside the first test that names it and outlives it: what it launches is no test's to close.
-    private FixtureDefinition Phone => _phone ??= new FixtureDefinition("phone", async use =>
+    private FixtureDefinition Phone =>
+        _phone ??= new FixtureDefinition
         {
-            var engine = new CoreFakeEngine(ConfirmScene, video: true);
-            _workerFixtureEngine = engine;
-            var host = await Launched(engine);
-            await use(await host.NewSessionAsync());
-            await host.CloseAsync();
-        });
+            Name = "phone",
+            Scope = FixtureScope.Worker,
+            Fn = async (_, use) =>
+            {
+                var engine = new CoreFakeEngine(ConfirmScene, video: true);
+                _workerFixtureEngine = engine;
+                var host = await Launched(engine);
+                _phoneSession = await host.NewSessionAsync();
+                await use(_phoneSession);
+                await host.CloseAsync();
+            },
+        };
+
+    private Session? _phoneSession;
 
     private FixtureDefinition? _phone;
 

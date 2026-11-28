@@ -111,7 +111,7 @@ internal static class Runner
             null => 0,
             AgentException agent => AgentCodeExit(agent.Code),
             TestException => 1,
-            ConfigurationException => 2,
+            ConfigurationException or FixtureUseException => 2,
             _ => 3,
         };
 
@@ -152,7 +152,12 @@ internal static class Runner
         var exitCodes = new List<int>();
         var errors = new List<Exception>();
         var prepared = new PreparedEngines();
-        var workers = new WorkerFixturePool();
+        var workerTarget = new BuiltInTarget(
+            config.Targets.FirstOrDefault()?.Name ?? "default",
+            config.Targets.FirstOrDefault()?.Platform ?? "web",
+            new Dictionary<string, string>()
+        );
+        var workers = new WorkerFixturePool(workerTarget);
         try
         {
             foreach (var test in options.Tests.Tests)
@@ -167,7 +172,7 @@ internal static class Runner
                     var fixture = new InMemoryFixture(config, options, options.Tests.File, prepared, test);
                     IReadOnlyList<Exception> cleanup;
                     (report, error, cleanup) = await fixture
-                        .RunAsync(test, attempt, workers, cancellationToken)
+                        .RunAsync(test, attempt, workers, workerTarget, cancellationToken)
                         .ConfigureAwait(false);
 
                     // A session's report holds its own attempt only; the test's result holds them all, as upstream's does.
@@ -240,12 +245,19 @@ internal static class Runner
         finally
         {
             // The worker's fixtures end with the worker, after the last test and before what the run prepared: a failure is a cleanup failure of the run.
-            foreach (var failure in await workers.CloseAsync(E2EDefaults.CleanupTimeout).ConfigureAwait(false))
+            foreach (var teardown in workers.Close())
             {
-                Console.Error.WriteLine(
-                    $"e2e: worker fixture teardown failed: {Redactor.For(config.AllSecrets).Redact(failure.Message)}"
-                );
-                exitCodes.Add(ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(failure).Category));
+                try
+                {
+                    await teardown.Run().WaitAsync(E2EDefaults.CleanupTimeout).ConfigureAwait(false);
+                }
+                catch (Exception failure)
+                {
+                    Console.Error.WriteLine(
+                        $"e2e: worker fixture teardown failed: {Redactor.For(config.AllSecrets).Redact(failure.Message)}"
+                    );
+                    exitCodes.Add(ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(failure).Category));
+                }
             }
             sharing.Withdraw();
             // The engines the run prepared are finished on every exit path, as upstream's run does: a failure is a cleanup failure of the run.
@@ -398,13 +410,49 @@ internal static class Runner
             InMemoryTest test,
             int attempt,
             WorkerFixturePool workers,
+            BuiltInTarget workerTarget,
             CancellationToken cancellationToken
         )
         {
             try
             {
                 // A worker fixture is set up inside the first test that names it, and is no part of the test: what it launches is no test's to close.
-                await workers.AcquireAsync(test.WorkerFixtures, cancellationToken).ConfigureAwait(false);
+                if (
+                    test.WorkerFixtures.FirstOrDefault(fixture => fixture.Scope != FixtureScope.Worker) is { } notWorker
+                )
+                {
+                    throw new ConfigurationException(
+                        "TEST_SETUP_FAILED",
+                        $"fixture \"{notWorker.Name}\" is listed as a worker fixture but declares scope {notWorker.Scope ?? "none"}"
+                    );
+                }
+
+                var named = new RegisteredTest
+                {
+                    Kind = "test",
+                    Title = test.Title,
+                    TitlePath = [test.Title],
+                    Fn = _ => Task.CompletedTask,
+                    Names = [.. test.WorkerFixtures.Select(fixture => fixture.Name)],
+                    Fixtures = test.WorkerFixtures,
+                };
+                var bound = FixturePool.BindFixtures(
+                    new BindOptions(
+                        FixturePlanner.PlanAttempt(workerTarget, named, []),
+                        FixturePool.AttemptBuiltIns(new Dictionary<string, object?>()),
+                        workers,
+                        cancellationToken
+                    )
+                );
+                try
+                {
+                    await bound.SetUpAsync().ConfigureAwait(false);
+                }
+                finally
+                {
+                    // Only worker fixtures are planned: the pool owns their teardown, and taking the (empty) list ends the binding.
+                    _ = bound.Teardowns();
+                }
                 await StartSessionAsync(test.Title, attempt, null, () => false, cancellationToken)
                     .ConfigureAwait(false);
             }
