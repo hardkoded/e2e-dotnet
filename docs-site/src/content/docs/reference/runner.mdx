@@ -125,7 +125,7 @@ Opening failures are classified, redacted errors. Match them with `E2EException.
 
 `RunId` and `Target` are the identity the host's sessions share.
 
-Only one hosted attempt may be opening, live, or closing per host. Await `session.CloseAsync()` before opening the next session. A session whose engine cleanup failed closes the host for good, since its isolation is uncertain; open a new host. A launch that fails or is cancelled leaves the host usable.
+Only one hosted attempt may be opening, live, or closing per host. Await `session.CloseAsync()` before opening the next session. A session or failed launch whose engine cleanup failed closes the host for good, since its isolation is uncertain; open a new host. A session's cleanup failure comes back from `session.CloseAsync()`, a failed launch's from `host.CloseAsync()`. A launch that fails or is cancelled, and ends what it opened, leaves the host usable.
 
 | Throws | When |
 | --- | --- |

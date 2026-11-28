@@ -75,4 +75,38 @@ public sealed class OpenHostLifecycleTests : IDisposable
         next.Session.Complete();
         Assert.Empty(await next.CloseAsync());
     }
+
+    /// <summary>
+    /// Upstream's <c>it('retires the host when a launch cancelled after it opened cannot end its attempt')</c>. The other three <c>it</c> of the commit
+    /// are not ported here: the failing launch in them is the engine's start, which the port's engine has no separate end for (there is no session to end),
+    /// and the last one calls <c>openWorker</c> with a failing fixture policy, which the port has no counterpart for.
+    /// </summary>
+    [Fact]
+    public async Task Retires_the_host_when_a_launch_cancelled_after_it_opened_cannot_end_its_attempt()
+    {
+        using var controller = new CancellationTokenSource();
+        var toy = new ToyEngine
+        {
+            OnStart = (_, _) =>
+            {
+                controller.Cancel();
+                return Task.CompletedTask;
+            },
+            OnDispose = () => throw new InvalidOperationException("isolation did not close"),
+        };
+        var opened = await Standalone.OpenWorkerAsync(HostOptions(toy));
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() =>
+            opened.OpenAttemptAsync(Options(toy), controller.Token)
+        );
+        Assert.Equal(EngineErrorCodes.Cancelled, cancelled.Code);
+        Assert.Equal(["prepare", "init", "dispose", "finish"], toy.Lifecycle);
+
+        var reuse = await Assert.ThrowsAsync<EngineException>(() => opened.OpenAttemptAsync(Options(toy)));
+        Assert.Equal("WORKER_PROTOCOL", reuse.Code);
+        Assert.Equal(1, toy.Lifecycle.Count(step => step == "init"));
+        Assert.Equal(1, toy.Lifecycle.Count(step => step == "finish"));
+        var errors = await opened.CloseAsync();
+        Assert.Contains("isolation did not close", string.Join("\n", errors.Select(error => error.Message)));
+        Assert.Equal(1, toy.Lifecycle.Count(step => step == "finish"));
+    }
 }

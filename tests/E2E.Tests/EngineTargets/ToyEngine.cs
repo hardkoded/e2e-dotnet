@@ -51,6 +51,9 @@ internal sealed class ToyEngine(ToyPrepare prepare = ToyPrepare.Ok) : IPreparabl
     /// <summary>Runs inside <see cref="StartAsync"/> after it logged <c>init</c>: a wait, or a throw.</summary>
     public Func<EngineStartOptions, CancellationToken, Task>? OnStart { get; init; }
 
+    /// <summary>Runs inside the end of an attempt's session after it logged <c>dispose</c>: a throw. Upstream's <c>onEndAttempt</c>.</summary>
+    public Func<Task>? OnDispose { get; init; }
+
     /// <summary>Runs inside prepare after it logged <c>prepare</c>: a wait that may ignore its token.</summary>
     public Func<CancellationToken, Task>? OnPrepare { get; init; }
 
@@ -168,10 +171,13 @@ internal sealed class ToyEngine(ToyPrepare prepare = ToyPrepare.Ok) : IPreparabl
         public Task PressAsync(string key, CancellationToken cancellationToken) =>
             throw new EngineException("UNSUPPORTED_CAPABILITY", "the toy has no keyboard");
 
-        public ValueTask DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             engine.Record("dispose");
-            return ValueTask.CompletedTask;
+            if (engine.OnDispose is { } end)
+            {
+                await end().ConfigureAwait(false);
+            }
         }
     }
 }
