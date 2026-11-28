@@ -133,6 +133,30 @@ public sealed class CdpSessionRecoveryTests
     }
 
     [Fact]
+    public async Task Partial_identifies_the_persistent_browser_by_its_own_endpoint_after_reconnect_too()
+    {
+        using var app = await FixtureApp.StartAsync();
+        await using var remote = await RemoteChrome.LaunchAsync();
+        var reported = await BrowserInfo.BrowserIdentityOverCdpTests.RemoteVersionAsync(remote);
+        await using var session = await StartAsync(
+            app,
+            new WebEngine(new WebEngineOptions { Connect = Fixed(remote) })
+        );
+
+        // One fixture, as a test body keeps it across the reconnect.
+        var fixture = BrowserInfo.BrowserInfoHarness.FixtureOf(session, app.Url, None);
+        Assert.Equal((BrowserName.Chromium, reported), (fixture.Name, fixture.Version));
+        var dropped = WebEngine.SurfaceOf(session)!.Context().Browser!;
+        await dropped.CloseAsync();
+        Assert.Equal("Login", await EvaluateAsync<string>(session, "() => document.querySelector('h1').textContent"));
+
+        // Both connections reach the same Chrome, so the value cannot tell them apart. Upstream spies on the replacement's `version` to
+        // prove it was asked; Playwright's .NET IBrowser cannot be spied, so only the replacement being another browser is checked.
+        Assert.NotSame(dropped, WebEngine.SurfaceOf(session)!.Context().Browser);
+        Assert.Equal((BrowserName.Chromium, reported), (fixture.Name, fixture.Version));
+    }
+
+    [Fact]
     public async Task Emulates_the_configured_and_requested_media_on_the_persistent_page_after_reconnect_too()
     {
         using var app = await FixtureApp.StartAsync();

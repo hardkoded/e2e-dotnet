@@ -111,6 +111,8 @@ For xUnit v3, use `E2E.XUnit.V3`, `[Fact]`, and `[Trait("TestCategory", "RealMod
 | `.select('Pro')` | `.SelectOptionAsync("Pro")` matches the label; a value or an index needs the option object |
 | `.should('be.visible')`, `be.checked`, `be.disabled`, `be.focused`, `exist` | `await Expect.That(locator).ToBeVisibleAsync()`, `ToBeCheckedAsync()`, `ToBeDisabledAsync()`, `ToBeFocusedAsync()`, `ToBeAttachedAsync()` |
 | `have.text`, `contain`, `have.value`, `have.attr`, `have.length`, `not.exist` | `ToHaveTextAsync`, `ToContainTextAsync`, `ToHaveValueAsync`, `ToHaveAttributeAsync`, `ToHaveCountAsync(n)`, `ToHaveCountAsync(0)` |
+| `Cypress.browser.name`, `.family`, `Cypress.isBrowser('firefox')`, `Cypress.browser.version` | [`Browser.Name`](/features/browser/#name-the-browser), `Browser.Name == BrowserName.Firefox`, `Browser.Version`. Chrome, Edge, and Electron are all `Chromium`. To skip, `Assert.Ignore(reason)` in the body |
+| `Cypress.platform`, `Cypress.arch` | `RuntimeInformation.OSDescription`, `RuntimeInformation.OSArchitecture`. Tests run in .NET |
 | `cy.url().should('include', p)`, `cy.title()` | `Expect.That(Browser).ToHaveURLAsync(new Regex("p"))`, `Expect.That(Browser).ToHaveTitleAsync(t)` |
 | `cy.intercept('/api/users', body)` | `Browser.RouteAsync("**/api/users", route => route.FulfillAsync(new RouteFulfillResponse { Json = body }))`, a glob on the full URL |
 | `cy.intercept('POST', '/api/users', body)` | `Browser.RouteAsync(new RouteMatcher { Method = "POST", Url = "**/api/users" }, route => route.FulfillAsync(new RouteFulfillResponse { Json = body }))` |

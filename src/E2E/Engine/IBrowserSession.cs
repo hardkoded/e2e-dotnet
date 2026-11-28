@@ -136,6 +136,15 @@ public interface IBrowserSession : IEngineSession
             new EngineException("UNSUPPORTED_CAPABILITY", "browser.waitForDownloads is not supported by this engine.")
         );
 
+    /// <summary>
+    /// Reads the engine and version of the browser the attempt is connected to, both asked of the driver (upstream's <c>browserIdentity</c>):
+    /// a browser attached over CDP is always <see cref="BrowserName.Chromium"/>, and its version is the one its endpoint reports. The reader
+    /// belongs to this session; once the session is disposed, or <paramref name="ended"/> is cancelled, it fails with <c>INVALID_STATE</c>.
+    /// A session that does not override it fails with <c>UNSUPPORTED_CAPABILITY</c>.
+    /// </summary>
+    Func<(BrowserName Name, string Version)> BrowserIdentity(Func<CancellationToken> ended) =>
+        throw new EngineException("UNSUPPORTED_CAPABILITY", "browser.name is not supported by this engine.");
+
     /// <summary>The open tabs, in the order they opened (upstream's <c>tabs</c>). A session that does not override it fails with <c>UNSUPPORTED_CAPABILITY</c>.</summary>
     IReadOnlyList<IAttemptTab> Tabs() =>
         throw new EngineException("UNSUPPORTED_CAPABILITY", "browser.tabs is not supported by this engine.");

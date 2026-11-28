@@ -4723,6 +4723,39 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
         public Task SettleAttemptAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             _latch.SettleAsync(timeout, cancellationToken);
 
+        /// <inheritdoc />
+        public Func<(BrowserName Name, string Version)> BrowserIdentity(Func<CancellationToken> ended)
+        {
+            return () =>
+            {
+                if (_disposed || ended().IsCancellationRequested)
+                {
+                    throw new EngineException(
+                        EngineErrorCodes.InvalidState,
+                        "the attempt this browser belongs to has ended"
+                    );
+                }
+
+                ThrowPending();
+                if (_failure is not null)
+                {
+                    throw _failure;
+                }
+
+                var name = _browser.BrowserType.Name;
+                if (!BrowserConnection.IsBrowserName(name))
+                {
+                    throw new EngineException(
+                        EngineErrorCodes.EngineFailure,
+                        $"the driver reported an unknown browser \"{name}\"",
+                        retryable: false
+                    );
+                }
+
+                return (BrowserConnection.BrowserNameOf(name), _browser.Version);
+            };
+        }
+
         public async ValueTask DisposeAsync()
         {
             if (_disposed)

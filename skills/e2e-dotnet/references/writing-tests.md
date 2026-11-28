@@ -949,6 +949,9 @@ misses.
   it fails the attempt with `ENGINE_FAILURE`. A page timer that throws while the clock runs it
   is `EVALUATE_FAILED`; an argument Playwright would refuse, or `PauseAtAsync` before the
   clock's current time, is `INVALID_ARGUMENT`.
+- `Name` (`BrowserName.Chromium`, `Firefox`, or `Webkit`; always `Chromium` over CDP) and `Version` are
+  properties. Skip on a browser in the body: `Assert.Ignore(reason)`. They fail with `INVALID_STATE`
+  once the attempt ended.
 - `Tabs()`, `WaitForPopupAsync(trigger, timeout?)`, `NewTabAsync()`: a tab the app
   opens (`target="_blank"`, `window.open`) opens in the background: the active tab stays
   where it was. `WaitForPopupAsync(() => trigger)` makes the tab the trigger opens active

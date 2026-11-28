@@ -75,6 +75,15 @@ internal sealed class BrowserConnection(
         return BrowserNames.Contains(name);
     }
 
+    /// <summary>The <see cref="BrowserName"/> of a name <see cref="IsBrowserName"/> accepts.</summary>
+    public static BrowserName BrowserNameOf(string name) =>
+        name switch
+        {
+            "firefox" => BrowserName.Firefox,
+            "webkit" => BrowserName.Webkit,
+            _ => BrowserName.Chromium,
+        };
+
     /// <summary>The name <c>playwright install</c> and upstream's <c>BROWSER_NAMES</c> use for <paramref name="name"/>.</summary>
     public static string NameOf(BrowserName name)
     {
