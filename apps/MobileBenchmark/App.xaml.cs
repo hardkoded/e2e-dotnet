@@ -9,15 +9,21 @@ public partial class App : Application
         InitializeComponent();
     }
 
+    private Uri? _pendingLink;
+
     protected override Window CreateWindow(IActivationState? activationState)
     {
-        return new Window(new AppShell());
+        var shell = new AppShell();
+        // A link that arrives during a cold start finds no shell yet; it is followed once the shell is up.
+        shell.Loaded += (_, _) => _ = FollowPendingLinkAsync();
+        return new Window(shell);
     }
 
     /// <summary>
     /// Routes <c>e2e-benchmark://&lt;scenario-slug&gt;</c> to that scenario, as upstream's <c>linking</c> does in <c>src/App.tsx</c>.
+    /// The link is kept until the shell is ready, so a cold start follows it too.
     /// </summary>
-    protected override async void OnAppLinkRequestReceived(Uri uri)
+    protected override void OnAppLinkRequestReceived(Uri uri)
     {
         base.OnAppLinkRequestReceived(uri);
         if (uri.Scheme != "e2e-benchmark")
@@ -25,13 +31,25 @@ public partial class App : Application
             return;
         }
 
+        _pendingLink = uri;
+        _ = MainThread.InvokeOnMainThreadAsync(FollowPendingLinkAsync);
+    }
+
+    private async Task FollowPendingLinkAsync()
+    {
+        if (_pendingLink is not { } uri || Shell.Current is not { } shell)
+        {
+            return;
+        }
+
+        _pendingLink = null;
         var route = uri.Host switch
         {
             "login-form" => nameof(LoginForm),
             "control-inventory" => nameof(ControlInventory),
             _ => null,
         };
-        if (route is not null && Shell.Current is { } shell)
+        if (route is not null)
         {
             await shell.GoToAsync(route);
         }
