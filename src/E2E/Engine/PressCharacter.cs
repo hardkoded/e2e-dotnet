@@ -131,31 +131,16 @@ internal static class CharacterPressing
             }
             catch
             {
-                // The key's own failure is the one to report.
-                try
-                {
-                    await ReleaseAsync(page, held).ConfigureAwait(false);
-                }
-                catch
-                {
-                    // Dropped for the key's own failure.
-                }
-
+                // The key's own failure is the one to report: the release only has to be tried.
+                await ReleaseAsync(page, held, throwOnFailure: false).ConfigureAwait(false);
                 throw;
             }
 
-            await ReleaseAsync(page, held).ConfigureAwait(false);
+            await ReleaseAsync(page, held, throwOnFailure: true).ConfigureAwait(false);
         }
         finally
         {
-            try
-            {
-                await cdp.DetachAsync().ConfigureAwait(false);
-            }
-            catch
-            {
-                // A session that cannot detach has nothing left to release.
-            }
+            _ = await DetachAsync(cdp).ConfigureAwait(false);
         }
     }
 
@@ -163,8 +148,8 @@ internal static class CharacterPressing
     private static bool IsUsLayoutCharacter(string character) =>
         character.Length == 1 && character[0] is >= ' ' and <= '~';
 
-    // Releases every held modifier, last first, then throws the first failure: a modifier that may still be down is not a finished press.
-    private static async Task ReleaseAsync(IPage page, IReadOnlyList<KeyModifier> held)
+    // Releases every held modifier, last first, then, when asked, throws the first failure: a modifier that may still be down is not a finished press.
+    private static async Task ReleaseAsync(IPage page, IReadOnlyList<KeyModifier> held, bool throwOnFailure)
     {
         var failures = new List<Exception>();
         for (var index = held.Count - 1; index >= 0; index--)
@@ -179,7 +164,7 @@ internal static class CharacterPressing
             }
         }
 
-        if (failures.Count > 0)
+        if (throwOnFailure && failures.Count > 0)
         {
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failures[0]).Throw();
         }
@@ -195,4 +180,18 @@ internal static class CharacterPressing
             KeyModifier.Shift => Shift,
             _ => OperatingSystem.IsMacOS() ? Meta : Control,
         };
+
+    // A session that cannot detach has nothing left to release: whether it did is for the caller to read.
+    private static async Task<bool> DetachAsync(ICDPSession cdp)
+    {
+        try
+        {
+            await cdp.DetachAsync().ConfigureAwait(false);
+            return true;
+        }
+        catch (PlaywrightException)
+        {
+            return false;
+        }
+    }
 }
