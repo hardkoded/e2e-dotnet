@@ -6,5 +6,6 @@ public partial class AppShell : Shell
     {
         InitializeComponent();
         Routing.RegisterRoute(nameof(ControlInventory), typeof(ControlInventory));
+        Routing.RegisterRoute(nameof(LoginForm), typeof(LoginForm));
     }
 }

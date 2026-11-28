@@ -17,7 +17,8 @@ public sealed class TestFixturesTests
         var bound = Attempt([Fixture("ready", async (_, use) =>
                 {
                     var released = use("ready");
-                    await abort.CancelAsync();
+                    // abort() runs its listeners at once; CancelAsync would hand them to another thread and let setup finish first.
+                    abort.Cancel();
                     await released;
                     log.Add("teardown:ready");
                 }), Logged(log, "later", "later")], ["ready", "later"], new AttemptOptions { Signal = abort.Token });

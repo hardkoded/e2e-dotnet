@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+  xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+  x:Class="MobileBenchmark.LoginForm"
+  Title="Login Form"
+>
+  <VerticalStackLayout Padding="24" Spacing="12">
+    <VerticalStackLayout x:Name="FormSection" Spacing="12">
+      <Label Text="Use tester@tester.army / benchmark123" />
+      <Entry x:Name="Email" AutomationId="email-input" Placeholder="Email" Keyboard="Email" />
+      <Entry x:Name="Password" AutomationId="password-input" Placeholder="Password" IsPassword="True" />
+      <Label x:Name="Error" AutomationId="error-message" IsVisible="False" />
+      <Button AutomationId="submit-button" Text="Log in" SemanticProperties.Description="Log in" Clicked="OnSubmit" />
+    </VerticalStackLayout>
+    <VerticalStackLayout x:Name="SuccessSection" Spacing="12" IsVisible="False">
+      <Label AutomationId="success-message" Text="Logged in successfully" />
+      <Button AutomationId="logout-button" Text="Log out" SemanticProperties.Description="Log out" Clicked="OnLogout" />
+    </VerticalStackLayout>
+  </VerticalStackLayout>
+</ContentPage>
