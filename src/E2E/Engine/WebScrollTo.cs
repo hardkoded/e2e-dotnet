@@ -205,11 +205,7 @@ internal static class WebScrollTo
         {
             if (container is not null)
             {
-                try
-                {
-                    await container.DisposeAsync().ConfigureAwait(false);
-                }
-                catch (PlaywrightException) { }
+                WebSupport.DisposeQuietly(container);
             }
         }
     }
