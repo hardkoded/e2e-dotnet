@@ -1,0 +1,89 @@
+---
+title: Services
+description: Start dependencies like an email API before your app runs and use them in tests.
+---
+
+A service is a dependency your app needs, like an email API, an OAuth provider, or a database. In a test run, `e2e explore`, `e2e mcp`, and `E2EHost.OpenAsync`, each service starts before the app commands and stops after them. This ports upstream's `defineService`, `services`, and the `services` fixture (`docs/services.mdx`).
+
+A service is code, so the config file cannot hold one. Set it on the config in code, as you set a secret provider.
+
+## Define a service
+
+Call `Define.DefineService` with an async iterator. The code before `yield return` starts the dependency, the yielded object is the service's value, and the code after it stops the dependency when the run ends. Yield exactly once.
+
+```csharp
+public sealed record Email(string Url, IReadOnlyList<string> Sent);
+
+public static class Services
+{
+    public static Service Mail() =>
+        Define.DefineService(Start);
+
+    private static async IAsyncEnumerable<Email> Start(ServiceStartContext context)
+    {
+        var sent = new List<string>();
+        await using var server = await MailServer.StartAsync(sent, context.Signal);
+        yield return new Email(server.Url, sent);
+
+        // Everything after the yield runs when the services stop.
+    }
+}
+```
+
+`context.Signal` is cancelled when startup is cancelled or the service does not yield within `startupTimeout` (60 seconds by default), when the code after the yield does not finish within `shutdownTimeout` (10 seconds by default), and when a second Ctrl+C forces the stop.
+
+## Add it to the config
+
+```csharp
+var config = E2EConfig.Load("e2e.config.json").WithService("mail", Services.Mail());
+```
+
+Services start in the order you add them, and stop in reverse. A name set twice keeps its place and takes the later service. A `null` service starts nothing. A service is not part of the config digest, so adding one keeps the replay cache.
+
+## Pass the service to the app
+
+`app.command.env` can be a function of the services. A config file holds only an object, so set the function in code with `WithCommandEnv`:
+
+```csharp
+config = config.WithCommandEnv(
+    "web",
+    (services, ct) =>
+        Task.FromResult<IReadOnlyDictionary<string, string?>>(
+            new Dictionary<string, string?>
+            {
+                ["PORT"] = "{port}",
+                ["MAIL_URL"] = services.Get<Email>("mail").Url,
+            }
+        )
+);
+```
+
+The run calls the function once for the target, after the services start and before the app command starts, and checks what it returns like an `env` object: `{port}` expands, and a `null` value is dropped so the app keeps the variable it inherits. Targets whose commands match start one process when their functions return the same variables. A target needs an `app.command` without an `env` object to take a function.
+
+- An `E2EException` the function throws keeps its code. Any other error is `INVALID_CONFIG`.
+- A function that does not return within the command's `startupTimeout` fails with `APP_UNREACHABLE`, and the services stop.
+- A process the runner did not start (`reuseExisting`) keeps the environment it was started with.
+
+## Use the service in tests
+
+The `Services` member of the test context holds the values by name. A test runs in the process that started the services, so a value is the object the service yielded.
+
+```csharp
+var mail = Context.Services.Get<Email>("mail");
+```
+
+`ServiceValues` is also an `IReadOnlyDictionary<string, object>`. `Get<T>` throws `KeyNotFoundException` for a name the config does not have.
+
+## When a service fails
+
+| Code | Cause |
+|---|---|
+| `SERVICE_START_FAILED` | The iterator threw before it yielded, finished without yielding, or did not yield within `startupTimeout`. The services already started are stopped. |
+| `SERVICE_STOP_FAILED` | The code after the yield threw, yielded a second time, or did not finish within `shutdownTimeout`. It is a cleanup error. |
+| `INVALID_SERVICE_VALUE` | A service yielded `null`. |
+
+When a service fails to start, the ones started before it stop in reverse, and no app command starts. A service that fails to stop never skips the ones before it.
+
+## Services in `e2e mcp` and `E2EHost.OpenAsync`
+
+`e2e mcp` starts a config file's services with the first session on it, shares them with the next ones, and stops them after the last one closes. Each host `E2EHost.OpenAsync` opens starts its own service instance, and `Close` stops the app, then the services. A session reads the values through its test context.

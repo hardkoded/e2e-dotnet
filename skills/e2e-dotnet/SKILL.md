@@ -86,6 +86,15 @@ start the app yourself before `dotnet test`:
 }
 ```
 
+Services are dependencies of the app (an email API, an OAuth provider, a database), defined in code:
+`config.WithService(name, Define.DefineService(ctx => Start(ctx)))`, where `Start` is an async iterator that starts the
+dependency, `yield return`s one object, and stops it after the yield (`finally`). They start in the order set, before the
+app commands, and stop in reverse after them; the same holds in `e2e explore`, `e2e mcp` and `E2EHost.OpenAsync`. A test
+reads the values with `Context.Services.Get<T>(name)`.
+`config.WithCommandEnv(target, (services, ct) => ...)` makes `app.command.env` a function of them: it runs once, after the
+services start and before the app command, and `null` values drop. `SERVICE_START_FAILED`, `SERVICE_STOP_FAILED` and
+`INVALID_SERVICE_VALUE` are the failures. Details: docs page `services`.
+
 The first test (or `e2e explore`, or `e2e mcp` session) that needs the app
 spawns `app.command` and polls `app.readyUrl` (default `app.url`) for a 200 to
 499 status within `startupTimeout` (default 60 s); later ones find it running

@@ -291,6 +291,8 @@ public abstract class E2EFixture
             );
         }
 
+        // Services start before the app commands, so the app boots with them ready, and the test reads their values.
+        var services = await RunApps.StartServicesAsync(Config, null, cancellationToken).ConfigureAwait(false);
         if (declared.App.Command is not null && string.Equals(baseUrl, declared.App.Url, StringComparison.Ordinal))
         {
             // A fixture that points BaseUrl somewhere else does not use the declared app, so the command does not start for it.
@@ -383,6 +385,7 @@ public abstract class E2EFixture
                 new E2ESessionOptions
                 {
                     Engine = engine,
+                    Services = services,
                     OffersGuests = true,
                     Credentials = Config.Credentials,
                     Config = ResolvedConfigOf(defaultModel, defaultJudge, agents),

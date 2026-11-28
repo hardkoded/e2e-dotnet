@@ -53,6 +53,10 @@ switch (args[0])
     case "serve-logged":
         File.AppendAllText("startup.log", "app\n");
         return await Serve(int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture), false);
+    case "serve-env":
+        // Appends "<name>=<value>" for the variable args[3] to the file args[2], then serves on args[1]: what the env function gave the app.
+        File.AppendAllText(args[2], args[3] + "=" + Environment.GetEnvironmentVariable(args[3]) + "\n");
+        return await Serve(int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture), false);
     case "serve-graceful":
         return await ServeGraceful(int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture), args[2]);
     case "serve-hold":

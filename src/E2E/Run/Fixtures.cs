@@ -438,6 +438,12 @@ public sealed class TestContext
 
     public required Screen Screen { get; init; }
 
+    /// <summary>
+    /// The values the config's services yielded, keyed by name (upstream's <c>services</c> fixture, <c>TestFixtures.services</c>). Empty when the
+    /// config has none. A test runs in the process that started the services, so a value is the object the service yielded, not a copy.
+    /// </summary>
+    public ServiceValues Services { get; init; } = ServiceValues.Empty;
+
     public CancellationToken CancellationToken { get; init; }
 
     public void Skip(bool condition, string reason)

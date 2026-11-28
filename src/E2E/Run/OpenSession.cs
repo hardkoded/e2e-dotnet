@@ -286,6 +286,7 @@ public sealed class E2EHost : IAsyncDisposable
         return new E2ESessionOptions
         {
             Engine = _engine,
+            Services = RunApps.ServicesOf(_config),
             Credentials = _config.Credentials,
             Config = HostTestFilters.Resolve(_config, [], target: _target),
             AppIdentity = identity,
