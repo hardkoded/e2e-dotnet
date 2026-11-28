@@ -321,6 +321,7 @@ public static class Explore
             var sessionOptions = new E2ESessionOptions
             {
                 Engine = engine,
+                Services = RunApps.ServicesOf(config),
 
                 // The report carries the config's digest as upstream's report does: the agents built in code stand in for the file's, as a fixture's do.
                 Config = HostTestFilters.Resolve(config, [], options.Agents, target),

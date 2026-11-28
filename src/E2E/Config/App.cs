@@ -554,6 +554,31 @@ internal static partial class TargetApps
             );
     }
 
+    /// <summary>
+    /// Checks what an <c>app.command.env</c> function returned like an <c>env</c> object at config load, drops the null entries, and expands
+    /// <c>{port}</c> to the target URL's port (upstream's <c>returnedEnv</c>). <paramref name="label"/> names the command in errors
+    /// (<c>target "web" app.command</c>).
+    /// </summary>
+    internal static IReadOnlyDictionary<string, string> ReturnedEnv(
+        IReadOnlyDictionary<string, string?>? returned,
+        string label,
+        int? port
+    ) =>
+        returned is null
+            ? throw new ConfigurationException(
+                "INVALID_CONFIG",
+                label + ".env must return an object of variable names to strings, like { PORT = \"3000\" }, got null"
+            )
+            : new ReadOnlyDictionary<string, string>(
+                returned
+                    .Where(entry => entry.Value is not null)
+                    .ToDictionary(
+                        entry => entry.Key,
+                        entry => ExpandPort(entry.Value!, port, label + ".env." + entry.Key),
+                        StringComparer.Ordinal
+                    )
+            );
+
     /// <summary>The command with <c>{port}</c> expanded in every <c>args</c> entry and <c>env</c> value.</summary>
     private static CommandConfig ExpandCommandPort(CommandConfig command, string label, int? port) =>
         new()

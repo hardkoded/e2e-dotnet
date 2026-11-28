@@ -441,6 +441,7 @@ internal sealed class SessionHost : IDisposable
                         new E2ESessionOptions
                         {
                             Engine = engine,
+                            Services = RunApps.ServicesOf(config),
                             Credentials = config.Credentials,
                             Config = HostTestFilters.Resolve(config, [], target: target),
                             BaseUrl = target.App.Url,

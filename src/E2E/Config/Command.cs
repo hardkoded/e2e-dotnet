@@ -46,6 +46,21 @@ public sealed class CommandConfig
 
     /// <summary>Attach to an app that already answers at the readiness URL instead of failing. Ignored in CI.</summary>
     public bool? ReuseExisting { get; init; }
+
+    /// <summary>This command with <see cref="Env"/> replaced by what an <c>env</c> function returned (upstream's <c>declaredCommands</c> <c>envs</c>).</summary>
+    internal CommandConfig WithEnv(IReadOnlyDictionary<string, string> env) =>
+        new()
+        {
+            Executable = Executable,
+            Args = Args,
+            Cwd = Cwd,
+            Env = env,
+            InheritEnv = InheritEnv,
+            StartupTimeout = StartupTimeout,
+            ShutdownTimeout = ShutdownTimeout,
+            Log = Log,
+            ReuseExisting = ReuseExisting,
+        };
 }
 
 /// <summary>

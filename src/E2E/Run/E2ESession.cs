@@ -799,6 +799,7 @@ public sealed class E2ESession : IAsyncDisposable
                 Platform = options.Engine.Platform,
                 Agent = agent,
                 Screen = screen,
+                Services = options.Services,
                 CancellationToken = timeout.Token,
             };
             var keep = RecordingModes.AttemptKeep(options.Trace.Mode, options.Attempt - 1);
@@ -2271,6 +2272,9 @@ internal sealed record CancelsOnClose(Func<E2EException> Closed, Func<string, E2
 /// <summary>How to open one <see cref="E2ESession"/>. Retries set <see cref="Attempt"/> above 1 so the cache records but does not replay, except under <see cref="CacheStrict"/>, where every attempt replays.</summary>
 public sealed class E2ESessionOptions
 {
+    /// <summary>The values of the config's services for <see cref="TestContext.Services"/>.</summary>
+    public ServiceValues Services { get; init; } = ServiceValues.Empty;
+
     public required IEngine Engine { get; init; }
 
     /// <summary>Throws a failed step's error classified and redacted, for a program with no report around it. Upstream's <c>redactThrown</c> of <c>StandaloneSessionOptions</c>.</summary>

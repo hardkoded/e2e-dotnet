@@ -394,6 +394,85 @@ public sealed class E2EConfig
     }
 
     /// <summary>
+    /// The services the run starts, in key order (upstream's <c>E2EConfig.services</c>, <c>run-types.ts</c>), each defined with
+    /// <see cref="Define.DefineService{TValue}"/>. They start before the app commands and stop in reverse after them, one instance shared by
+    /// every test.
+    /// </summary>
+    public IReadOnlyDictionary<string, Service> Services =>
+        new ReadOnlyDictionary<string, Service>(
+            _services.ToDictionary(entry => entry.Name, entry => entry.Service, StringComparer.Ordinal)
+        );
+
+    internal IReadOnlyList<(string Name, Service Service)> ServiceEntries => _services;
+
+    private IReadOnlyList<(string Name, Service Service)> _services = [];
+    private IReadOnlyDictionary<string, CommandEnv> _commandEnvs = ReadOnlyDictionary<string, CommandEnv>.Empty;
+
+    /// <summary>Upstream's <c>app.command.env</c> function by target name: what <see cref="WithCommandEnv"/> set.</summary>
+    internal IReadOnlyDictionary<string, CommandEnv> CommandEnvs => _commandEnvs;
+
+    /// <summary>
+    /// A copy of the config that also starts <paramref name="service"/> as <paramref name="name"/> (upstream's <c>services: { name: service }</c>).
+    /// .NET-only: the config file cannot hold a service, which is code, so code sets it, as it sets <see cref="WithCacheStore"/>. A name
+    /// that is already set keeps its place in the key order and takes the new service. A null service starts nothing, like an
+    /// <c>undefined</c> entry upstream.
+    /// </summary>
+    public E2EConfig WithService(string name, Service? service)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        var copy = (E2EConfig)MemberwiseClone();
+        var entries = _services.Where(entry => !string.Equals(entry.Name, name, StringComparison.Ordinal)).ToList();
+        var index = _services.ToList().FindIndex(entry => string.Equals(entry.Name, name, StringComparison.Ordinal));
+        if (service is not null)
+        {
+            entries.Insert(index < 0 ? entries.Count : index, (name, service));
+        }
+
+        copy._services = entries;
+        return copy;
+    }
+
+    /// <summary>
+    /// A copy of the config whose target <paramref name="target"/> starts its app command with the variables <paramref name="env"/> returns
+    /// (upstream's <c>app.command.env</c> as a function of the services). .NET-only: the config file cannot hold a function. The run calls
+    /// it once, after the services start and before any app command starts, and checks what it returns like an <c>env</c> object, with
+    /// <c>{port}</c> expanded. Targets whose commands match and whose functions return the same variables share one process. Throws
+    /// <c>INVALID_CONFIG</c> for a target that is not in the config, one with no <c>app.command</c>, or one whose command already sets an
+    /// <c>env</c> object.
+    /// </summary>
+    public E2EConfig WithCommandEnv(string target, CommandEnv env)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(target);
+        ArgumentNullException.ThrowIfNull(env);
+        var declared = Targets.FirstOrDefault(entry => string.Equals(entry.Name, target, StringComparison.Ordinal));
+        if (declared is null)
+        {
+            throw Invalid(
+                "target \""
+                    + target
+                    + "\" is not in the config; targets: "
+                    + string.Join(", ", Targets.Select(t => t.Name))
+            );
+        }
+
+        if (declared.App.Command is not { } command)
+        {
+            throw Invalid("target \"" + target + "\" has no app.command to give an env function");
+        }
+
+        if (command.Env is not null)
+        {
+            throw Invalid(
+                "target \"" + target + "\" app.command.env is an object already; set an object or a function, not both"
+            );
+        }
+
+        var copy = (E2EConfig)MemberwiseClone();
+        copy._commandEnvs = new Dictionary<string, CommandEnv>(_commandEnvs, StringComparer.Ordinal) { [target] = env };
+        return copy;
+    }
+
+    /// <summary>
     /// A copy of the config whose target <c>name</c> runs the <c>engine</c>, in place of the target of the same
     /// name (which keeps its app, trace, and video) or after the others when none has it. .NET-only: the config file cannot hold an engine
     /// (upstream's <c>targets: [{ engine: web(...) }]</c> builds it in code), so code puts one in a target. The target's platform is the
