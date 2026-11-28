@@ -5,6 +5,7 @@ The tests that drive [`apps/MobileBenchmark`](../MobileBenchmark) with `MobileEn
 | Directory | Upstream | What it runs |
 | --- | --- | --- |
 | `Controls` | `controls.e2e.ts`, `describe('control inventory')` | The Gestures section of the Control Inventory: long press, double tap, and `TapAsync(new TapOptions { Count = 3 })`. No model. |
+| `DeviceFixture` | `device-fixture.e2e.ts`, `describe('device fixture')` | The `Device` fixture against the Control Inventory's Device section, the Login Form deep link, and the app lifecycle. No model. |
 
 All tests are in the `RealModel` and `Device` categories, so `TestCategory!=RealModel` skips them, and CI does too. They need a booted simulator or emulator and the app's build; see [`samples/MobileApp.E2ETests`](../../samples/MobileApp.E2ETests/README.md) for the prerequisites and `E2E_MOBILE_*` variables.
 
