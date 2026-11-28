@@ -38,6 +38,7 @@ public sealed class Browser
     private TimeSpan _assertionTimeout;
     private TimeSpan? _lifecycleTimeout;
     private readonly Func<CancellationToken> _token;
+    private Func<(BrowserName Name, string Version)>? _identity;
     private readonly Action _verified;
     private readonly List<(NormalizedRoutePattern Pattern, Func<IBrowserRoute, Task> Handler)> _routes = [];
 
@@ -69,6 +70,19 @@ public sealed class Browser
 
     /// <summary>One handle per tab, so the same tab is the same object for the attempt.</summary>
     private readonly System.Runtime.CompilerServices.ConditionalWeakTable<IAttemptTab, BrowserTab> _tabHandles = new();
+
+    /// <summary>
+    /// The browser the attempt drives, as the driver names it: the <c>WebEngineOptions.BrowserName</c> value, and
+    /// <see cref="BrowserName.Chromium"/> for every browser the engine attaches to over CDP (<c>Connect</c>, a provider), whatever it is.
+    /// It touches no page and takes no timeout. A browser kept past its attempt fails with <c>INVALID_STATE</c>.
+    /// </summary>
+    public BrowserName Name => Identity().Name;
+
+    /// <summary>
+    /// The version the running browser reports, such as <c>159.0.8154.6</c>: for an attached or hosted one, what its CDP endpoint reports.
+    /// The target's <c>UserAgent</c> does not change it. A browser kept past its attempt fails with <c>INVALID_STATE</c>.
+    /// </summary>
+    public string Version => Identity().Version;
 
     /// <summary>Viewport-level keyboard, for whatever has focus.</summary>
     public BrowserKeyboard Keyboard { get; }
@@ -820,6 +834,8 @@ public sealed class Browser
 
     /// <summary>Whether <paramref name="tab"/> is the active tab (<see cref="BrowserTab.IsActive"/>).</summary>
     internal bool IsActiveTab(IAttemptTab tab) => Require("tab.isActive").IsActiveTab(tab);
+
+    private (BrowserName Name, string Version) Identity() => (_identity ??= Require("name").BrowserIdentity(_token))();
 
     internal IBrowserSession Require(string operation)
     {

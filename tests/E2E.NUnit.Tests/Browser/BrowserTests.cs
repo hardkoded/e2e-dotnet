@@ -39,4 +39,25 @@ public sealed class BrowserTests : E2ETest
         );
         await Expect.That(Screen.GetByLabel("Media")).ToHaveTextAsync("light, full motion");
     }
+
+    [Test]
+    public void The_browser_names_its_engine_and_reports_a_version_before_any_page_opens()
+    {
+        Assert.That(
+            new[] { BrowserName.Chromium, BrowserName.Firefox, BrowserName.Webkit },
+            Does.Contain(Browser.Name)
+        );
+        Assert.That(Browser.Version, Does.Match(@"^\d+(\.\d+)*\z"));
+    }
+
+    [Test]
+    public void A_test_skips_on_the_browsers_it_does_not_cover()
+    {
+        if (Browser.Name != BrowserName.Chromium)
+        {
+            Assert.Ignore("covers Chromium only");
+        }
+
+        Assert.That(Browser.Name, Is.EqualTo(BrowserName.Chromium));
+    }
 }

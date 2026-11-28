@@ -232,6 +232,7 @@ Every row works today. For an API that is not here, check [What e2e doesn't have
 | `Page.AddInitScriptAsync(script)`, `Context.AddInitScriptAsync()` | `Browser.AddInitScriptAsync(source)`, or `WebEngineOptions.InitScripts` for every test |
 | `Page.EmulateMediaAsync(new() { ColorScheme, ReducedMotion })` | `Browser.EmulateMediaAsync(new WebMedia { ... })`, for every open tab and every tab opened after it; `Media`, `ForcedColors`, and `Contrast` are not supported |
 | `Page.Clock.InstallAsync()`, `PauseAtAsync()`, `RunForAsync()`, `FastForwardAsync()`, `ResumeAsync()`, `SetFixedTimeAsync()`, `SetSystemTimeAsync()` | `Browser.Clock`, the same methods and arguments (`InstallAsync` takes a `BrowserClockInstallOptions`); it covers every tab, like `Context.Clock` |
+| `Browser.BrowserType.Name`, `Browser.Version` | [`Browser.Name`](/features/browser/#name-the-browser), `Browser.Version`; `Assert.Ignore(reason)` in the body to skip on one browser |
 | `Context.AddCookiesAsync()`, `Context.CookiesAsync(urls)` | `Browser.SetCookiesAsync()`, `Browser.CookiesAsync(urls)` |
 | `Context.ClearCookiesAsync(options)` | `Browser.ClearCookiesAsync(new CookieFilter { ... })` |
 

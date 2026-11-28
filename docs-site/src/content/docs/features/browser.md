@@ -27,6 +27,29 @@ The agent doesn't see inert content, so it never aims at a control that takes no
 
 Locators still find inert content, and `ToBeVisibleAsync` still passes, as in Playwright.
 
+## Name the browser
+
+`Browser.Name` is the browser the test runs in (`BrowserName.Chromium`, `Firefox`, or `Webkit`) and `Browser.Version` the version it reports. Skip a test on one browser from its body:
+
+```csharp
+[Test]
+public async Task Copies_the_invite_link()
+{
+    if (Browser.Name == BrowserName.Webkit)
+    {
+        Assert.Ignore("not supported on WebKit yet");
+    }
+
+    await App.OpenAsync("/invite");
+}
+```
+
+- `Name` is the `WebEngineOptions.BrowserName` value. A browser attached with `Connect` or leased from a provider is always `Chromium`, because the engine drives it over CDP. That holds for Chrome and Edge, and for a CDP server that isn't Chromium, such as Lightpanda.
+- `Version` is read from the running browser. For an attached or hosted one it is what its CDP endpoint reports. `WebEngineOptions.UserAgent` doesn't change it.
+- Both are properties, not steps, take no timeout, and can be read before the first navigation. Read after the attempt ended, or from a browser kept into another attempt, they throw `EngineException` with `INVALID_STATE`.
+- For the operating system, use `RuntimeInformation` when the browser runs on the runner's machine. For a hosted browser, read `navigator.platform` with `Browser.EvaluateAsync`.
+- To tell Chrome from Edge, read `navigator.userAgentData.brands` with `Browser.EvaluateAsync`. Chromium exposes it only in a secure context: an HTTPS, loopback, or `file:` page.
+
 ## Control time
 
 `Browser.Clock` sets the time the page reads and runs its timers on your command, as Playwright's `Page.Clock` does. Install it before the page opens, then pause it:

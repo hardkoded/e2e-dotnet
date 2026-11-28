@@ -68,6 +68,23 @@ Viewport-level keyboard, for whatever has focus.
 
 **Value:** [BrowserKeyboard](/api/E2E/BrowserKeyboard/)
 
+<a id="E2E_Browser_Name_"></a>
+<a id="E2E_Browser_Name"></a>
+
+### Name
+
+
+```csharp
+public BrowserName Name { get; }
+```
+
+
+The browser the attempt drives, as the driver names it: the `WebEngineOptions.BrowserName` value, and
+[Chromium](/api/E2E.Engine/BrowserName/) for every browser the engine attaches to over CDP (`Connect`, a provider), whatever it is.
+It touches no page and takes no timeout. A browser kept past its attempt fails with `INVALID_STATE`.
+
+**Value:** [BrowserName](/api/E2E.Engine/BrowserName/)
+
 <a id="E2E_Browser_Mouse_"></a>
 <a id="E2E_Browser_Mouse"></a>
 
@@ -82,6 +99,22 @@ public BrowserMouse Mouse { get; }
 Direct pointer input from test code, independent of agent observations.
 
 **Value:** [BrowserMouse](/api/E2E/BrowserMouse/)
+
+<a id="E2E_Browser_Version_"></a>
+<a id="E2E_Browser_Version"></a>
+
+### Version
+
+
+```csharp
+public string Version { get; }
+```
+
+
+The version the running browser reports, such as `159.0.8154.6`: for an attached or hosted one, what its CDP endpoint reports.
+The target's `UserAgent` does not change it. A browser kept past its attempt fails with `INVALID_STATE`.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
 ## Methods
 

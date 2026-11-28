@@ -92,6 +92,8 @@ For xUnit v3, use `E2E.XUnit.V3` and `[Fact]`. The body is the same. Locator act
 | `.GetAttribute("value")`, `.GetAttribute("checked")` | `.InputValueAsync()`, `.IsCheckedAsync()`. e2e's `.GetAttributeAsync()` reads the DOM attribute, not the property |
 | `wait.Until(ElementIsVisible(...))`, `d => el.Text == "x"`, `UrlContains(...)` | `Expect.That(locator).ToBeVisibleAsync()`, `.ToHaveTextAsync("x")`, `Expect.That(Browser).ToHaveURLAsync(new Regex("..."))` |
 | `SwitchTo().Frame()`, `SwitchTo().Alert().Accept()` | `Browser.FrameLocator("#frame")`, `await Browser.OnDialogAsync(DialogHandler.Accept)` before the action |
+| `GetCapabilities().GetBrowserName()`, `GetBrowserVersion()` | [`Browser.Name`](/features/browser/#name-the-browser), which is `Chromium`, `Firefox`, or `Webkit` and never a brand, and `Browser.Version` |
+| `GetCapabilities().GetPlatformName()` | `RuntimeInformation.OSDescription` for a browser on the runner's machine; for a hosted one, `Browser.EvaluateAsync<string>("() => navigator.platform")` |
 | `SwitchTo().Window(handle)`, `WindowHandles`, `SwitchTo().NewWindow()` | `tab.ActivateAsync()`, `Browser.Tabs`, `Browser.NewTabAsync()`; `Browser.WaitForPopupAsync(() => trigger)` for a tab the app opens |
 | `ExecuteScript(script, args)` | `Browser.EvaluateAsync<T>(fn, arg)`, JSON in and out only |
 | Page objects | A class that takes `Screen` and `Browser`, or a goal for `Agent.ActAsync`, see [Migrating from Playwright .NET](/migrate/playwright/#port-page-objects) |
