@@ -10,12 +10,17 @@ public partial class App : Application
     }
 
     private Uri? _pendingLink;
+    private bool _shellLoaded;
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
         var shell = new AppShell();
         // A link that arrives during a cold start finds no shell yet; it is followed once the shell is up.
-        shell.Loaded += (_, _) => _ = FollowPendingLinkAsync();
+        shell.Loaded += (_, _) =>
+        {
+            _shellLoaded = true;
+            _ = FollowPendingLinkAsync();
+        };
         return new Window(shell);
     }
 
@@ -37,21 +42,31 @@ public partial class App : Application
 
     private async Task FollowPendingLinkAsync()
     {
-        if (_pendingLink is not { } uri || Shell.Current is not { } shell)
+        if (!_shellLoaded || _pendingLink is not { } uri || Shell.Current is not { } shell)
         {
             return;
         }
 
-        _pendingLink = null;
         var route = uri.Host switch
         {
             "login-form" => nameof(LoginForm),
             "control-inventory" => nameof(ControlInventory),
             _ => null,
         };
-        if (route is not null)
+        if (route is null)
+        {
+            _pendingLink = null;
+            return;
+        }
+
+        try
         {
             await shell.GoToAsync(route);
+            _pendingLink = null;
+        }
+        catch (Exception error)
+        {
+            System.Diagnostics.Debug.WriteLine($"e2e-benchmark link {uri} was not followed: {error}");
         }
     }
 }

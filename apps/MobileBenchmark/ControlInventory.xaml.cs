@@ -40,14 +40,23 @@ public partial class ControlInventory : ContentPage
     {
         ShowColorScheme();
         ShowOrientation();
-        Application.Current!.RequestedThemeChanged += OnThemeChanged;
+        Unsubscribe();
+        if (Application.Current is { } app)
+        {
+            app.RequestedThemeChanged += OnThemeChanged;
+        }
+
         DeviceDisplay.Current.MainDisplayInfoChanged += OnDisplayInfoChanged;
         Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
     }
 
     private void Unsubscribe()
     {
-        Application.Current!.RequestedThemeChanged -= OnThemeChanged;
+        if (Application.Current is { } app)
+        {
+            app.RequestedThemeChanged -= OnThemeChanged;
+        }
+
         DeviceDisplay.Current.MainDisplayInfoChanged -= OnDisplayInfoChanged;
         Connectivity.Current.ConnectivityChanged -= OnConnectivityChanged;
     }
@@ -116,7 +125,16 @@ public partial class ControlInventory : ContentPage
     private async void OnUnlockBiometricsClicked(object? sender, EventArgs e)
     {
         BiometricsStatus.Text = "biometrics: authenticating";
-        BiometricsStatus.Text = await Biometrics.AuthenticateAsync() ? "biometrics: unlocked" : "biometrics: failed";
+        try
+        {
+            BiometricsStatus.Text = await Biometrics.AuthenticateAsync()
+                ? "biometrics: unlocked"
+                : "biometrics: failed";
+        }
+        catch (Exception)
+        {
+            BiometricsStatus.Text = "biometrics: failed";
+        }
     }
 
     private void OnHoldMePressed(object? sender, EventArgs e) => _held.Restart();

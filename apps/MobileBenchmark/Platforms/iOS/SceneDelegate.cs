@@ -31,9 +31,9 @@ public class SceneDelegate : MauiUISceneDelegate
 
         foreach (var context in urlContexts)
         {
-            if (context.Url.AbsoluteString is { } link)
+            if (Uri.TryCreate(context.Url.AbsoluteString, UriKind.Absolute, out var link))
             {
-                Microsoft.Maui.Controls.Application.Current?.SendOnAppLinkRequestReceived(new Uri(link));
+                Microsoft.Maui.Controls.Application.Current?.SendOnAppLinkRequestReceived(link);
             }
         }
     }
