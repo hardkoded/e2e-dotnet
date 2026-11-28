@@ -187,7 +187,7 @@ public sealed class TestOutcomeTests
         );
 
         Assert.Equal(
-            "Test \"A.B.C\" ended without failing after 40ms; 1 step ran.\nThe session is on the screen the test ended on, shown below.",
+            "Test \"A.B.C\" ended without failing after 40ms; 1 step ran.\nThe session is on the screen the test ended on.",
             text
         );
     }

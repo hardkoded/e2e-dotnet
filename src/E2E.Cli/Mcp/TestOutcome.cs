@@ -193,8 +193,8 @@ internal static class TestOutcome
     /// <summary>What the session is for now, and how to run the test again.</summary>
     private static string NextSteps(string name, Exception? failure) =>
         failure is null
-            ? "The session is on the screen the test ended on, shown below."
-            : "The session is on the screen where the test stopped, shown below: observe and locate from here, and act out the test's next lines to check them too, then fix the test file. "
+            ? "The session is on the screen the test ended on."
+            : "The session is on the screen where the test stopped: observe and locate from here, and act out the test's next lines to check them too, then fix the test file. "
                 + "Its tear-down already ran. To run the fixed test from the start, close_session, then open_session {test: \""
                 + name
                 + "\"}.";

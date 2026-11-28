@@ -223,7 +223,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
         return new CatalogTool
         {
             Description =
-                "Every test line this session's actions printed so far, in order: the Screen.* and App.* calls that repeat each action, with a comment where an action has none. "
+                "The test lines this session's actions printed so far, in order, as a draft test body. They are the Screen.* and App.* calls that repeat each action, with a comment where an action has none. "
                 + guidance
                 + " See topic writing-tests, Structure.",
             InputSchema = JsonSerializer.SerializeToElement(

@@ -813,7 +813,7 @@ internal sealed class SessionCatalog
         return new CatalogTool
         {
             Description =
-                "Look at the whole current screen: every node with its id, role, name, and state. Action results report only what changed since the screen you last received; call this to see everything again or after waiting for something in progress.",
+                "Look at the whole current screen: every node with its id, role, name, and state. Action results report only what changed since the last screen; call this to list everything, or after waiting for something in progress.",
             InputSchema = Schema([]),
             Execute = async (_, token) =>
             {
@@ -1090,7 +1090,7 @@ internal sealed class SessionCatalog
         return new CatalogTool
         {
             Description =
-                "Try a semantic locator against the live screen before writing it into a test: Screen.GetByRole(role, name), GetByText, GetByLabel, GetByPlaceholder, or GetByTestId. Returns how many nodes match and which, plus the test code to use. Exactly one of role, text, label, placeholder, or testId; name narrows a role query. Matching is exact unless exact is false.",
+                "Try a semantic locator against the live screen before writing it into a test. It runs Screen.GetByRole(role, name), GetByText, GetByLabel, GetByPlaceholder, or GetByTestId, and returns how many nodes match and which, plus the test code to use. Exactly one of role, text, label, placeholder, or testId; name narrows a role query. Matching is exact unless exact is false.",
             InputSchema = Schema(
                 [],
                 ("role", Property("string", "ARIA role, e.g. \"button\", \"textbox\", \"link\""), false),

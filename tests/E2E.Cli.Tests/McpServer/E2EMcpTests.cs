@@ -43,7 +43,11 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         Assert.True(open.TryGetProperty("target", out _));
         Assert.True(open.TryGetProperty("config", out _));
         Assert.Equal("boolean", open.GetProperty("headed").GetProperty("type").GetString());
-        Assert.Contains("call {tool, args} runs any catalog tool", client.ServerInstructions, StringComparison.Ordinal);
+        Assert.Contains(
+            "call {tool, args} runs one of those tools",
+            client.ServerInstructions,
+            StringComparison.Ordinal
+        );
         Assert.Contains("Several sessions can be open at once", client.ServerInstructions, StringComparison.Ordinal);
         Assert.Contains(
             "Before you write or edit a test, read the writing-tests guide: the resource e2e://guide/writing-tests, or e2e guide writing-tests in a shell.",
@@ -181,13 +185,13 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         );
         Assert.Matches(
             new Regex(
-                @"Current screen \(revision b\d+, path /, \d+ nodes\):",
+                @"\n\nScreen: revision b\d+, path /, \d+ nodes, not listed\..*$",
                 RegexOptions.None,
                 TimeSpan.FromSeconds(5)
             ),
             opened.Text
         );
-        Assert.Contains("button \"Increment\"", opened.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("button \"Increment\"", opened.Text, StringComparison.Ordinal);
         var sessionId = Regex
             .Match(opened.Text, @"^Session (\S+) open", RegexOptions.None, TimeSpan.FromSeconds(5))
             .Groups[1]
@@ -364,7 +368,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
             .Value;
         Assert.NotEqual(sessionId, secondId);
         Assert.Contains(
-            $"Pass session \"{secondId}\" to every tools, call, and close_session; with several sessions open, a call without it fails.",
+            $"Pass session \"{secondId}\" to tools, call, and close_session.",
             second.Text,
             StringComparison.Ordinal
         );
@@ -484,7 +488,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
             new() { ["target"] = "web", ["config"] = "e2e.config.json" }
         );
         Assert.False(reopened.IsError, reopened.Text);
-        Assert.Contains("button \"Increment\"", reopened.Text, StringComparison.Ordinal);
+        Assert.Matches(@"\n\nScreen: revision b\d+, path /, \d+ nodes, not listed\..*$", reopened.Text);
         var closed = await _served.InvokeAsync("close_session");
         Assert.False(closed.IsError, closed.Text);
     }

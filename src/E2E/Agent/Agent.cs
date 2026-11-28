@@ -1105,6 +1105,13 @@ public sealed partial class Agent
         );
     }
 
+    /// <summary>The screen a session is on, as its coding agent would see it, without presenting it (upstream's catalog <c>context.observe</c>).</summary>
+    internal async Task<ExecutorObservation> ObserveScreenAsync(CancellationToken token) =>
+        _feed.View(
+            _feed.PreparedOf(await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false)),
+            _scope
+        );
+
     /// <summary>
     /// Notes a screenshot a session showed its coding agent, with the viewport the screen has now: a point tool reads its
     /// coordinates against it (upstream's <c>screen.latestScreenshot</c>).

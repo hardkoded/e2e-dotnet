@@ -192,13 +192,30 @@ internal sealed partial class ScreenPresenter
     /// <summary>The newest screenshot the model holds; the coordinate space of <c>tap_at</c> (upstream's <c>latestScreenshot</c>).</summary>
     public ShownScreenshot? LatestScreenshot => _screenshot;
 
+    // Takes a screen as the one later updates are compared with (upstream's private `hold`).
+    private void Hold(ExecutorObservation observation)
+    {
+        _shown = observation.TreeUnavailable ? null : Index(observation);
+        _seen = (observation.Tabs, observation.Path ?? _seen?.Path);
+    }
+
     /// <summary>The first screen, whole.</summary>
     public string Initial(ExecutorObservation observation)
     {
         ArgumentNullException.ThrowIfNull(observation);
-        _shown = observation.TreeUnavailable ? null : Index(observation);
-        _seen = (observation.Tabs, observation.Path ?? _seen?.Path);
+        Hold(observation);
         return RenderFull(observation, _shown);
+    }
+
+    /// <summary>
+    /// The first screen by revision, location, and size only, for a reader that asks for the listing when it wants one. Later updates report
+    /// against it all the same, so the caller has to say it was not listed (upstream's <c>unlisted</c>).
+    /// </summary>
+    public string Unlisted(ExecutorObservation observation)
+    {
+        ArgumentNullException.ThrowIfNull(observation);
+        Hold(observation);
+        return DescribeScreen(observation, _shown);
     }
 
     /// <summary>A later screen, as the difference from the one the agent holds: nothing, the changed lines, or the whole screen when most of it changed.</summary>
@@ -401,28 +418,16 @@ internal sealed partial class ScreenPresenter
     }
 
     // One full screen, headed so a reader can find it later.
-    private static string RenderFull(ExecutorObservation observation, ShownScreen? shown)
-    {
-        if (observation.TreeUnavailable)
-        {
-            return CurrentScreen
-                + "revision "
-                + observation.Revision
-                + DescribeLocation(observation)
-                + ", "
-                + NoTree
-                + "):\n"
-                + observation.Text;
-        }
+    private static string RenderFull(ExecutorObservation observation, ShownScreen? shown) =>
+        CurrentScreen + DescribeScreen(observation, shown) + "):\n" + observation.Text;
 
-        return CurrentScreen
-            + "revision "
-            + observation.Revision
-            + DescribeLocation(observation)
-            + ", "
-            + shown!.ById.Count.ToString(CultureInfo.InvariantCulture)
-            + " nodes):\n"
-            + observation.Text;
+    // A screen by its revision, where it is, and how much it lists.
+    private static string DescribeScreen(ExecutorObservation observation, ShownScreen? shown)
+    {
+        var listed = observation.TreeUnavailable
+            ? NoTree
+            : shown!.ById.Count.ToString(CultureInfo.InvariantCulture) + " nodes";
+        return "revision " + observation.Revision + DescribeLocation(observation) + ", " + listed;
     }
 
     /// <summary>

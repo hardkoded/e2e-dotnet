@@ -126,7 +126,7 @@ internal sealed class SessionHost : IDisposable
           "type": "object",
           "properties": {
             "tool": { "type": "string", "minLength": 1, "description": "A catalog tool name, for its full contract" },
-            "session": { "type": "string", "minLength": 1, "description": "Session id from open_session; may be omitted only while one session is open" }
+            "session": { "type": "string", "minLength": 1, "description": "Session ID from open_session; optional while one session is open" }
           },
           "additionalProperties": false
         }
@@ -140,7 +140,7 @@ internal sealed class SessionHost : IDisposable
           "properties": {
             "tool": { "type": "string", "minLength": 1, "description": "A catalog tool name, e.g. \"observe\", \"tap\", \"locate\", \"screenshot\"" },
             "args": { "type": "object", "propertyNames": { "type": "string" }, "additionalProperties": {}, "description": "The tool's arguments; omit for a tool without any" },
-            "session": { "type": "string", "minLength": 1, "description": "Session id from open_session; may be omitted only while one session is open" }
+            "session": { "type": "string", "minLength": 1, "description": "Session ID from open_session; optional while one session is open" }
           },
           "required": ["tool"],
           "additionalProperties": false
@@ -153,7 +153,7 @@ internal sealed class SessionHost : IDisposable
         {
           "type": "object",
           "properties": {
-            "session": { "type": "string", "minLength": 1, "description": "Session id from open_session; may be omitted only while one session is open" }
+            "session": { "type": "string", "minLength": 1, "description": "Session ID from open_session; optional while one session is open" }
           },
           "additionalProperties": false
         }
@@ -184,7 +184,7 @@ internal sealed class SessionHost : IDisposable
     }
 
     /// <summary>
-    /// Opens a session and returns its opening text: the summary, the catalog, and the first screen.
+    /// Opens a session and returns its opening text: the summary, the catalog, and the line that names the first screen.
     /// <paramref name="cancellationToken"/> is the request's: a client that cancels it, or disconnects, aborts the
     /// open and what it started.
     /// </summary>
@@ -836,10 +836,10 @@ internal sealed class SessionHost : IDisposable
         {
             try
             {
-                var left = await agent
-                    .RunToolAsync("observe", Parse("{}"), token, live.Catalog.Screen)
-                    .ConfigureAwait(false);
-                return left.Succeeded ? Screen(left.Content) : "No screen to show: " + (left.Error ?? left.Content);
+                return Tools.FirstScreenLine(
+                    live.Catalog.Screen,
+                    await agent.ObserveScreenAsync(token).ConfigureAwait(false)
+                );
             }
             catch (E2EException cause)
             {
@@ -852,19 +852,9 @@ internal sealed class SessionHost : IDisposable
             }
         }
 
-        var observed = await agent
-            .RunToolAsync("observe", Parse("{}"), token, live.Catalog.Screen)
-            .ConfigureAwait(false);
         return opening
-            + (
-                observed.Content.StartsWith("Observed.\n", StringComparison.Ordinal)
-                    ? observed.Content["Observed.\n".Length..]
-                    : observed.Content
-            );
+            + Tools.FirstScreenLine(live.Catalog.Screen, await agent.ObserveScreenAsync(token).ConfigureAwait(false));
     }
-
-    private static string Screen(string content) =>
-        content.StartsWith("Observed.\n", StringComparison.Ordinal) ? content["Observed.\n".Length..] : content;
 
     private string OpeningText(LiveSession live, TargetConfig target, ResolvedApp app, E2EConfig config, string screen)
     {
@@ -914,15 +904,11 @@ internal sealed class SessionHost : IDisposable
             );
         }
 
-        lines.Add(
-            "Pass session \""
-                + live.Id
-                + "\" to every tools, call, and close_session; with several sessions open, a call without it fails."
-        );
+        lines.Add("Pass session \"" + live.Id + "\" to tools, call, and close_session.");
         lines.Add("Tools (run one with call {tool, args}; tools {tool} shows a tool's arguments):");
         lines.AddRange(CatalogLines(live));
         lines.Add(
-            "Node ids (#id in observe) are valid only for the newest observation; every action reports what changed on screen and the test line that repeats it (test_lines returns them all), and observe shows the whole screen. Call close_session when you are done."
+            "Node ids (#id in observe) are valid only for the newest observation. Every action prints the test line that repeats it. Call close_session when you are done."
         );
         lines.Add(ReadWritingGuide);
         return string.Join('\n', lines) + "\n\n" + screen;
@@ -977,7 +963,7 @@ internal sealed class SessionHost : IDisposable
         {
             Name = "open_session",
             Description =
-                "Open a live session on one target of an e2e project: loads the config, boots the engine (a browser, a simulator), opens the app (its URL, or the pinned app on a device), and returns the session id, the catalog of tools it can run, and the first observation. Several sessions can be open at once, one per agent, each with its own engine: pass the returned session id to every later call. Then act with call and look with call {tool: \"observe\"}.",
+                "Open a live session on one target of an e2e project. The reply has the session ID and its tools. The target's config decides the engine, the app URL or pinned app, and any app command. Pass test to run one test first; the session opens on the screen where it passed or failed, and a failure and its line lead the reply.",
             InputSchema = OpenSchema,
             ReadOnly = false,
             Call = async (args, token) =>
@@ -1003,7 +989,7 @@ internal sealed class SessionHost : IDisposable
         {
             Name = "tools",
             Description =
-                "List the tools a session can run through call: observe, the grammar its engine honors (one tool per action the engine declares, type_secret when a secret is configured, and screenshot), locate, and test_lines (the test line each action printed, as a draft test body). With tool, shows that tool's full description and the JSON Schema of its arguments.",
+                "List the tools a session runs through call, one line each. With tool, shows that tool's full description and the JSON Schema of its arguments.",
             InputSchema = CatalogSchema,
             ReadOnly = true,
             Call = (args, _) =>
@@ -1017,7 +1003,7 @@ internal sealed class SessionHost : IDisposable
         {
             Name = "call",
             Description =
-                "Run one tool of a session by name, with its arguments as an object: call {tool: \"tap\", args: {target: \"n42\"}, session: \"<id>\"}. The session's catalog (from open_session or tools) names the tools and their arguments. Actions report what changed on screen and the test line that repeats them; node ids are valid only for the newest observation.",
+                "Run one tool of a session by name, with its arguments as an object: call {tool: \"tap\", args: {target: \"n42\"}, session: \"<id>\"}. open_session and tools name the tools and their arguments.",
             InputSchema = CallSchema,
             ReadOnly = false,
             Call = (args, token) =>
@@ -1036,7 +1022,7 @@ internal sealed class SessionHost : IDisposable
         {
             Name = "close_session",
             Description =
-                "Close a live session: end the attempt, dispose the engine, and stop the browser the session started.",
+                "Close a session: saves a running recording and stops the engine and the app processes started for it.",
             InputSchema = CloseSchema,
             ReadOnly = false,
             Call = async (args, _) =>
