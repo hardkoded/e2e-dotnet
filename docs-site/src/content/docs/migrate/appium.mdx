@@ -161,6 +161,7 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | `.waitForDisplayed({ reverse: true })` | `await Expect.That(locator).ToBeHiddenAsync()` |
 | `mobile: swipeGesture`, `mobile: swipe`, `driver.swipe({ direction: 'up' })` | `locator.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down })` or `Screen.SwipeAsync(new SwipeOptions { ... })`. e2e names the content's direction, not the finger's |
 | `mobile: scrollGesture`, `mobile: scroll` to an element, `.scrollIntoView()` | `Screen.ScrollUntilVisibleAsync(locator)`, or `list.ScrollUntilVisibleAsync(locator)` on the scroll view |
+| `UiScrollable` `scrollToEnd()`, `scrollToBeginning()` | `list.ScrollToAsync(ScrollEdge.Bottom)`, `list.ScrollToAsync(ScrollEdge.Top)` |
 | `.dragAndDrop(target)`, a drag that ends on an element | `locator.DragToAsync(target)` |
 | A `performActions` swipe between two points | `Screen.SwipeAsync(new SwipePathOptions { From = new Point(x1, y1), To = new Point(x2, y2) })` |
 | A tap at coordinates | `Screen.TapAtAsync(new Point(x, y))`; inside an element, `.TapAsync(new TapOptions { Position = new Point(x, y) })` |
@@ -280,7 +281,6 @@ Planned rows are on the roadmap, and Not yet rows have no date. Not planned rows
 | `.isSelected()` | `ToBeSelectedAsync` for the selected state |
 | `pressKeyCode(code)`, `driver.keys('Backspace')` | `.PressAsync()` takes `Enter`, `Space`, or one character. Use `.ClearAsync()` and `.FillAsync()` |
 | `driver.getWindowRect()`, `mobile: deviceInfo` | `Device.ViewportAsync()` returns size only. Window position and full device information have no equivalent |
-| `UiScrollable` `scrollToEnd()`, `scrollToBeginning()` | Loop `locator.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down })` until `AllTextContentsAsync()` stops changing; `Up` for the beginning |
 | `mobile: selectPickerWheelValue`, date and time pickers, slider values | Swipe the wheel and read `.InputValueAsync()`, or use an `Agent.ActAsync` goal |
 | `mobile: dragGesture` to coordinates, `mobile: dragFromToForDuration` | `DeviceMethods.InteractionsDrag` through `Device.UnstableRaw`, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes) |
 

@@ -49,6 +49,7 @@ public sealed class LocatorActionOptionsTests
         ["scrollIntoView"] = (locator, options, _) => locator.ScrollIntoViewAsync(options),
         ["swipe"] = (locator, options, _) =>
             locator.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down, Timeout = options.Timeout }),
+        ["scrollTo"] = (locator, options, _) => locator.ScrollToAsync(ScrollEdge.Bottom, options),
     };
 
     public static TheoryData<string> Verbs => new(Calls.Keys);

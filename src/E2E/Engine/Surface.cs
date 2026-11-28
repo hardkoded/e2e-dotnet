@@ -9,7 +9,7 @@ namespace E2E.Engine;
 
 /// <summary>
 /// Upstream's <c>TargetSession</c> (<c>engine/surface.ts</c>): the internal session surface the harness consumes for one attempt. It is
-/// produced only by <see cref="EngineSessions.CreateEngineSession"/>, the engine-to-session adapter, so revision minting, staleness checks, and
+/// produced only by <see cref="EngineSessions.CreateEngineSession(EngineSessionOptions)"/>, the engine-to-session adapter, so revision minting, staleness checks, and
 /// capability gating exist once.
 /// </summary>
 public interface ITargetSession
@@ -47,6 +47,12 @@ public interface ITargetSession
 
     /// <summary>Performs a viewport swipe: <c>perform(root, swipe)</c>, observing first when no observation has named the root yet.</summary>
     Task SwipeAsync(ScrollDirection direction, Momentum? momentum, OperationContext operation);
+
+    /// <summary>
+    /// The observation root's ref, which a screen-wide action such as <see cref="LocatorAction.ScrollTo"/> is performed on; observes first when no
+    /// observation has named it yet. Upstream's <c>rootRef</c>.
+    /// </summary>
+    Task<NodeRef> RootRefAsync(OperationContext operation);
 
     /// <summary>Performs one pointer action at a viewport point, in CSS pixels, with no node behind it.</summary>
     Task PerformAtAsync(Point point, PointerAction action, OperationContext operation);

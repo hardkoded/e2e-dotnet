@@ -567,6 +567,18 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         CancellationToken cancellationToken
     ) => _engine.Actions.SwipeAsync(this, direction, context, cancellationToken);
 
+    /// <summary>
+    /// <see cref="LocatorAction.ScrollTo"/> on the screen: upstream's <c>perform(rootRef, scrollTo, operation)</c> on the observation root,
+    /// which is <see cref="SnapshotProjection.RootId"/>.
+    /// </summary>
+    public Task ScrollToAsync(ScrollEdge edge, OperationContext context, CancellationToken cancellationToken) =>
+        PerformAsync(
+            new SemanticNode { Ref = SnapshotProjection.RootId },
+            new LocatorAction.ScrollTo(edge),
+            context,
+            cancellationToken
+        );
+
     public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) =>
         ScreenshotAsync(ActionTimeout, cancellationToken);
 

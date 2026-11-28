@@ -76,7 +76,7 @@ public static class EngineActionKinds
     /// manifest's <c>actions</c> is checked against. Upstream's <c>KNOWN_LOCATOR_ACTION_KINDS</c>.
     /// </summary>
     public static IReadOnlyList<string> KnownLocator { get; } =
-    [.. Locator, "blur", "setInputFilePayloads", "multiTap"];
+    [.. Locator, "blur", "setInputFilePayloads", "multiTap", "scrollTo"];
 
     /// <summary>Every kind of <see cref="PointerAction"/>.</summary>
     public static IReadOnlyList<string> Pointer { get; } =
@@ -107,6 +107,7 @@ public static class EngineActionKinds
             LocatorAction.SetInputFilePayloads => "setInputFilePayloads",
             LocatorAction.DragTo => "dragTo",
             LocatorAction.Swipe => "swipe",
+            LocatorAction.ScrollTo => "scrollTo",
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, "unknown locator action"),
         };
     }

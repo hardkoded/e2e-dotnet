@@ -390,6 +390,38 @@ With one, a call inside another step or an `expect.poll` read is refused too. Up
 | --- | --- |
 | [TestException](/api/E2E/TestException/) | `INVALID_ARGUMENT` when called on a frame's screen, or where the attempt cannot hold a pause. |
 
+<a id="E2E_Screen_ScrollToAsync_"></a>
+<a id="E2E_Screen_ScrollToAsync_E2E_Engine_ScrollEdge_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
+
+### ScrollToAsync(ScrollEdge, ActionOptions?, CancellationToken)
+
+
+```csharp
+public Task ScrollToAsync(ScrollEdge edge, ActionOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+Scrolls a container to an edge, as far as it goes: on the screen the screen's main scrolling content, else the content under its center; on
+a locator the node, or its nearest ancestor that scrolls along that axis (on a device, whatever scrolls under a drag inside the node's box,
+so locate the list, not a row). Resolves at once when it is there already or nothing scrolls. [Timeout](/api/E2E/ActionOptions/#E2E_ActionOptions_Timeout) bounds the
+whole scroll. Upstream's `screen.scrollTo(edge)`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `edge` | [ScrollEdge](/api/E2E.Engine/ScrollEdge/) |  |
+| `options` | [ActionOptions](/api/E2E/ActionOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_ARGUMENT` for an edge that is not one of the four, and on a frame's screen, whose root is the screen around the frame. |
+
 <a id="E2E_Screen_ScrollUntilVisibleAsync_"></a>
 <a id="E2E_Screen_ScrollUntilVisibleAsync_E2E_Locator_E2E_ScrollUntilVisibleOptions_System_Threading_CancellationToken_"></a>
 

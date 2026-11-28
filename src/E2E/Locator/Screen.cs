@@ -40,7 +40,8 @@ public class Screen
         Func<ScrollDirection, Momentum?, CancellationToken, Task>? swipe = null,
         Func<TimeSpan, CancellationToken, Task<Observation>>? observeWithin = null,
         Func<Point, PointerAction, CancellationToken, Task>? performAt = null,
-        Func<string, bool, CancellationToken, Task>? typeText = null
+        Func<string, bool, CancellationToken, Task>? typeText = null,
+        Func<ScrollEdge, CancellationToken, Task>? scrollTo = null
     )
         : this(
             new LocatorEngine(
@@ -52,6 +53,7 @@ public class Screen
                     Perform = (node, action, _, token) => perform(node, action, token),
                     PerformAt = performAt is null ? null : (point, action, _, token) => performAt(point, action, token),
                     TypeText = typeText,
+                    ScrollTo = scrollTo is null ? null : (edge, _, token) => scrollTo(edge, token),
                     Cancellation = cancellation,
                     ActionTimeout = actionTimeout,
                     AssertionTimeout = assertionTimeout,
@@ -366,6 +368,46 @@ public class Screen
             var token = Token(cancellationToken);
             await AppNotOpen.GuardAsync(() => swipe(options.Direction, options.Momentum, token)).ConfigureAwait(false);
         });
+    }
+
+    /// <summary>
+    /// Scrolls a container to an edge, as far as it goes: on the screen the screen's main scrolling content, else the content under its center; on
+    /// a locator the node, or its nearest ancestor that scrolls along that axis (on a device, whatever scrolls under a drag inside the node's box,
+    /// so locate the list, not a row). Resolves at once when it is there already or nothing scrolls. <see cref="ActionOptions.Timeout"/> bounds the
+    /// whole scroll. Upstream's <c>screen.scrollTo(edge)</c>.
+    /// </summary>
+    /// <exception cref="TestException"><c>INVALID_ARGUMENT</c> for an edge that is not one of the four, and on a frame's screen, whose root is the screen around the frame.</exception>
+    public Task ScrollToAsync(
+        ScrollEdge edge,
+        ActionOptions? options = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        RequireScrollEdge(edge);
+        // A frame's screen has no root of its own: the engine's root is the top-level screen, so scrolling it would scroll the page around the frame.
+        if (IsScoped)
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                "scrollTo() on a frame would scroll the screen around it; call it on a locator inside the frame, such as its scroll container"
+            );
+        }
+
+        return RunStepAsync(StepKind.Screen, "screen.scrollTo", LocatorEngine.EdgeName(edge), () =>
+            Engine.ScrollToAsync(null, edge, options?.Timeout, Token(cancellationToken))
+        );
+    }
+
+    /// <summary>Refuses anything but one of the four scroll edges before a step starts. Upstream's <c>requireScrollEdge</c>.</summary>
+    internal static void RequireScrollEdge(ScrollEdge edge)
+    {
+        if (!Enum.IsDefined(edge))
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                $"scrollTo takes an edge: 'top', 'bottom', 'left', 'right'; got {(int)edge}"
+            );
+        }
     }
 
     /// <summary>
@@ -1015,6 +1057,25 @@ public sealed class Locator
             null,
             null,
             cancellationToken
+        );
+    }
+
+    /// <summary>
+    /// Scrolls the node, or its nearest ancestor that scrolls along the edge's axis, to <paramref name="edge"/>, as far as it goes. See
+    /// <see cref="Screen.ScrollToAsync(ScrollEdge, ActionOptions, CancellationToken)"/>. Upstream's <c>locator.scrollTo(edge)</c>.
+    /// </summary>
+    public Task ScrollToAsync(
+        ScrollEdge edge,
+        ActionOptions? options = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        Screen.RequireScrollEdge(edge);
+        return _screen.RunStepAsync(
+            StepKind.Locator,
+            "locator.scrollTo",
+            Query.Describe() + " → " + LocatorEngine.EdgeName(edge),
+            () => _screen.Engine.ScrollToAsync(Query, edge, options?.Timeout, _screen.Token(cancellationToken))
         );
     }
 

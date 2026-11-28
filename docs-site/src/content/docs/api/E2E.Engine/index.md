@@ -85,6 +85,7 @@ Public types in the `E2E.Engine` namespace.
 | [LocatorAction.MultiTap](/api/E2E.Engine/LocatorAction.MultiTap/) | Count taps in a row on one point: 3 or more, since 2 is LocatorAction.DoubleTap. A browser reads them as one multi-click (a triple click selects a paragraph); a device presses them at its own cadence, which a gesture detector may not read as one. Not a kind of SPI v1, so an engine lists it explicitly. Modifiers are held for every click, as for LocatorAction.Tap. Upstream's multiTap. |
 | [LocatorAction.Press](/api/E2E.Engine/LocatorAction.Press/) |  |
 | [LocatorAction.ScrollIntoView](/api/E2E.Engine/LocatorAction.ScrollIntoView/) | Scrolls the node's nearest scrollable container until the node is in the viewport. |
+| [LocatorAction.ScrollTo](/api/E2E.Engine/LocatorAction.ScrollTo/) | Scrolls a container to one of its edges, as far as it goes. On a node: the node when it scrolls along the edge's axis, else its nearest ancestor that does; an engine that cannot tell which node scrolls drags inside the node's own box. On the observation root: the screen's main scrolling content, else what is under the viewport's center. The engine resolves once the container cannot scroll further toward Edge, at once when it is there already or nothing scrolls along that axis, and stops when the operation's budget runs out. Not a kind of SPI v1, so an engine lists it explicitly. Upstream's scrollTo. |
 | [LocatorAction.SecondaryTap](/api/E2E.Engine/LocatorAction.SecondaryTap/) | A right click, or the platform's equivalent. Modifiers are held for the click, as for LocatorAction.Tap. |
 | [LocatorAction.Select](/api/E2E.Engine/LocatorAction.Select/) | Selects one option: the one whose value or label is Text, or the one Option names by its label, its value, or its index. Exactly one of the two is set. |
 | [LocatorAction.SetInputFilePayloads](/api/E2E.Engine/LocatorAction.SetInputFilePayloads/) | Sets the files of a file input, or of a control that opens a file chooser, from memory. An empty Files clears the input. Upstream's setInputFilePayloads; only an engine that declares that kind receives it. |
@@ -138,7 +139,6 @@ Public types in the `E2E.Engine` namespace.
 | [WebInitScript](/api/E2E.Engine/WebInitScript/) | A script every document runs before the page's own, in every tab and frame: JavaScript source, a file of it, or a function source the page calls. A string converts to source. |
 | [WebMedia](/api/E2E.Engine/WebMedia/) | User preferences a page reads through @media rules and matchMedia, as Playwright's emulateMedia sets them. A feature left null keeps the browser's own value, or the one an earlier call set. |
 | [WebRequest](/api/E2E.Engine/WebRequest/) | A request the page made: what a route handler reads as Request and WaitForRequestAsync returns. |
-| [WebRouteRequest](/api/E2E.Engine/WebRouteRequest/) | The request a route intercepted. |
 | [WebScreencastOptions](/api/E2E.Engine/WebScreencastOptions/) | How the engine's own screencast of the page records an attempt that records video: the frame size and the JPEG quality of the frames it encodes. Which attempts record is the config's video, not an engine option. Upstream's WebScreencastOptions. |
 | [WebViewport](/api/E2E.Engine/WebViewport/) | A page size in CSS pixels. |
 
@@ -188,5 +188,6 @@ Public types in the `E2E.Engine` namespace.
 | [OperationOrigin](/api/E2E.Engine/OperationOrigin/) | Who acts: a test's own deterministic step, or the agent acting on a screen it observed. A deterministic step verifies its outcome with expect, so an engine may act as soon as the target holds still. An agent reads the screen right after acting, so an engine may wait for the transition to end first. .NET-only: upstream's origin is the string union 'test' \| 'agent'. |
 | [PixelsWithheld](/api/E2E.Engine/PixelsWithheld/) | Upstream's PixelsWithheld (engine/surface.ts): why pixels a caller asked for are not part of an observation. |
 | [ScrollDirection](/api/E2E.Engine/ScrollDirection/) | Which way a scroll moves the content into view. Down reveals what is below. |
+| [ScrollEdge](/api/E2E.Engine/ScrollEdge/) | An edge of a scroll container, which LocatorAction.ScrollTo scrolls to. Upstream's ScrollEdge (SCROLL_EDGES). |
 | [WebColorScheme](/api/E2E.Engine/WebColorScheme/) | The prefers-color-scheme a page reports. |
 | [WebReducedMotion](/api/E2E.Engine/WebReducedMotion/) | The prefers-reduced-motion a page reports. |

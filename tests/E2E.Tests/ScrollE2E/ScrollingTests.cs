@@ -10,7 +10,7 @@ namespace E2E.Tests.ScrollE2E;
 /// Upstream's <c>test.describe('scrolling')</c> (<c>apps/testbed/tests/scroll.e2e.ts</c>) against a real Chromium. The port has no
 /// testbed, so each test opens a small page of its own with the same roles and names as the testbed's <c>/scroll</c> page: a
 /// page of rows that render as the page scrolls, and a <c>Pane</c> list that does the same inside itself. The page counts
-/// rows up to 100 and pane items up to 60, which stand in for the testbed's longer lists.
+/// rows up to 150 and pane items up to 60, which stand in for the testbed's longer lists.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class ScrollingTests
@@ -32,7 +32,7 @@ public sealed class ScrollingTests
           let rowCount = 0;
           let itemCount = 0;
           function fill() {
-            while (rowCount < 100 && rows.offsetTop + rows.offsetHeight < scrollY + innerHeight + 1500) {
+            while (rowCount < 150 && rows.offsetTop + rows.offsetHeight < scrollY + innerHeight + 1500) {
               rowCount += 1;
               const button = document.createElement("button");
               button.type = "button";
@@ -104,6 +104,53 @@ public sealed class ScrollingTests
             await Expect.That(screen.GetByRole("status", "Pane position")).Not.ToHaveTextAsync("0");
             await Expect.That(screen.GetByRole("status", "Scroll position")).ToHaveTextAsync("0");
             await item.TapAsync();
+            await Expect.That(screen.GetByRole("status", "Picked row")).ToHaveTextAsync("picked Item 40");
+        });
+    }
+
+    /// <summary>The Pane sits under the viewport's center: the screen still scrolls the page.</summary>
+    [Fact]
+    public async Task ScrollTo_jumps_the_page_to_its_bottom_and_back_to_its_top()
+    {
+        using var site = await TinySite.StartAsync(ScrollPage);
+        var session = await WebEngineTests.StartAsync(
+            site,
+            new ScriptedModel(_ => ModelResponses.Done("passed", "unused")),
+            cache: null
+        );
+        await WebEngineTests.RunAsync(session, async () =>
+        {
+            await session.App.OpenAsync("/");
+            var screen = session.Screen;
+            var position = screen.GetByRole("status", "Scroll position");
+            await screen.ScrollToAsync(ScrollEdge.Bottom);
+            await Expect.That(position).Not.ToHaveTextAsync("0");
+            await screen.GetByRole("button", "Row 120").TapAsync();
+            await Expect.That(screen.GetByRole("status", "Picked row")).ToHaveTextAsync("picked Row 120");
+            await Expect.That(screen.GetByRole("status", "Pane position")).ToHaveTextAsync("0");
+
+            await screen.ScrollToAsync(ScrollEdge.Top);
+            await Expect.That(position).ToHaveTextAsync("0");
+        });
+    }
+
+    [Fact]
+    public async Task ScrollTo_on_a_node_scrolls_that_node_to_its_end_and_leaves_the_page_where_it_was()
+    {
+        using var site = await TinySite.StartAsync(ScrollPage);
+        var session = await WebEngineTests.StartAsync(
+            site,
+            new ScriptedModel(_ => ModelResponses.Done("passed", "unused")),
+            cache: null
+        );
+        await WebEngineTests.RunAsync(session, async () =>
+        {
+            await session.App.OpenAsync("/");
+            var screen = session.Screen;
+            await screen.GetByRole("list", "Pane").ScrollToAsync(ScrollEdge.Bottom);
+            await Expect.That(screen.GetByRole("status", "Pane position")).Not.ToHaveTextAsync("0");
+            await Expect.That(screen.GetByRole("status", "Scroll position")).ToHaveTextAsync("0");
+            await screen.GetByRole("button", "Item 40").TapAsync();
             await Expect.That(screen.GetByRole("status", "Picked row")).ToHaveTextAsync("picked Item 40");
         });
     }

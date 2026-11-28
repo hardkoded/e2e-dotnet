@@ -322,6 +322,9 @@ internal sealed class EngineSession : IEngineSession, IEngineFixtureHost
             _engine.SwipeAsync(direction, momentum, Stamp(context), cancellationToken)
         );
 
+    public Task ScrollToAsync(ScrollEdge edge, OperationContext context, CancellationToken cancellationToken) =>
+        Guard("actions", cancellationToken, () => _engine.ScrollToAsync(edge, Stamp(context), cancellationToken));
+
     public Task BackAsync(CancellationToken cancellationToken) =>
         Guard("back navigation", cancellationToken, () => _engine.BackAsync(cancellationToken));
 

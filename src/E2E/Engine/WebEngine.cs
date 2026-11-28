@@ -2677,6 +2677,12 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                     // stored after it names an element of the page now.
                     var budget = Budget(action.GetType().Name.ToLowerInvariant(), cancellationToken, context.Timeout);
                     await RequireNoNewTwinAsync(node, budget).ConfigureAwait(false);
+                    if (action is LocatorAction.ScrollTo scrollTo)
+                    {
+                        await ScrollNodeToAsync(node, scrollTo, budget).ConfigureAwait(false);
+                        return;
+                    }
+
                     var (element, pin) = await FindElementAsync(node, action, budget).ConfigureAwait(false);
 
                     // The lists behind both nodes stay alive until the action ends, whatever observation publishes meanwhile.
@@ -2712,6 +2718,29 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                         throw WebErrors.ClassifyAction(ex, action);
                     }
                 }));
+
+        /// <summary>
+        /// <see cref="LocatorAction.ScrollTo"/> on a located or observed node, through its locator or element as upstream's
+        /// <c>dispatchLocatorAction</c> hands <c>scrollToEdge</c> the target. It bounds its own page calls, so its failure names why the budget ran
+        /// out rather than that it did.
+        /// </summary>
+        private async Task ScrollNodeToAsync(SemanticNode node, LocatorAction.ScrollTo action, OperationBudget budget)
+        {
+            var lookup = _refs.LookupPinnedAsync(node.Ref);
+            try
+            {
+                var (target, pin) = await budget.WithinAsync(lookup).ConfigureAwait(false);
+                using var keep = pin;
+                await WebScrollTo.ScrollToEdgeAsync(Page, target, action.Edge, budget).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+                when (WebErrors.IsPlaywright(ex) || ex is EngineException { Code: EngineErrorCodes.OperationTimeout })
+            {
+                // A lookup the deadline abandoned still pins its list when it settles.
+                WebSupport.DisposePinWhenSettled(lookup);
+                throw WebErrors.ClassifyAction(ex, action);
+            }
+        }
 
         /// <summary>
         /// The page's element for a located or observed node, or <c>NODE_STALE</c> when the page no longer has it. The list that made an
@@ -2826,9 +2855,9 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             await Page.Mouse.UpAsync().ConfigureAwait(false);
         }
 
-        /// <summary>A browser honors the SPI v1 actions plus blur, in-memory uploads, and multi-taps. Upstream's <c>actions: [...LOCATOR_ACTION_KINDS, 'blur', 'setInputFilePayloads', 'multiTap']</c>.</summary>
+        /// <summary>A browser honors the SPI v1 actions plus blur, in-memory uploads, multi-taps, and scrolls to an edge. Upstream's <c>actions: [...LOCATOR_ACTION_KINDS, 'blur', 'setInputFilePayloads', 'multiTap', 'scrollTo']</c>.</summary>
         public IReadOnlyCollection<string> ActionKinds { get; } =
-        [.. EngineActionKinds.Locator, "blur", "setInputFilePayloads", "multiTap"];
+        [.. EngineActionKinds.Locator, "blur", "setInputFilePayloads", "multiTap", "scrollTo"];
 
         /// <summary>A page takes every pointer action of the contract at a bare point too.</summary>
         public IReadOnlyCollection<string> PointerActionKinds => EngineActionKinds.Pointer;
@@ -4337,6 +4366,29 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                     {
                         // As upstream's viewport swipe, a scroll the deadline cut off may have moved the page.
                         throw WebErrors.ClassifyAction(ex, new LocatorAction.Swipe(direction, momentum));
+                    }
+                }));
+
+        /// <summary>
+        /// <see cref="LocatorAction.ScrollTo"/> on the screen, upstream's <c>perform(root, scrollTo)</c>: scrolls the page, else the container under
+        /// the viewport's center, to the edge (<see cref="WebScrollTo"/>).
+        /// </summary>
+        public Task ScrollToAsync(ScrollEdge edge, OperationContext context, CancellationToken cancellationToken) =>
+            ActedAsync(cancellationToken, () => GuardAsync("scrollTo", cancellationToken, async () =>
+                {
+                    ArgumentNullException.ThrowIfNull(context);
+                    RequireObservation();
+                    var budget = Budget("scrollTo", cancellationToken, context.Timeout);
+                    try
+                    {
+                        await WebScrollTo.ScrollToEdgeAsync(Page, null, edge, budget).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                        when (WebErrors.IsPlaywright(ex)
+                            || ex is EngineException { Code: EngineErrorCodes.OperationTimeout }
+                        )
+                    {
+                        throw WebErrors.ClassifyAction(ex, new LocatorAction.ScrollTo(edge));
                     }
                 }));
 
@@ -6951,6 +7003,9 @@ internal sealed class OperationBudget
     /// <summary>Whether the deadline has passed.</summary>
     public bool Expired => _clock.GetElapsedTime(_startedAt) >= _timeout;
 
+    /// <summary>Throws once the operation is cancelled (upstream's <c>operation.signal.throwIfAborted()</c>); a deadline that has passed is not an error here.</summary>
+    public void ThrowIfCancellationRequested() => _cancellationToken.ThrowIfCancellationRequested();
+
     /// <summary>Throws <c>OPERATION_TIMEOUT</c> once the deadline has passed, before a call that takes no timeout of its own.</summary>
     public void ThrowIfExpired() => Remaining();
 
@@ -7166,6 +7221,13 @@ internal static partial class WebErrors
     /// <summary>Classifies a failed locator action. A timeout after the input was dispatched may have committed.</summary>
     public static E2EException ClassifyAction(Exception rawCause, LocatorAction action)
     {
+        // `scrollTo` reports its own budget with the reason it ran out, which core quotes; a scroll toward an edge is safe to repeat, so it is
+        // not input to guard.
+        if (action is LocatorAction.ScrollTo && rawCause is EngineException own)
+        {
+            return own;
+        }
+
         var kind = action.GetType().Name.ToLowerInvariant();
         if (InputCutOff(rawCause, kind) is { } cut)
         {

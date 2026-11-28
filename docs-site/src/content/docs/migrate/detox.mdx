@@ -117,6 +117,7 @@ Calls the port lacks are under [What e2e doesn't have yet](#what-e2e-doesnt-have
 | `.swipe('up', 'fast')` | `.SwipeAsync(new SwipeOptions { Direction = ..., Momentum = ... })`: Detox names the finger's direction, e2e the content's |
 | `.scroll(200, 'down')` | `Screen.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down })`, or `Locator.SwipeAsync` on the scroll view. It does not keep the 200-point distance: for a test that scrolls to reach a control, use `list.ScrollUntilVisibleAsync(target)`; check a distance-sensitive test on your device before dropping the Detox call |
 | `waitFor(el).toBeVisible().whileElement(list).scroll(...)` | `list.ScrollUntilVisibleAsync(el)`, with `new ScrollUntilVisibleOptions { Direction = ScrollDirection.Up }` when Detox scrolls up |
+| `list.scrollTo('bottom')`, `scrollTo('top')` | `list.ScrollToAsync(ScrollEdge.Bottom)`, `list.ScrollToAsync(ScrollEdge.Top)` |
 | `waitFor(el).toBeVisible().withTimeout(ms)` | `await Expect.That(el).ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(ms))` |
 | `expect(el).toBeVisible()`, `.toExist()` | `.ToBeVisibleAsync()` for visibility; `.ToHaveCountAsync(1)` for existence |
 | `expect(el).not.toBeVisible()` | `.ToBeHiddenAsync()` |
@@ -152,7 +153,6 @@ Planned is on the roadmap, and Not yet has no date. Not planned is left out on p
 | `by.id('x').and(by.text('y'))` | `.Filter(...)`, or `Device.Locator("id=x label=\"y\"")` |
 | `system.element(by.system.label('Allow'))` | `Device.AlertAsync(AlertAction.Accept)` or `Dismiss`, or `app.permissions` so no prompt shows |
 | `.longPressAndDrag()`, `.swipe()` offset | `.DragToAsync(target)`, `Screen.SwipeAsync(new SwipePathOptions { From = ..., To = ... })` |
-| `.scrollTo('bottom')` | `list.ScrollUntilVisibleAsync(lastRow)`, or the first row with `new ScrollUntilVisibleOptions { Direction = ScrollDirection.Up }` |
 | `.tapBackspaceKey()` | `.FillAsync(t)` with the shorter text. `.PressAsync("Backspace")` is `UNSUPPORTED_CAPABILITY` on a device |
 | `.setDatePickerDate()`, `.setColumnToValue()`, `.adjustSliderToPosition()` | An `Agent.ActAsync` goal, or a drag with `Screen.SwipeAsync(new SwipePathOptions { From = ..., To = ... })` on a slider, the points taken from `.BoundingBoxAsync()` |
 | `.getAttributes()` | One call per field: `.TextContentAsync()`, `.InputValueAsync()`, `.GetAttributeAsync()`, `.IsEnabledAsync()`, `.IsVisibleAsync()`, `.IsCheckedAsync()`, `.BoundingBoxAsync()` |

@@ -723,6 +723,137 @@ public sealed partial class DeviceSession
         }
     }
 
+    // --- scrollTo ---
+
+    /// <summary>
+    /// <see cref="LocatorAction.ScrollTo"/> on a device: drags toward <paramref name="edge"/> inside a region (the node's box, else the screen,
+    /// clipped to the screen and cut off above the soft keyboard) until a drag leaves what the region shows unchanged
+    /// (<see cref="ScrollTo.DragToEdgeAsync"/>). The region is measured once, before the first drag: a list's own label can change as it scrolls,
+    /// and the node is never looked up again once input went out. Each drag keeps agent-device's post-gesture stabilization, which holds the
+    /// next read until the content rests, so a list still coasting is never read as at its edge. Upstream's <c>scrollToEdge</c>.
+    /// </summary>
+    internal async Task ScrollToEdgeAsync(
+        IDeviceClient client,
+        NodeBinding? entry,
+        ScrollEdge edge,
+        InputBudget input,
+        CancellationToken cancellationToken
+    )
+    {
+        async Task<(RawSnapshot Raw, ProjectedSnapshot Projected)> CaptureAsync()
+        {
+            var raw = await SnapshotOrEmptyAsync(false, input, cancellationToken).ConfigureAwait(false);
+            return (raw, Project(raw));
+        }
+
+        var first = await CaptureAsync().ConfigureAwait(false);
+        var region = ScrollRegion(entry, first.Raw, first.Projected);
+        // A capture that leaves nodes out never reads as unchanged, so it never ends the scroll.
+        string? Signature((RawSnapshot Raw, ProjectedSnapshot Projected) capture) =>
+            IsTruncated(capture.Raw) ? null : ScrollTo.RegionSignature(capture.Projected.Index, region);
+        var (from, to) = DeviceSupport.SwipeWithin(region, ScrollTo.EdgeDirection(edge), null);
+        await ScrollTo
+            .DragToEdgeAsync(
+                new EdgeDevice(
+                    async count =>
+                    {
+                        // A cancel that lands as a read finishes sends no further drag.
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            throw DeviceSupport.Cancelled("scrollTo cancelled");
+                        }
+
+                        await SendInputAsync(
+                                input,
+                                () =>
+                                    client.CallAsync(
+                                        DeviceMethods.InteractionsSwipe,
+                                        DeviceArgs.Of(
+                                            ("from", PointNode(from)),
+                                            ("to", PointNode(to)),
+                                            ("count", JsonValue.Create(count)),
+                                            ("pauseMs", JsonValue.Create(0))
+                                        ),
+                                        cancellationToken
+                                    ),
+                                cancellationToken
+                            )
+                            .ConfigureAwait(false);
+                    },
+                    async () => Signature(await CaptureAsync().ConfigureAwait(false)),
+                    input
+                ),
+                Signature(first),
+                _engine.Clock
+            )
+            .ConfigureAwait(false);
+    }
+
+    private sealed class EdgeDevice(Func<int, Task> drag, Func<Task<string?>> read, InputBudget input) : IEdgeDevice
+    {
+        public Task DragAsync(int count) => drag(count);
+
+        public Task<string?> ReadAsync() => read();
+
+        public TimeSpan Remaining => input.Remaining;
+    }
+
+    /// <summary>
+    /// Where <c>scrollTo</c> drags: the node's box, or the screen for the root, clipped to the screen and cut off above the soft keyboard.
+    /// Refuses, with nothing sent, a node whose bounds may be window-local, a region with no area, and a keyboard that is up with bounds the
+    /// capture does not give. Upstream's <c>scrollRegion</c>.
+    /// </summary>
+    private Rect ScrollRegion(NodeBinding? entry, RawSnapshot raw, ProjectedSnapshot projected)
+    {
+        var viewport = projected.Viewport ?? _knownViewport;
+        Rect? rect;
+        if (entry is null)
+        {
+            rect = viewport is { } screen ? new Rect(0, 0, screen.Width, screen.Height) : null;
+        }
+        else
+        {
+            var found = Refind(entry, projected.Index)
+                ?? throw new EngineException(
+                    EngineErrorCodes.NodeStale,
+                    $"node {entry.Id} is gone from the screen; re-resolve",
+                    retryable: true
+                );
+            if (projected.OriginUnknown)
+            {
+                throw DeviceSupport.NotActionable(
+                    $"perform scrollTo failed: the {DeviceErrors.OriginUnknownBounds} Nothing was sent. Scroll the screen with screen.scrollTo(edge)."
+                );
+            }
+
+            rect = found.Node.Rect is { } box ? new Rect(box.X, box.Y, box.Width, box.Height) : null;
+        }
+
+        var target = entry is null ? "the screen" : $"node {entry.Id}";
+        if (rect is { } measured && viewport is { } size)
+        {
+            rect = ScrollTo.ClipTo(measured, size);
+        }
+
+        if (rect is not { Width: >= 1, Height: >= 1 } area)
+        {
+            throw DeviceSupport.NotActionable($"{target} has no bounds on screen to scroll within");
+        }
+
+        var keyboard = viewport is { } known ? KeyboardTop(raw, known) : null;
+        if (keyboard is null && KeyboardShowing(raw))
+        {
+            throw DeviceSupport.NotActionable(
+                "the soft keyboard is up and its bounds are unknown, so a drag could land on it; dismiss it first"
+            );
+        }
+
+        var region = ScrollTo.Above(area, keyboard);
+        return region.Height < 1
+            ? throw DeviceSupport.NotActionable($"the soft keyboard covers {target}; dismiss it first")
+            : region;
+    }
+
     // --- the keyboard ---
 
     /// <summary>

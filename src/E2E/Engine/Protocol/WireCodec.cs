@@ -818,6 +818,9 @@ internal static class WireCodec
                 wire["direction"] = Camel(direction.ToString());
                 wire["momentum"] = momentum is { } fling ? Camel(fling.ToString()) : null;
                 break;
+            case LocatorAction.ScrollTo(var edge):
+                wire["edge"] = Camel(edge.ToString());
+                break;
         }
 
         return wire;
@@ -879,6 +882,8 @@ internal static class WireCodec
                     ParseEnum<ScrollDirection>(node!["direction"], "scroll direction"),
                     node["momentum"] is { } momentum ? ParseEnum<Momentum>(momentum, "momentum") : null
                 );
+            case "scrollTo":
+                return new LocatorAction.ScrollTo(ParseEnum<ScrollEdge>(node!["edge"], "scroll edge"));
             default:
                 throw new JsonException($"unknown locator action \"{kind}\"");
         }

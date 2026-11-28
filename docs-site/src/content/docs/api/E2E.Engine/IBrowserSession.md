@@ -119,6 +119,28 @@ this one. A session that does not override it fails with `UNSUPPORTED_CAPABILITY
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_Engine_IBrowserSession_ClockNowAsync_"></a>
+<a id="E2E_Engine_IBrowserSession_ClockNowAsync_System_Threading_CancellationToken_"></a>
+
+### ClockNowAsync(CancellationToken)
+
+
+```csharp
+Task<double?> ClockNowAsync(CancellationToken cancellationToken)
+```
+
+
+The latest time a page clock of the attempt's context reads, across every frame, or null when none has one yet (upstream's
+`surface.clockNow`), called inside `GuardAsync`. A session that does not override it fails with `UNSUPPORTED_CAPABILITY`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;double?&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
 <a id="E2E_Engine_IBrowserSession_CloseTabAsync_"></a>
 <a id="E2E_Engine_IBrowserSession_CloseTabAsync_E2E_Engine_IAttemptTab_System_Threading_CancellationToken_"></a>
 
@@ -292,6 +314,30 @@ that does not override it fails with `UNSUPPORTED_CAPABILITY`.
 | `waitUntil` | [GotoWaitUntil](/api/E2E/GotoWaitUntil/) |  |
 | `timeout` | [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+<a id="E2E_Engine_IBrowserSession_GuardAsync_"></a>
+<a id="E2E_Engine_IBrowserSession_GuardAsync_System_String_System_Threading_CancellationToken_System_Func_System_Threading_Tasks_Task__"></a>
+
+### `GuardAsync(string, CancellationToken, Func<Task>)`
+
+
+```csharp
+Task GuardAsync(string label, CancellationToken cancellationToken, Func<Task> work)
+```
+
+
+Runs &lt;code class="paramref"&gt;work&lt;/code&gt; as one guarded operation (upstream's `surface.guard`): an error latched on an unawaited path
+is raised first, and every call inside shares the operation's budget. A session with no guard runs the work as it is.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `label` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+| `work` | [Func&lt;Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-1) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 

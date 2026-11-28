@@ -548,6 +548,17 @@ past the surface unseen, as a virtualized list does. The target must come from t
 screen, else `INVALID_LOCATOR`. It stops at the first match that is not hidden. On a device, a
 node under the soft keyboard is hidden, so the scroll goes on (topic `mobile`, "Visibility").
 
+`Screen.ScrollToAsync(ScrollEdge.Bottom)` scrolls the page or a list to an edge (`Top`, `Bottom`, `Left`,
+`Right`), as far as it goes; `list.ScrollToAsync(edge)` scrolls that node or its nearest ancestor that scrolls
+along the axis. `ActionOptions.Timeout` bounds the whole scroll, and it resolves at once when the container is at
+the edge already or nothing scrolls. On the web the screen scrolls the page, else the pane under the viewport's
+center, with the page's own scroll API, and follows content that grows at the end until a jump moves nothing. On a
+device it drags from the middle of the node's box (locate the list, not a row), up to three drags between reads,
+until a drag moves nothing, so a list with pull-to-refresh refreshes on `Top`, and a timer inside the container
+keeps it dragging until the timeout. It fails `ACTION_FAILED` with the engine's reason when the timeout comes
+first, `INVALID_ARGUMENT` for an unknown edge or a frame's screen, and `UNSUPPORTED_CAPABILITY` on the Windows
+engine.
+
 ## Expect
 
 `Expect.That(locator)` polls until the assertion timeout, reading at 0, 20, and

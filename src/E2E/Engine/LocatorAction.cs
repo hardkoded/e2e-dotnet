@@ -76,6 +76,24 @@ public abstract record LocatorAction
 
     /// <summary>Scrolls a scrollable node about three quarters of its height or width. The viewport swipe is <see cref="IEngineSession.SwipeAsync(ScrollDirection, CancellationToken)"/>.</summary>
     public sealed record Swipe(ScrollDirection Direction, Momentum? Momentum = null) : LocatorAction;
+
+    /// <summary>
+    /// Scrolls a container to one of its edges, as far as it goes. On a node: the node when it scrolls along the edge's axis, else its nearest
+    /// ancestor that does; an engine that cannot tell which node scrolls drags inside the node's own box. On the observation root: the screen's
+    /// main scrolling content, else what is under the viewport's center. The engine resolves once the container cannot scroll further toward
+    /// <paramref name="Edge"/>, at once when it is there already or nothing scrolls along that axis, and stops when the operation's budget runs
+    /// out. Not a kind of SPI v1, so an engine lists it explicitly. Upstream's <c>scrollTo</c>.
+    /// </summary>
+    public sealed record ScrollTo(ScrollEdge Edge) : LocatorAction;
+}
+
+/// <summary>An edge of a scroll container, which <see cref="LocatorAction.ScrollTo"/> scrolls to. Upstream's <c>ScrollEdge</c> (<c>SCROLL_EDGES</c>).</summary>
+public enum ScrollEdge
+{
+    Top,
+    Bottom,
+    Left,
+    Right,
 }
 
 /// <summary>Which way a scroll moves the content into view. <see cref="Down"/> reveals what is below.</summary>
