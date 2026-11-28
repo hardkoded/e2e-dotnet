@@ -580,7 +580,15 @@ internal sealed class AttemptArtifacts
                 return;
             }
 
-            Update(index, record => record with { Path = reportPath, Size = measured.Size, Sha256 = measured.Sha256, Redaction = redaction });
+            Update(index, record =>
+                record with
+                {
+                    Path = reportPath,
+                    Size = measured.Size,
+                    Sha256 = measured.Sha256,
+                    Redaction = redaction,
+                }
+            );
             return;
         }
 
@@ -596,7 +604,15 @@ internal sealed class AttemptArtifacts
         }
 
         var sha256 = Convert.ToHexStringLower(SHA256.HashData(bytes));
-        Update(index, record => record with { Path = reportPath, Size = bytes.LongLength, Sha256 = sha256, Redaction = redaction });
+        Update(index, record =>
+            record with
+            {
+                Path = reportPath,
+                Size = bytes.LongLength,
+                Sha256 = sha256,
+                Redaction = redaction,
+            }
+        );
         ArtifactRedaction labelled;
         lock (_gate)
         {
