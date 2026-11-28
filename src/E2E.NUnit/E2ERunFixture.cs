@@ -76,7 +76,12 @@ public abstract class E2ERunFixture
             IReadOnlyDictionary<string, string> excluded = new Dictionary<string, string>(StringComparer.Ordinal);
             var changedSince = HostTestFilters.ResolveChangedSince(ChangedSince);
             var lastFailed = HostTestFilters.ResolveLastFailed(LastFailed);
-            if (changedSince is not null || lastFailed || discovered.Any(test => test.Fixme && !test.Serial))
+            if (
+                changedSince is not null
+                || lastFailed
+                || discovered.Any(test => test.Only)
+                || discovered.Any(test => test.Fixme && !test.Serial)
+            )
             {
                 var running = RunSelection.CurrentWorkItem();
 

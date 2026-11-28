@@ -95,13 +95,18 @@ These come from the saved sessions of `SaveSessionAsync` and `[E2ESession]` (see
 
 Engine faults (`ENGINE_FAILURE`, infrastructure, exit 3; `UNSUPPORTED_CAPABILITY`, usually configuration, exit 2, though a step can raise it as a test failure, exit 1; and the codes an `IEngine` throws) are listed in the [engine contract](/reference/engine/#errors).
 
+### Focus in CI
+
+| Code | When | Fix |
+| --- | --- | --- |
+| `ONLY_IN_CI` | A test or fixture marked `[Only]` reached a run with `CI` set (configuration, exit 2) | Remove the `[Only]` before you commit |
+
 ### Not in the port
 
-A user cannot hit these upstream codes in the port. It has no suite runner and no `test.only`.
+A user cannot hit these upstream codes in the port. It has no suite runner.
 
 | Code | Upstream | Why the port has none |
 | --- | --- | --- |
-| `ONLY_IN_CI` | A focused test (`test.only`) reached a CI run (configuration, exit 2) | NUnit and xUnit have no `test.only`. The selection step carries the check, but no public path marks a test as focused, so it is not reachable from a test |
 | `RUNNER_BUSY` | A suite overlapped another suite, an opening or open host, or a live attempt (configuration, exit 2) | The port has no suite runner, and `e2e mcp` has no tool that runs tests (upstream removed `run_tests`). The iOS device layer has a code with the same name, for an automation runner still finishing a command; it is a device code, not this one |
 
 The runner codes upstream lists besides these (`CONFIG_*`, `WORKER_*`, `TEST_TIMEOUT`, the `e2e mcp` session codes, and so on) belong to features the port does not have, or that NUnit and xUnit own. [COMPATIBILITY.md](https://github.com/hardkoded/e2e-dotnet/blob/main/COMPATIBILITY.md) lists them.
