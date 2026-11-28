@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Internal;
 using E2E.Reports;
 
 namespace E2E.Tests.ArtifactStore;
@@ -9,6 +10,102 @@ namespace E2E.Tests.ArtifactStore;
 /// <summary><c>describe('artifact redaction labels')</c> of upstream <c>artifact-store.test.ts</c>.</summary>
 public sealed class ArtifactRedactionLabelsTests : ArtifactStoreHarness
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Marks_files_that_never_appeared_incomplete_and_keeps_reports_schema_valid_store(bool withStore)
+    {
+        var store = Capturing();
+        var ledger = Redactor.For(new (string Name, string Value)[] { ("api-key", "missing-download-secret-9921") });
+        var artifacts = ArtifactPaths.CreateAttemptArtifacts(
+            new AttemptArtifactsOptions
+            {
+                ArtifactsRoot = Root(),
+                Segments = ["web", "test-1", "attempt-0"],
+                AttemptId = "att-1",
+                Ledger = () => ledger,
+                Store = withStore ? store : null,
+            }
+        );
+        File.WriteAllText(Path.Combine(artifacts.Dir, "present.png"), "x");
+        File.WriteAllText(Path.Combine(artifacts.Dir, "present.txt"), "ok");
+        artifacts.Sink.Register(ArtifactKind.Screenshot, "missing.png");
+        artifacts.Sink.Register(ArtifactKind.Log, "missing.txt");
+        artifacts.Sink.Register(ArtifactKind.Download, "missing.csv");
+        artifacts.Sink.Register(ArtifactKind.Screenshot, "present.png");
+        artifacts.Sink.Register(ArtifactKind.Log, "present.txt");
+
+        // Before settlement no path, size, or digest exists yet, so records stay incomplete.
+        foreach (var record in artifacts.Records)
+        {
+            Assert.Null(record.Path);
+            Assert.Equal(ArtifactRedaction.Incomplete, record.Redaction);
+        }
+
+        await artifacts.SettleAsync();
+
+        foreach (var missing in artifacts.Records.Take(3))
+        {
+            Assert.Null(missing.Path);
+            Assert.Null(missing.Size);
+            Assert.Null(missing.Sha256);
+            Assert.Equal(ArtifactRedaction.Incomplete, missing.Redaction);
+        }
+
+        var presentShot = artifacts.Records[3];
+        var presentLog = artifacts.Records[4];
+        Assert.Equal("web/test-1/attempt-0/present.png", presentShot.Path);
+        Assert.Equal(ArtifactRedaction.Complete, presentShot.Redaction);
+        Assert.Equal(1, presentShot.Size);
+        Assert.Equal("web/test-1/attempt-0/present.txt", presentLog.Path);
+        Assert.Equal(ArtifactRedaction.Complete, presentLog.Redaction);
+        Assert.Equal(2, presentLog.Size);
+        Assert.Equal(withStore ? 2 : 0, store.Puts.Count);
+
+        var report = BuildReport.Build(
+            new BuildReportOptions
+            {
+                RunId = Guid.CreateVersion7().ToString(),
+                StartedAt = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
+                Status = ReportRunStatus.Passed,
+                ExitCode = 0,
+                Results =
+                [
+                    new ReportResult
+                    {
+                        Id = "result-missing-artifacts",
+                        File = "tests/case.e2e.ts",
+                        TitlePath = ["missing artifacts"],
+                        Status = ResultStatus.Passed,
+                        Attempts =
+                        [
+                            new ReportAttempt
+                            {
+                                Status = E2E.Internal.AttemptStatus.Passed,
+                                DurationMs = 10,
+                                Artifacts =
+                                [
+                                    .. artifacts.Records.Select(record => new ReportArtifact(
+                                        record.Id,
+                                        record.Kind.ToString().ToLowerInvariant(),
+                                        record.Path,
+                                        record.Url,
+                                        record.StartedAt,
+                                        Redaction: record.Redaction,
+                                        Ref: record.Ref,
+                                        Producer: record.Producer,
+                                        Actor: record.Actor
+                                    )),
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            }
+        );
+        ReportSchema.AssertValidReport(ReportWire.Document(report, "results"));
+    }
+
     [Fact]
     public async Task Labels_each_kind_by_what_the_runner_masked_a_screenshot_and_a_log_complete_a_video_incomplete()
     {
